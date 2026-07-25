@@ -14,7 +14,19 @@ import { config, paths } from './config.mjs';
  *   notice    - informational only (permission prompt, turn error); never blocking
  */
 export const ACTIVE_STATUSES = new Set(['waiting', 'notice']);
-export const ARCHIVE_STATUSES = new Set(['answered', 'dismissed', 'expired', 'detached']);
+const UNANSWERED_STATUSES = new Set(['dismissed', 'expired', 'detached']);
+
+/**
+ * Which tab an entry belongs to: 'timeline' while it is still live, then
+ * 'archive' once it ended with your reply in the agent's hands, or
+ * 'unanswered' when the agent stopped without ever hearing back. A notice was
+ * never a question, so clearing one lands in 'archive'.
+ */
+export function bucketOf(entry) {
+  if (ACTIVE_STATUSES.has(entry.status)) return 'timeline';
+  if (entry.kind === 'notice') return 'archive';
+  return UNANSWERED_STATUSES.has(entry.status) ? 'unanswered' : 'archive';
+}
 
 const listeners = new Set();
 

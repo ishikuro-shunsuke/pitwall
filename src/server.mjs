@@ -341,11 +341,7 @@ async function handleList(req, res, url) {
 
   let items = store.list().map(publicEntry);
 
-  if (view === 'timeline') {
-    items = items.filter((e) => store.ACTIVE_STATUSES.has(e.status));
-  } else if (view === 'archive') {
-    items = items.filter((e) => store.ARCHIVE_STATUSES.has(e.status));
-  }
+  if (view !== 'all') items = items.filter((e) => e.bucket === view);
 
   if (repo.length) {
     const set = new Set(repo);

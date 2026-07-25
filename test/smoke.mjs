@@ -218,6 +218,13 @@ async function main() {
       const resolved = await resolveP;
       if (resolved.data?.action === 'dismiss') ok('claude dismiss');
       else fail('claude dismiss', resolved.data);
+
+      const unanswered = await json('GET', '/api/entries?view=unanswered');
+      const archived = await json('GET', '/api/entries?view=archive');
+      const inUnanswered = unanswered.data.entries?.some((e) => e.id === id);
+      const inArchive = archived.data.entries?.some((e) => e.id === id);
+      if (inUnanswered && !inArchive) ok('dismissed lands in unanswered, not archive');
+      else fail('dismissed lands in unanswered, not archive', { inUnanswered, inArchive });
     }
 
     // Claude's hook waits with the session already stopped, so its card is not

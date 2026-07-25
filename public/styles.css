@@ -158,10 +158,10 @@ main {
 .badge.claude { color: var(--accent-claude); }
 .badge.status-waiting { color: var(--ok); }
 .badge.status-notice { color: var(--warn); }
-.badge.status-answered,
+.badge.status-answered { color: var(--muted); }
 .badge.status-dismissed,
 .badge.status-expired,
-.badge.status-detached { color: var(--muted); }
+.badge.status-detached { color: var(--warn); opacity: 0.75; }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }

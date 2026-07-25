@@ -197,12 +197,7 @@ function repoColor(key) {
 }
 
 function selectedEntries() {
-  let items = [...state.entries.values()];
-  if (state.view === 'timeline') {
-    items = items.filter((e) => e.status === 'waiting' || e.status === 'notice');
-  } else {
-    items = items.filter((e) => !['waiting', 'notice'].includes(e.status));
-  }
+  let items = [...state.entries.values()].filter((e) => e.bucket === state.view);
   if (state.repos.size) items = items.filter((e) => state.repos.has(e.repo?.key));
   if (state.agents.size) items = items.filter((e) => state.agents.has(e.agent));
   items.sort((a, b) => {
@@ -462,18 +457,13 @@ function release(id) {
 }
 
 async function refresh() {
-  const params = new URLSearchParams({ view: 'all', order: state.order });
-  // Fetch everything; client filters by tab so SSE updates stay consistent.
-  params.set('view', state.view === 'archive' ? 'archive' : 'timeline');
-  // Also pull the other side so SSE merges don't lose context — use two calls.
-  const [a, b] = await Promise.all([
-    fetch('/api/entries?view=timeline&order=' + state.order).then((r) => r.json()),
-    fetch('/api/entries?view=archive&order=' + state.order).then((r) => r.json()),
-  ]);
-  if (a.serverTime) state.serverSkew = a.serverTime - Date.now();
+  // Fetch every tab's entries; the client filters by tab so an SSE update that
+  // moves a card between tabs still lands somewhere.
+  const data = await fetch(`/api/entries?view=all&order=${state.order}`).then((r) => r.json());
+  if (data.serverTime) state.serverSkew = data.serverTime - Date.now();
   state.entries.clear();
-  for (const e of [...(a.entries || []), ...(b.entries || [])]) upsert(e);
-  state.repoOptions = a.repos || b.repos || [];
+  for (const e of data.entries || []) upsert(e);
+  state.repoOptions = data.repos || [];
   renderRepoOptions();
   render();
 }
