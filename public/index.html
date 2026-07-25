@@ -18,17 +18,17 @@
       <button type="button" class="tab" data-view="archive">Archive</button>
     </nav>
     <div class="filters">
-      <label class="filter">
+      <div class="filter">
         <span>repo</span>
-        <select id="filter-repo" multiple size="1"></select>
-      </label>
-      <label class="filter">
+        <div class="filter-group" id="filter-repo"></div>
+      </div>
+      <div class="filter">
         <span>agent</span>
-        <select id="filter-agent" multiple size="1">
-          <option value="cursor">cursor</option>
-          <option value="claude">claude</option>
-        </select>
-      </label>
+        <div class="filter-group" id="filter-agent">
+          <button type="button" class="filter-chip" data-value="cursor" aria-pressed="false">cursor</button>
+          <button type="button" class="filter-chip" data-value="claude" aria-pressed="false">claude</button>
+        </div>
+      </div>
       <label class="filter">
         <span>order</span>
         <select id="filter-order">

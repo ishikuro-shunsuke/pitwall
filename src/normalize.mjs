@@ -82,6 +82,7 @@ export function buildEntry({
     resolution: null,
     reply: null,
 
+    title: payload.title || null,
     sessionId: payload.sessionId || payload.session_id || null,
     conversationId: payload.conversationId || payload.conversation_id || null,
     generationId: payload.generationId || payload.generation_id || null,

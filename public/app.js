@@ -5,7 +5,8 @@ const state = {
   agents: new Set(),
   entries: new Map(),
   repoOptions: [],
-  composers: new Set(),
+  drafts: new Map(),
+  engaged: new Set(),
   holdTimers: new Map(),
   serverSkew: 0,
 };
@@ -36,14 +37,25 @@ el.filterOrder.addEventListener('change', () => {
   render();
 });
 
-el.filterRepo.addEventListener('change', () => {
-  state.repos = new Set([...el.filterRepo.selectedOptions].map((o) => o.value));
+function toggleChip(group, set, value) {
+  if (set.has(value)) set.delete(value);
+  else set.add(value);
+  for (const chip of group.querySelectorAll('.filter-chip')) {
+    chip.setAttribute('aria-pressed', String(set.has(chip.dataset.value)));
+  }
   render();
+}
+
+el.filterRepo.addEventListener('click', (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  toggleChip(el.filterRepo, state.repos, chip.dataset.value);
 });
 
-el.filterAgent.addEventListener('change', () => {
-  state.agents = new Set([...el.filterAgent.selectedOptions].map((o) => o.value));
-  render();
+el.filterAgent.addEventListener('click', (e) => {
+  const chip = e.target.closest('.filter-chip');
+  if (!chip) return;
+  toggleChip(el.filterAgent, state.agents, chip.dataset.value);
 });
 
 document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
@@ -93,6 +105,16 @@ function fmtRemain(ms) {
 
 function nowMs() {
   return Date.now() + state.serverSkew;
+}
+
+function repoColor(key) {
+  if (!key) return null;
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  }
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}deg 65% 62%)`;
 }
 
 function selectedEntries() {
@@ -154,7 +176,108 @@ function imagesHtml(entry) {
 function turnsHtml(entry) {
   if (!entry.turnMessages || entry.turnMessages.length <= 1) return '';
   const earlier = entry.turnMessages.slice(0, -1).join('\n\n---\n\n');
-  return `<details class="turn-fold"><summary>${entry.turnMessages.length - 1} earlier message(s) this turn</summary><pre>${esc(earlier)}</pre></details>`;
+  return `<details class="turn-fold"><summary>${entry.turnMessages.length - 1} earlier message(s) this turn</summary><div class="markdown">${renderMarkdown(earlier)}</div></details>`;
+}
+
+function inlineMd(s) {
+  return s
+    .replace(/`([^`]+?)`/g, (_m, code) => `<code>${code}</code>`)
+    .replace(/\*\*([^*]+?)\*\*|__([^_]+?)__/g, (_m, a, b) => `<strong>${a ?? b}</strong>`)
+    .replace(/\*([^*]+?)\*|_([^_]+?)_/g, (_m, a, b) => `<em>${a ?? b}</em>`)
+    .replace(/\[([^\]]+?)\]\((https?:\/\/[^\s)]+?)\)/g, (_m, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+}
+
+function renderMarkdown(raw) {
+  const lines = esc(raw).split('\n');
+  const out = [];
+  let para = [];
+  const flushPara = () => {
+    if (para.length) out.push(`<p>${inlineMd(para.join('<br>'))}</p>`);
+    para = [];
+  };
+
+  let i = 0;
+  while (i < lines.length) {
+    const line = lines[i];
+
+    const fence = line.match(/^```(\w*)\s*$/);
+    if (fence) {
+      flushPara();
+      const codeLines = [];
+      i++;
+      while (i < lines.length && !/^```\s*$/.test(lines[i])) {
+        codeLines.push(lines[i]);
+        i++;
+      }
+      i++;
+      const lang = fence[1] ? ` data-lang="${fence[1]}"` : '';
+      out.push(`<pre class="md-code"><code${lang}>${codeLines.join('\n')}</code></pre>`);
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,6})\s+(.*)$/);
+    if (heading) {
+      flushPara();
+      const level = heading[1].length;
+      out.push(`<h${level}>${inlineMd(heading[2])}</h${level}>`);
+      i++;
+      continue;
+    }
+
+    const quote = line.match(/^&gt;\s?(.*)$/);
+    if (quote) {
+      flushPara();
+      const quoteLines = [quote[1]];
+      i++;
+      while (i < lines.length && /^&gt;\s?/.test(lines[i])) {
+        quoteLines.push(lines[i].replace(/^&gt;\s?/, ''));
+        i++;
+      }
+      out.push(`<blockquote>${inlineMd(quoteLines.join('<br>'))}</blockquote>`);
+      continue;
+    }
+
+    const ul = line.match(/^\s*[-*+]\s+(.*)$/);
+    if (ul) {
+      flushPara();
+      const items = [ul[1]];
+      i++;
+      while (i < lines.length) {
+        const m2 = lines[i].match(/^\s*[-*+]\s+(.*)$/);
+        if (!m2) break;
+        items.push(m2[1]);
+        i++;
+      }
+      out.push(`<ul>${items.map((it) => `<li>${inlineMd(it)}</li>`).join('')}</ul>`);
+      continue;
+    }
+
+    const ol = line.match(/^\s*\d+\.\s+(.*)$/);
+    if (ol) {
+      flushPara();
+      const items = [ol[1]];
+      i++;
+      while (i < lines.length) {
+        const m2 = lines[i].match(/^\s*\d+\.\s+(.*)$/);
+        if (!m2) break;
+        items.push(m2[1]);
+        i++;
+      }
+      out.push(`<ol>${items.map((it) => `<li>${inlineMd(it)}</li>`).join('')}</ol>`);
+      continue;
+    }
+
+    if (line.trim() === '') {
+      flushPara();
+      i++;
+      continue;
+    }
+
+    para.push(line);
+    i++;
+  }
+  flushPara();
+  return out.join('\n');
 }
 
 function holdChip(entry) {
@@ -171,7 +294,7 @@ function actionsHtml(entry) {
   const parts = [];
 
   if (entry.status === 'waiting') {
-    parts.push(`<button type="button" class="btn primary" data-act="reply-toggle" data-id="${esc(entry.id)}">Reply</button>`);
+    parts.push(`<button type="button" class="btn primary" data-act="send" data-id="${esc(entry.id)}">Send &amp; archive</button>`);
     parts.push(`<button type="button" class="btn danger" data-act="dismiss" data-id="${esc(entry.id)}">Close without reply</button>`);
   } else if (entry.status === 'notice') {
     parts.push(`<button type="button" class="btn" data-act="dismiss" data-id="${esc(entry.id)}">Archive</button>`);
@@ -180,38 +303,34 @@ function actionsHtml(entry) {
   if (links.openWorkspace) {
     parts.push(`<a class="btn" href="${esc(links.openWorkspace)}">Open in Cursor</a>`);
   }
-  if (links.openTranscript) {
-    parts.push(`<a class="btn" href="${esc(links.openTranscript)}">Transcript</a>`);
-  }
   if (links.resumeCommand) {
     parts.push(`<button type="button" class="btn" data-act="copy" data-copy="${esc(links.resumeCommand)}">Copy resume cmd</button>`);
   }
 
   let composer = '';
-  if (state.composers.has(entry.id) && entry.status === 'waiting') {
+  if (entry.status === 'waiting') {
     composer = `
       <div class="composer" data-composer="${esc(entry.id)}">
-        <textarea placeholder="Reply goes back into the same agent turn…" data-reply-input="${esc(entry.id)}"></textarea>
-        <div class="composer-row">
-          <button type="button" class="btn primary" data-act="send" data-id="${esc(entry.id)}">Send &amp; archive</button>
-          <button type="button" class="btn" data-act="reply-cancel" data-id="${esc(entry.id)}">Cancel</button>
-        </div>
+        <textarea placeholder="Reply goes back into the same agent turn…" data-reply-input="${esc(entry.id)}">${esc(state.drafts.get(entry.id) || '')}</textarea>
       </div>`;
   }
 
+  let trailer = '';
   if (entry.reply) {
-    composer += `<p class="meta" style="margin:8px 0 0">replied: ${esc(entry.reply)}</p>`;
+    trailer = `<p class="meta" style="margin:8px 0 0">replied: ${esc(entry.reply)}</p>`;
   }
 
-  return `<div class="card-actions">${parts.join('')}${composer}</div>`;
+  return `<div class="card-actions">${composer}${parts.join('')}${trailer}</div>`;
 }
 
 function cardHtml(entry) {
   const repo = entry.repo || {};
   const branch = repo.branch ? `@${repo.branch}` : '';
   const dirty = repo.dirty ? ' • dirty' : '';
+  const color = repoColor(repo.key || repo.name);
+  const style = color ? ` style="--repo-color: ${color}"` : '';
   return `
-    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}">
+    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
       <div class="card-head">
         <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
         <span class="badge status-${esc(entry.status)}">${esc(entry.status)}</span>
@@ -220,7 +339,8 @@ function cardHtml(entry) {
         <div class="chips">${holdChip(entry)}${modelChips(entry)}</div>
       </div>
       <div class="card-body">
-        <pre class="body-text">${esc(entry.body || entry.notice || '(empty)')}</pre>
+        ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
+        <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)')}</div>
         ${turnsHtml(entry)}
         ${imagesHtml(entry)}
       </div>
@@ -229,27 +349,47 @@ function cardHtml(entry) {
 }
 
 function renderRepoOptions() {
-  const prev = new Set([...el.filterRepo.selectedOptions].map((o) => o.value));
   el.filterRepo.innerHTML = state.repoOptions
-    .map((r) => `<option value="${esc(r.key)}" ${prev.has(r.key) ? 'selected' : ''}>${esc(r.name)} (${r.active}/${r.total})</option>`)
+    .map((r) => `<button type="button" class="filter-chip" data-value="${esc(r.key)}" aria-pressed="${state.repos.has(r.key)}">${esc(r.name)}</button>`)
     .join('');
 }
 
 function render() {
+  // A card can be replaced mid-sentence by an SSE update, so carry the caret
+  // across the swap along with the draft text.
+  const active = document.activeElement;
+  const focused = active?.hasAttribute?.('data-reply-input')
+    ? {
+      id: active.getAttribute('data-reply-input'),
+      start: active.selectionStart,
+      end: active.selectionEnd,
+    }
+    : null;
+
   const items = selectedEntries();
   el.timeline.innerHTML = items.map(cardHtml).join('');
   el.empty.classList.toggle('hidden', items.length > 0);
 
-  // Restore composer text if any
-  for (const id of state.composers) {
-    const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(id)}"]`);
-    if (input) input.focus();
+  if (focused) {
+    const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(focused.id)}"]`);
+    if (input) {
+      input.focus();
+      input.setSelectionRange(focused.start, focused.end);
+    }
   }
 }
 
 function upsert(entry) {
   if (!entry?.id) return;
   state.entries.set(entry.id, entry);
+  if (entry.status !== 'waiting') release(entry.id);
+}
+
+/** The entry can no longer take a reply — drop the draft and stop holding it. */
+function release(id) {
+  state.drafts.delete(id);
+  state.engaged.delete(id);
+  stopHoldHeartbeat(id);
 }
 
 async function refresh() {
@@ -281,9 +421,9 @@ async function api(path, body) {
 }
 
 function startHoldHeartbeat(id) {
-  stopHoldHeartbeat(id);
+  if (state.holdTimers.has(id)) return;
   const tick = async () => {
-    if (!state.composers.has(id)) return;
+    if (!state.engaged.has(id)) return;
     try {
       const data = await api(`/api/entries/${id}/hold`);
       const entry = state.entries.get(id);
@@ -314,6 +454,37 @@ function stopHoldHeartbeat(id) {
   state.holdTimers.delete(id);
 }
 
+// The form is on screen for every waiting entry, but only the one you touch
+// gets to hold its agent open.
+el.timeline.addEventListener('focusin', (e) => {
+  const id = e.target.getAttribute?.('data-reply-input');
+  if (!id) return;
+  state.engaged.add(id);
+  startHoldHeartbeat(id);
+});
+
+el.timeline.addEventListener('focusout', (e) => {
+  const id = e.target.getAttribute?.('data-reply-input');
+  if (!id || !e.target.isConnected) return; // a re-render swapped the field out
+  if (state.drafts.get(id)) return; // keep holding while a draft is standing
+  state.engaged.delete(id);
+  stopHoldHeartbeat(id);
+});
+
+el.timeline.addEventListener('input', (e) => {
+  const id = e.target.getAttribute?.('data-reply-input');
+  if (!id) return;
+  state.drafts.set(id, e.target.value);
+});
+
+el.timeline.addEventListener('keydown', (e) => {
+  const id = e.target.getAttribute?.('data-reply-input');
+  if (!id) return;
+  if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey)) return;
+  e.preventDefault();
+  el.timeline.querySelector(`[data-act="send"][data-id="${CSS.escape(id)}"]`)?.click();
+});
+
 el.timeline.addEventListener('click', async (e) => {
   const imgBtn = e.target.closest('[data-img]');
   if (imgBtn) {
@@ -327,32 +498,21 @@ el.timeline.addEventListener('click', async (e) => {
   const act = btn.dataset.act;
 
   try {
-    if (act === 'reply-toggle') {
-      state.composers.add(id);
-      startHoldHeartbeat(id);
-      render();
-      return;
-    }
-    if (act === 'reply-cancel') {
-      state.composers.delete(id);
-      stopHoldHeartbeat(id);
-      render();
-      return;
-    }
     if (act === 'send') {
       const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(id)}"]`);
       const message = input?.value?.trim();
-      if (!message) return;
+      if (!message) {
+        input?.focus();
+        return;
+      }
       await api(`/api/entries/${id}/reply`, { message });
-      state.composers.delete(id);
-      stopHoldHeartbeat(id);
+      release(id);
       await refresh();
       return;
     }
     if (act === 'dismiss') {
       await api(`/api/entries/${id}/dismiss`);
-      state.composers.delete(id);
-      stopHoldHeartbeat(id);
+      release(id);
       await refresh();
       return;
     }
@@ -409,8 +569,6 @@ function connectSse() {
           key: entry.repo.key,
           name: entry.repo.name,
           root: entry.repo.root,
-          active: entry.status === 'waiting' || entry.status === 'notice' ? 1 : 0,
-          total: 1,
         });
         renderRepoOptions();
       }

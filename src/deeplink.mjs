@@ -39,7 +39,6 @@ export function buildLinks(entry) {
   const anchor = entry.repo?.root || host.cwd;
   const links = {
     openWorkspace: fileLink(anchor, host),
-    openTranscript: entry.transcriptPath ? fileLink(entry.transcriptPath, host) : null,
     newChat: null,
     resumeCommand: null,
   };

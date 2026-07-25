@@ -7,9 +7,10 @@
  * stayed broken. Every case here starts from a config that already holds
  * someone else's hooks, since that is what a real home directory looks like.
  */
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
+import http from 'node:http';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +36,27 @@ function eq(name, actual, expected) {
 
 const FOREIGN_CURSOR = { command: 'node ./my-own-hook.mjs', timeout: 30 };
 const FOREIGN_CLAUDE = { hooks: [{ type: 'command', command: 'echo mine' }] };
+
+/** A pitwall that records what reached it, on a port the default never uses. */
+async function stubServer() {
+  const hits = [];
+  const server = http.createServer((req, res) => {
+    if (req.method === 'POST') hits.push(`POST ${req.url}`);
+    res.setHeader('Content-Type', 'application/json');
+    if (req.url.endsWith('/resolve')) {
+      res.end(JSON.stringify({ action: 'expired' }));
+      return;
+    }
+    req.resume();
+    req.on('end', () => res.end(JSON.stringify({ ok: true, id: 'e1' })));
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  return {
+    url: `http://127.0.0.1:${server.address().port}`,
+    hits,
+    close: () => new Promise((resolve) => server.close(resolve)),
+  };
+}
 
 async function makeHome() {
   const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'pitwall-install-'));
@@ -274,6 +296,74 @@ async function cases(homes) {
       ok('host: tells you to npm start');
     } else {
       fail('host: tells you to npm start', outside.stdout);
+    }
+  }
+
+  // The baked url has to be the one the hooks post to. A command that carries
+  // --url while the hook reads only the default is how a DevContainer install
+  // stayed silent: every hook fails open, and nothing says so.
+  {
+    const home = await makeHome();
+    homes.push(home);
+    const { url, hits, close } = await stubServer();
+    try {
+      run(home, ['--url', url]);
+      const cursorDir = path.join(home, '.cursor');
+      const cursorHooks = cursorConfig(home).hooks;
+      const claudeHooks = claudeConfig(home).hooks;
+      const command = (list) => list.find((c) => c.includes('hooks/pitwall/'));
+
+      const runs = [
+        [
+          command(cursorHooks.afterAgentResponse.map((h) => h.command)),
+          cursorDir,
+          { conversation_id: 'c1', text: 'hi' },
+        ],
+        [
+          command(cursorHooks.stop.map((h) => h.command)),
+          cursorDir,
+          { conversation_id: 'c1', status: 'completed', workspace_roots: [home] },
+        ],
+        [
+          command(claudeHooks.Stop.flatMap((g) => g.hooks.map((h) => h.command))),
+          home,
+          { session_id: 's1', cwd: home, last_assistant_message: 'hi' },
+        ],
+        [
+          command(claudeHooks.Notification.flatMap((g) => g.hooks.map((h) => h.command))),
+          home,
+          { session_id: 's1', cwd: home, notification_type: 'idle_prompt', message: 'm' },
+        ],
+      ];
+
+      // Not spawnSync: the stub is served by this process, and a blocked event
+      // loop would refuse every hook the same way a wrong url does.
+      for (const [cmd, cwd, payload] of runs) {
+        await new Promise((resolve) => {
+          const child = spawn('sh', ['-c', cmd], {
+            cwd,
+            env: { ...process.env, HOME: home },
+            stdio: ['pipe', 'ignore', 'ignore'],
+          });
+          child.stdin.end(JSON.stringify(payload));
+          // A hook posting somewhere else may find a real pitwall there and
+          // long-poll it. Cut it off so this reports a failure, not a hang.
+          const timer = setTimeout(() => child.kill('SIGKILL'), 5000);
+          child.on('close', () => {
+            clearTimeout(timer);
+            resolve();
+          });
+        });
+      }
+
+      eq('every hook posts to the url it was installed with', hits.sort(), [
+        'POST /api/hooks/notify',
+        'POST /api/hooks/response',
+        'POST /api/hooks/wait',
+        'POST /api/hooks/wait',
+      ]);
+    } finally {
+      await close();
     }
   }
 

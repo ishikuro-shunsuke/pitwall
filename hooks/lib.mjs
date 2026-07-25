@@ -8,10 +8,26 @@ import { fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..');
 
+function urlFromArgv() {
+  const argv = process.argv.slice(2);
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] === '--url') return argv[i + 1] || null;
+    if (argv[i].startsWith('--url=')) return argv[i].slice('--url='.length) || null;
+  }
+  return null;
+}
+
+/**
+ * The installer bakes the destination into each hook command, so `--url` wins:
+ * it was written for the machine the hook runs on. Inside a container the
+ * default would be 127.0.0.1, where nothing is listening.
+ */
 export function baseUrl() {
+  const explicit = urlFromArgv() || process.env.PITWALL_URL;
+  if (explicit) return explicit.replace(/\/+$/, '');
   const port = process.env.PITWALL_PORT || '4477';
   const host = process.env.PITWALL_HOST || '127.0.0.1';
-  return process.env.PITWALL_URL || `http://${host}:${port}`;
+  return `http://${host}:${port}`;
 }
 
 /** Read entire stdin as UTF-8 (hooks receive JSON on stdin). */
@@ -273,6 +289,35 @@ export function modelFromTranscript(transcriptPath) {
       const msg = row.message || row;
       if (msg?.role === 'assistant' && msg.model) return msg.model;
       if (row.type === 'assistant' && row.message?.model) return row.message.model;
+    } catch {
+      /* keep scanning */
+    }
+  }
+  return null;
+}
+
+/**
+ * Claude Code writes a Stop-time `ai-title` row to the transcript and
+ * regenerates it as the conversation evolves, so the last one is the
+ * freshest summary of what the session is about.
+ */
+export function sessionTitle(transcriptPath) {
+  if (!transcriptPath) return null;
+  let expanded = transcriptPath;
+  if (expanded.startsWith('~/')) expanded = path.join(os.homedir(), expanded.slice(2));
+  let text;
+  try {
+    text = fs.readFileSync(expanded, 'utf8');
+  } catch {
+    return null;
+  }
+  const lines = text.split('\n');
+  for (let i = lines.length - 1; i >= 0; i -= 1) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    try {
+      const row = JSON.parse(line);
+      if (row.type === 'ai-title' && row.aiTitle) return row.aiTitle;
     } catch {
       /* keep scanning */
     }

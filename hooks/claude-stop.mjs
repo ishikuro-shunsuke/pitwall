@@ -15,6 +15,7 @@ import {
   detectRepo,
   detectHost,
   modelFromTranscript,
+  sessionTitle,
   effortLevel,
   uploadImages,
   out,
@@ -26,12 +27,14 @@ const cwd = payload.cwd || process.cwd();
 const repo = detectRepo([cwd]);
 const host = detectHost(cwd);
 const modelLabel = modelFromTranscript(payload.transcript_path);
+const title = sessionTitle(payload.transcript_path);
 const lastMessage = payload.last_assistant_message || '';
 const images = await uploadImages(lastMessage, [repo.root, cwd]);
 
 const waitBody = {
   agent: 'claude',
   sessionId: payload.session_id,
+  title,
   transcriptPath: payload.transcript_path || null,
   stop_hook_active: Boolean(payload.stop_hook_active),
   last_assistant_message: lastMessage,
@@ -71,7 +74,7 @@ if (!resolution) {
 if (resolution.action === 'reply' && resolution.message) {
   out({
     decision: 'block',
-    reason: resolution.message,
+    reason: `pitwall 経由でユーザーから返信が届きました。まずこの返信をそのまま一度引用してから、内容に応じて続けてください:\n\n"${resolution.message}"`,
   });
   process.exit(0);
 }
