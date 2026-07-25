@@ -43,14 +43,7 @@ extra_hosts: ["host.docker.internal:host-gateway"]           # docker compose
 
 `PITWALL_PORT`（既定 `4477`）、`PITWALL_HOLD_SECONDS`（`90`）、`PITWALL_MAX_HOLD_SECONDS`（`1800`）、`PITWALL_DATA`（`./data`）、`PITWALL_URL`（フックからの接続先）。
 
-インストーラが書き込むのは次の 4 か所。設定ファイルは既存の内容を消さず pitwall のフックを追記し、`.bak.<timestamp>` を残す。
-
-```
-~/.cursor/hooks.json      ~/.cursor/hooks/pitwall/   ← lib.mjs, cursor-stop.mjs, cursor-after-response.mjs
-~/.claude/settings.json   ~/.claude/hooks/pitwall/   ← lib.mjs, claude-stop.mjs, claude-notification.mjs
-```
-
-`npm run uninstall-hooks` は追記した設定と `hooks/pitwall/` ディレクトリを削除する。
+インストーラは既存の設定を消さず追記し、`.bak.<timestamp>` を残す。書き込んだ場所は実行時に出力する。
 
 ## 開発
 

@@ -72,16 +72,18 @@ function copyScripts(configDir, files) {
   const target = path.join(configDir, SUBDIR);
   if (uninstall) {
     fs.rmSync(target, { recursive: true, force: true });
-    return target;
+    return { dir: target, files: [] };
   }
   fs.mkdirSync(target, { recursive: true });
+  const copied = [];
   for (const name of ['lib.mjs', ...files]) {
     const from = path.join(HOOK_SRC, name);
     const to = path.join(target, name);
     fs.copyFileSync(from, to);
     fs.chmodSync(to, 0o755);
+    copied.push(name);
   }
-  return target;
+  return { dir: target, files: copied };
 }
 
 const isPitwallCommand = (command) =>
@@ -172,11 +174,15 @@ function installClaude() {
   report('Claude Code', file, scripts, bak);
 }
 
+// The report is what the user learns from, so print the paths actually written
+// rather than documenting them somewhere that can fall out of step.
 function report(label, file, scripts, bak) {
   const verb = uninstall ? 'removed' : 'installed';
   console.log(`${verb} ${label} hooks`);
   console.log(`  config:  ${file}${bak ? `  (backup: ${bak})` : ''}`);
-  console.log(`  scripts: ${scripts}`);
+  console.log(
+    `  scripts: ${scripts.dir}${scripts.files.length ? `  → ${scripts.files.join(', ')}` : '  (deleted)'}`,
+  );
 }
 
 try {
