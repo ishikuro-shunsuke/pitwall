@@ -24,28 +24,14 @@ Claude Code へ連続で返信できるのは 8 回まで。超えるとセッ�
 
 ## DevContainer
 
-コンテナの中で実行する:
+コンテナの中で実行する。`.devcontainer/devcontainer.json` の `postCreateCommand` に置けば、作り直すたびに入る:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/install.sh \
   | sh -s -- --devcontainer
 ```
 
-`.devcontainer/devcontainer.json` の `postCreateCommand` に置く。
-
-`host.docker.internal` は Docker Desktop ならそのまま引けるが、Linux の Docker Engine（Docker Desktop なしの WSL2 を含む）では自分で足す。`devcontainer.json` が `dockerComposeFile` を指しているなら、その compose ファイルの該当サービスに:
-
-```yaml
-services:
-  app:
-    extra_hosts: ["host.docker.internal:host-gateway"]
-```
-
-`image` か `dockerFile` を直接書いているなら、`devcontainer.json` に:
-
-```jsonc
-"runArgs": ["--add-host=host.docker.internal:host-gateway"]
-```
+コンテナからは `host.docker.internal` 経由でホストの pitwall に繋ぐ。それが引けない環境なら、インストーラが必要な設定を出力する。
 
 
 

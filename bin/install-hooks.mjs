@@ -17,6 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -44,8 +45,39 @@ if (fromUrl && fromDevcontainer) {
 }
 const explicitUrl = fromUrl || (fromDevcontainer ? DEVCONTAINER_URL : null);
 const urlArgs = explicitUrl ? ` --url ${JSON.stringify(explicitUrl)}` : '';
-// Notification is a shell script that reads PITWALL_URL; bake it into the command.
+// The notification hook takes no --url flag, so pass the URL through the env.
 const notifyEnv = explicitUrl ? `PITWALL_URL=${JSON.stringify(explicitUrl)} ` : '';
+
+function inContainer() {
+  if (process.env.REMOTE_CONTAINERS || process.env.DEVCONTAINER || process.env.CODESPACES) {
+    return true;
+  }
+  if (fs.existsSync('/.dockerenv')) return true;
+  try {
+    return /docker|containerd|kubepods/.test(fs.readFileSync('/proc/1/cgroup', 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Only the machine running this knows whether it is in a container and whether
+ * the hostname resolves, so decide it here instead of asking the reader to work
+ * out which case they are in.
+ */
+async function checkHookUrl() {
+  if (!explicitUrl || !inContainer()) return;
+  const { hostname } = new URL(explicitUrl);
+  try {
+    await dns.lookup(hostname);
+  } catch {
+    console.log(`\n${hostname} はこのコンテナから解決できない。次のどちらかを足して作り直す:`);
+    console.log('  compose を使う場合          該当サービスに');
+    console.log(`                              extra_hosts: ["${hostname}:host-gateway"]`);
+    console.log('  image / dockerFile の場合   devcontainer.json に');
+    console.log(`                              "runArgs": ["--add-host=${hostname}:host-gateway"]`);
+  }
+}
 
 function backup(file) {
   if (!fs.existsSync(file)) return null;
@@ -205,14 +237,12 @@ try {
     console.log('\nNext:');
     console.log('  1. Start pitwall:  npm start   (http://127.0.0.1:4477/)');
     console.log('  2. Restart Cursor / open a new Claude Code session so hooks reload.');
-    if (fromDevcontainer) {
-      console.log(`\nDevContainer mode: hooks bake in --url ${DEVCONTAINER_URL}`);
-      console.log('Mount ~/.cursor and ~/.claude into the container.');
-      console.log('Also add extra_hosts: ["host.docker.internal:host-gateway"] if needed.');
-      console.log('Host-local agents will also use that URL (Docker Desktop usually resolves it).');
-    } else if (!explicitUrl) {
+    if (explicitUrl) {
+      console.log(`\nEvery agent using these hooks posts to ${explicitUrl}`);
+    } else {
       console.log('\nFor DevContainer use: npm run install-hooks:devcontainer');
     }
+    await checkHookUrl();
   }
 } catch (error) {
   console.error(error.message || error);
