@@ -64,6 +64,23 @@ const cursorConfig = (home) => readJson(path.join(home, '.cursor', 'hooks.json')
 const claudeConfig = (home) => readJson(path.join(home, '.claude', 'settings.json'));
 const isPitwall = (hook) => JSON.stringify(hook).includes('hooks/pitwall/');
 
+/** Paths are printed relative to $HOME, so compare them the same way. */
+const tildeOf = (target, home) => target.replace(home, '~');
+
+/** Every pitwall hook command present in the two config files. */
+function pitwallCommands(home) {
+  const commands = [];
+  for (const list of Object.values(cursorConfig(home).hooks || {})) {
+    for (const hook of list || []) commands.push(hook.command || '');
+  }
+  for (const groups of Object.values(claudeConfig(home).hooks || {})) {
+    for (const group of groups || []) {
+      for (const hook of group.hooks || []) commands.push(hook.command || '');
+    }
+  }
+  return commands.filter((command) => command.includes('hooks/pitwall/'));
+}
+
 /** Every .mjs a generated command names, resolved the way the runner will. */
 function referencedScripts(home) {
   const found = [];
@@ -141,23 +158,32 @@ async function cases(homes) {
       fail('every referenced script exists on disk', referenced.filter((f) => !fs.existsSync(f)));
     }
 
-    // stdout is the only place the written paths are documented, so it has to
-    // agree with what landed in the file.
-    const printed = [...first.stdout.matchAll(/^\s+(?:added:)?\s+hooks\.\S+\s+(\{.*\})$/gm)]
-      .map((m) => m[1]);
-    if (printed.length !== 4) {
-      fail('installer prints four added entries', printed);
+    // stdout is the only account of what was written, so every command that
+    // landed in a config has to appear in it verbatim.
+    const written = pitwallCommands(home);
+    if (written.length !== 4) {
+      fail('four commands written', written);
+    } else if (written.every((command) => first.stdout.includes(command))) {
+      ok('every written command is shown');
     } else {
-      const cursorRaw = fs.readFileSync(path.join(home, '.cursor', 'hooks.json'), 'utf8');
-      const claudeRaw = fs.readFileSync(path.join(home, '.claude', 'settings.json'), 'utf8');
-      const inFile = (json) => {
-        const compact = JSON.stringify(JSON.parse(json));
-        return [cursorRaw, claudeRaw].some(
-          (raw) => JSON.stringify(JSON.parse(raw)).includes(compact.slice(1, -1)),
-        );
-      };
-      if (printed.every(inFile)) ok('printed entries match the files');
-      else fail('printed entries match the files', printed.filter((j) => !inFile(j)));
+      fail(
+        'every written command is shown',
+        written.filter((command) => !first.stdout.includes(command)),
+      );
+    }
+
+    // Each command has to be shown under the file and key it went into.
+    const keys = ['hooks.afterAgentResponse[]', 'hooks.stop[]', 'hooks.Stop[]', 'hooks.Notification[]'];
+    const missingKey = keys.filter((key) => !first.stdout.includes(key));
+    if (!missingKey.length) ok('shows the key each entry was appended to');
+    else fail('shows the key each entry was appended to', missingKey);
+
+    for (const [name, configPath] of [
+      ['cursor', path.join(home, '.cursor', 'hooks.json')],
+      ['claude', path.join(home, '.claude', 'settings.json')],
+    ]) {
+      if (first.stdout.includes(tildeOf(configPath, home))) ok(`${name}: config path shown`);
+      else fail(`${name}: config path shown`, first.stdout);
     }
   }
 
@@ -267,7 +293,7 @@ async function cases(homes) {
     const unresolvable = run(home, ['--url', 'http://pitwall-host.invalid:4477'], {
       DEVCONTAINER: '1',
     });
-    if (unresolvable.stdout.includes('pitwall-host.invalid はこのコンテナから解決できない')) {
+    if (unresolvable.stdout.includes('pitwall-host.invalid をこのコンテナから解決できない')) {
       ok('container + unresolvable host: prints the fix');
     } else {
       fail('container + unresolvable host: prints the fix', unresolvable.stdout);

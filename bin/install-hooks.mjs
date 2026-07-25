@@ -48,6 +48,29 @@ const urlArgs = explicitUrl ? ` --url ${JSON.stringify(explicitUrl)}` : '';
 // The notification hook takes no --url flag, so pass the URL through the env.
 const notifyEnv = explicitUrl ? `PITWALL_URL=${JSON.stringify(explicitUrl)} ` : '';
 
+// Colour only when a terminal is reading; piped output has to stay parseable.
+const colour = Boolean(process.stdout.isTTY) && !process.env.NO_COLOR;
+const paint = (code) => (text) => (colour ? `[${code}m${text}[0m` : String(text));
+const bold = paint('1');
+const dim = paint('2');
+const green = paint('32');
+const red = paint('31');
+const cyan = paint('36');
+const yellow = paint('33');
+
+const tilde = (target) =>
+  target.startsWith(os.homedir()) ? target.replace(os.homedir(), '~') : target;
+
+/** The command plus its remaining options, for both config shapes. */
+function hookFields(value) {
+  const inner = Array.isArray(value.hooks) ? value.hooks[0] : value;
+  const { command, type, ...rest } = inner;
+  const meta = Object.entries(rest)
+    .map(([key, val]) => `${key} ${val === null ? 'null' : val}`)
+    .join(', ');
+  return { command, meta };
+}
+
 function inContainer() {
   if (process.env.REMOTE_CONTAINERS || process.env.DEVCONTAINER || process.env.CODESPACES) {
     return true;
@@ -71,11 +94,13 @@ async function checkHookUrl() {
   try {
     await dns.lookup(hostname);
   } catch {
-    console.log(`\n${hostname} はこのコンテナから解決できない。足してコンテナを作り直す:`);
-    console.log('  devcontainer.json が dockerComposeFile を指しているなら、その compose の該当サービスに');
-    console.log(`    extra_hosts: ["${hostname}:host-gateway"]`);
-    console.log('  image / dockerFile を直接書いているなら、devcontainer.json に');
-    console.log(`    "runArgs": ["--add-host=${hostname}:host-gateway"]`);
+    console.log(
+      `\n${yellow('!')} ${bold(hostname)} をこのコンテナから解決できない。足してコンテナを作り直す:`,
+    );
+    console.log(dim('  devcontainer.json が dockerComposeFile を指しているなら、その compose の該当サービスに'));
+    console.log(`    ${cyan(`extra_hosts: ["${hostname}:host-gateway"]`)}`);
+    console.log(dim('  image / dockerFile を直接書いているなら、devcontainer.json に'));
+    console.log(`    ${cyan(`"runArgs": ["--add-host=${hostname}:host-gateway"]`)}`);
   }
 }
 
@@ -213,21 +238,33 @@ function installClaude() {
 }
 
 /**
- * The config files belong to the user and already have their own hooks in them,
- * so show the entries appended rather than describing the edit elsewhere.
+ * These are the user's own files, so show the change as a diff under the path it
+ * happened in: the entry alone does not say where it landed.
  */
 function report(label, file, scripts, bak, added = []) {
-  const verb = uninstall ? 'removed' : 'installed';
-  console.log(`${verb} ${label} hooks`);
-  console.log(`  config:  ${file}${bak ? `  (backup: ${bak})` : ''}`);
+  const mark = uninstall ? red('-') : green('+');
   console.log(
-    `  scripts: ${scripts.dir}${scripts.files.length ? `  → ${scripts.files.join(', ')}` : '  (deleted)'}`,
+    `\n${uninstall ? red('-') : green('✓')} ${bold(label)}  ${dim(uninstall ? 'フックを削除' : 'フックを登録')}`,
   );
-  const width = Math.max(0, ...added.map((entry) => entry.at.length));
-  added.forEach((entry, i) => {
-    const gutter = i === 0 ? '  added:  ' : '          ';
-    console.log(`${gutter} ${entry.at.padEnd(width)}  ${JSON.stringify(entry.value)}`);
-  });
+
+  console.log(`  ${tilde(file)}${bak ? `  ${dim(`backup: ${path.basename(bak)}`)}` : ''}`);
+  if (uninstall) {
+    console.log(`    ${mark} ${dim('pitwall のエントリ')}`);
+  } else {
+    const rows = added.map((entry) => ({ at: entry.at, ...hookFields(entry.value) }));
+    const width = Math.max(0, ...rows.map((row) => row.at.length));
+    for (const row of rows) {
+      console.log(`    ${mark} ${row.at.padEnd(width)}  ${dim(row.meta)}`);
+      console.log(`        ${cyan(row.command)}`);
+    }
+  }
+
+  console.log(`  ${tilde(scripts.dir)}/`);
+  console.log(
+    scripts.files.length
+      ? `    ${mark} ${dim(scripts.files.join(', '))}`
+      : `    ${mark} ${dim('ディレクトリごと削除')}`,
+  );
 }
 
 try {
@@ -236,18 +273,18 @@ try {
   if (!uninstall) {
     // A container is a client: it has no repo to start a server from, and the
     // timeline it posts to lives on the host.
-    console.log('\n次にやること:');
+    console.log(`\n${bold('次にやること')}`);
     if (inContainer()) {
-      console.log(`  1. ホスト側で pitwall を起動しておく（このコンテナでは起動しない）`);
-      console.log(`     このコンテナのフックの送信先: ${explicitUrl || 'http://127.0.0.1:4477'}`);
+      console.log(`  1. ホスト側で pitwall を起動しておく${dim('（このコンテナでは起動しない）')}`);
+      console.log(`     ${dim('このコンテナのフックの送信先:')} ${cyan(explicitUrl || 'http://127.0.0.1:4477')}`);
     } else if (explicitUrl) {
-      console.log(`  1. npm start で起動する（フックの送信先: ${explicitUrl}）`);
+      console.log(`  1. ${cyan('npm start')} で起動する  ${dim(`フックの送信先: ${explicitUrl}`)}`);
     } else {
-      console.log('  1. npm start で起動する  → http://127.0.0.1:4477/');
+      console.log(`  1. ${cyan('npm start')} で起動する  ${dim('→ http://127.0.0.1:4477/')}`);
     }
     console.log('  2. Cursor は再起動、Claude Code は新しいセッションを開くとフックが読み込まれる');
     if (!explicitUrl && !inContainer()) {
-      console.log('\nDevContainer で使うなら: npm run install-hooks:devcontainer');
+      console.log(`\n${dim('DevContainer で使うなら:')} ${cyan('npm run install-hooks:devcontainer')}`);
     }
     await checkHookUrl();
   }
