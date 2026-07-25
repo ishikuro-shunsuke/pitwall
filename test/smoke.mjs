@@ -220,6 +220,33 @@ async function main() {
       else fail('claude dismiss', resolved.data);
     }
 
+    // Claude's hook waits with the session already stopped, so its card is not
+    // on the idle clock — and the next stop of the same session retires it.
+    {
+      const payload = (text) => ({
+        agent: 'claude',
+        sessionId: 'sess-supersede',
+        last_assistant_message: text,
+        repo: { root: DATA, name: 'smoke-repo' },
+        host: { cwd: DATA },
+        model: { label: 'claude-sonnet' },
+      });
+      const first = await json('POST', '/api/hooks/wait', payload('first stop'));
+      const id = first.data.id;
+      const idleWindowMs = 3000;
+      if (first.data.holdUntil - Date.now() > idleWindowMs) ok('claude outlasts the idle window');
+      else fail('claude outlasts the idle window', first.data);
+
+      const resolveP = json('GET', `/api/hooks/wait/${id}/resolve`, null, { timeoutMs: 10_000 });
+      await json('POST', '/api/hooks/wait', payload('second stop'));
+      const resolved = await resolveP;
+      if (resolved.data?.action === 'release' && resolved.data.reason === 'superseded') {
+        ok('claude supersede');
+      } else {
+        fail('claude supersede', resolved.data);
+      }
+    }
+
     // notice: raw Claude Notification payload forwarded by the curl hook
     {
       const n = await json('POST', '/api/hooks/notify?agent=claude', {

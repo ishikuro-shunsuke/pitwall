@@ -4,7 +4,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { config, paths } from './config.mjs';
+import { config, paths, softHoldSeconds } from './config.mjs';
 import * as store from './store.mjs';
 import * as waiters from './waiters.mjs';
 import { buildEntry, publicEntry } from './normalize.mjs';
@@ -235,11 +235,17 @@ async function handleWait(req, res) {
     ? [...byKey.values()].slice(0, config.maxImagesPerEntry)
     : await collectImages([bodyText, ...turnMessages].join('\n'), searchDirs);
 
+  // A Claude card outlives the turn it came from, so the same session stopping
+  // again means the older card would be answering something already scrolled
+  // past. Let it go rather than leave two live cards for one session.
   const sessionId = body.sessionId || body.session_id || body.conversationId || body.conversation_id;
   if (agent === 'claude' && sessionId) {
-    store.noteSessionTurn(sessionId, { continuedByHook: Boolean(body.stop_hook_active) });
+    for (const open of store.list()) {
+      if (open.agent !== 'claude' || open.status !== 'waiting') continue;
+      if (open.sessionId !== sessionId) continue;
+      waiters.resolve(open.id, { action: 'release', reason: 'superseded' });
+    }
   }
-  const sessionBlocks = agent === 'claude' ? store.sessionBlockCount(sessionId) : 0;
 
   const entry = buildEntry({
     agent,
@@ -248,10 +254,12 @@ async function handleWait(req, res) {
     body: bodyText,
     turnMessages,
     images,
-    sessionBlocks,
   });
 
-  waiters.reserve(entry.id, { createdAtMs: entry.createdAtMs });
+  waiters.reserve(entry.id, {
+    createdAtMs: entry.createdAtMs,
+    softHoldSeconds: softHoldSeconds(agent),
+  });
   store.add(entry);
   sendJson(res, 200, {
     ok: true,
@@ -302,9 +310,6 @@ async function handleResolve(req, res, params) {
   }
 
   if (resolution.action === 'reply') {
-    if (entry.agent === 'claude' && entry.sessionId) {
-      store.noteSessionBlock(entry.sessionId);
-    }
     store.update(entry.id, {
       status: 'answered',
       resolvedAt: new Date().toISOString(),

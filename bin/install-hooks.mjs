@@ -211,11 +211,17 @@ function installClaude() {
   } else {
     // Claude Code does not run hooks from ~/.claude, so use $HOME instead of a
     // baked-in absolute path: the shell expands it per environment.
+    // asyncRewake lets the session stop while the hook keeps waiting, and wakes
+    // it again when the hook exits 2. Without it the session would be held for
+    // as long as the entry sits unanswered in the browser.
     const stop = {
       hooks: [{
         type: 'command',
         command: `node "$HOME/.claude/hooks/pitwall/claude-stop.mjs"${urlArgs}`,
         timeout: HOOK_TIMEOUT,
+        asyncRewake: true,
+        rewakeMessage: 'pitwall:',
+        rewakeSummary: 'pitwall への返信',
       }],
     };
     const notification = {

@@ -1,5 +1,5 @@
 import path from 'node:path';
-import { config } from './config.mjs';
+import { config, softHoldSeconds } from './config.mjs';
 import { buildLinks } from './deeplink.mjs';
 import { newId } from './store.mjs';
 
@@ -61,7 +61,6 @@ export function buildEntry({
   body = '',
   turnMessages = [],
   images = [],
-  sessionBlocks = 0,
 }) {
   const createdAt = new Date().toISOString();
   const createdAtMs = Date.now();
@@ -76,7 +75,7 @@ export function buildEntry({
     status: kind === 'notice' ? 'notice' : 'waiting',
     createdAt,
     createdAtMs,
-    holdUntil: createdAtMs + config.holdSeconds * 1000,
+    holdUntil: createdAtMs + softHoldSeconds(agent) * 1000,
     holdMaxAt: createdAtMs + config.maxHoldSeconds * 1000,
     resolvedAt: null,
     resolution: null,
@@ -99,8 +98,6 @@ export function buildEntry({
     notice: payload.notice || null,
     notificationType: payload.notificationType || payload.notification_type || null,
 
-    sessionBlocks,
-    claudeBlockCeiling: agent === 'claude' ? config.claudeBlockCeiling : null,
     backgroundTaskCount: Array.isArray(payload.background_tasks)
       ? payload.background_tasks.length
       : (payload.backgroundTaskCount ?? 0),

@@ -21,7 +21,34 @@ const el = {
   lightbox: document.getElementById('lightbox'),
   lightboxImg: document.getElementById('lightbox-img'),
   lightboxCap: document.getElementById('lightbox-cap'),
+  themeToggle: document.getElementById('theme-toggle'),
 };
+
+const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
+
+function currentTheme() {
+  return document.documentElement.dataset.theme
+    || (systemTheme.matches ? 'light' : 'dark');
+}
+
+function paintThemeToggle() {
+  const theme = currentTheme();
+  el.themeToggle.textContent = theme;
+  el.themeToggle.title = `switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
+}
+
+el.themeToggle.addEventListener('click', () => {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem('pitwall.theme', next);
+  } catch { /* ignore */ }
+  paintThemeToggle();
+});
+
+// Until a choice is made, follow the OS.
+systemTheme.addEventListener('change', paintThemeToggle);
+paintThemeToggle();
 
 document.querySelectorAll('.tab').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -114,7 +141,7 @@ function repoColor(key) {
     hash = (hash * 31 + key.charCodeAt(i)) | 0;
   }
   const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}deg 65% 62%)`;
+  return `hsl(${hue}deg 65% var(--repo-l))`;
 }
 
 function selectedEntries() {
@@ -148,16 +175,6 @@ function modelChips(entry) {
   }
   if (entry.backgroundTaskCount > 0) {
     chips.push(`<span class="chip warn">bg:${entry.backgroundTaskCount}</span>`);
-  }
-  if (
-    entry.agent === 'claude'
-    && entry.status === 'waiting'
-    && entry.claudeBlockCeiling
-    && entry.sessionBlocks >= entry.claudeBlockCeiling - 2
-  ) {
-    chips.push(
-      `<span class="chip warn" title="Claude Stop-hook consecutive blocks">blocks ${entry.sessionBlocks}/${entry.claudeBlockCeiling}</span>`,
-    );
   }
   return chips.join('');
 }

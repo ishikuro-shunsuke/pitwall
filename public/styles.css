@@ -1,20 +1,25 @@
 :root {
-  --bg: #0e1116;
-  --panel: #161b22;
-  --panel-2: #1c2330;
-  --border: #2d3644;
-  --text: #e6edf3;
-  --muted: #8b9bb0;
-  --accent-cursor: #7c8cff;
-  --accent-claude: #d4a574;
-  --danger: #f85149;
-  --ok: #3fb950;
-  --warn: #d29922;
-  --rail: #2a3342;
+  color-scheme: light dark;
+  --bg: light-dark(#f3f5f8, #0e1116);
+  --panel: light-dark(#ffffff, #161b22);
+  --panel-2: light-dark(#e9edf3, #1c2330);
+  --border: light-dark(#d0d7e0, #2d3644);
+  --text: light-dark(#1b2430, #e6edf3);
+  --muted: light-dark(#5d6b7f, #8b9bb0);
+  --accent-cursor: light-dark(#4a55c9, #7c8cff);
+  --accent-claude: light-dark(#9a6420, #d4a574);
+  --danger: light-dark(#c62f26, #f85149);
+  --ok: light-dark(#1a7f37, #3fb950);
+  --warn: light-dark(#8a6100, #d29922);
+  --rail: light-dark(#d0d7e0, #2a3342);
+  --topbar-bg: light-dark(rgba(243, 245, 248, 0.94), rgba(14, 17, 22, 0.94));
+  --repo-l: light-dark(42%, 62%);
   --gap: 18px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
+:root[data-theme="light"] { color-scheme: light; }
+:root[data-theme="dark"] { color-scheme: dark; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
@@ -31,7 +36,7 @@ a { color: var(--accent-cursor); }
   gap: 16px;
   align-items: center;
   padding: 12px 20px;
-  background: rgba(14, 17, 22, 0.94);
+  background: var(--topbar-bg);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(8px);
 }
@@ -82,6 +87,8 @@ a { color: var(--accent-cursor); }
   border-radius: 0;
   cursor: pointer;
 }
+.theme-toggle { min-width: 62px; text-align: left; }
+.theme-toggle:hover { border-color: var(--muted); color: var(--text); }
 .filter-chip[aria-pressed="true"] {
   background: var(--panel-2);
   border-color: var(--accent-cursor);
@@ -310,7 +317,7 @@ main {
   border: 1px solid var(--border);
   background: #000;
 }
-.lightbox-cap { color: var(--muted); font-family: var(--mono); font-size: 12px; }
+.lightbox-cap { color: #8b9bb0; font-family: var(--mono); font-size: 12px; }
 .lightbox-close {
   position: absolute;
   top: 16px;
@@ -318,7 +325,7 @@ main {
   font-size: 28px;
   background: transparent;
   border: none;
-  color: var(--text);
+  color: #e6edf3;
   cursor: pointer;
 }
 

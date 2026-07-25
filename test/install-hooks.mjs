@@ -158,6 +158,10 @@ async function cases(homes) {
     eq('claude: foreign Stop hook kept', claude.hooks.Stop[0], FOREIGN_CLAUDE);
     eq('claude: unrelated settings kept', claude.model, 'opus');
 
+    // Without this the session is held for as long as the entry goes unanswered.
+    const claudeStop = claude.hooks.Stop.filter(isPitwall)[0]?.hooks?.[0];
+    eq('claude: stop hook waits in the background', claudeStop?.asyncRewake, true);
+
     const events = [
       ['cursor.afterAgentResponse', cursor.hooks.afterAgentResponse],
       ['cursor.stop', cursor.hooks.stop],

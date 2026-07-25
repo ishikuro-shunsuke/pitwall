@@ -21,9 +21,6 @@ const listeners = new Set();
 /** @type {Map<string, object>} */
 const entries = new Map();
 
-/** Per-session bookkeeping that only matters while the process is alive. */
-const sessions = new Map();
-
 /**
  * Cursor stop has no body; afterAgentResponse texts are buffered here keyed by
  * conversation_id until the matching stop arrives.
@@ -142,31 +139,6 @@ export function repos() {
     byKey.set(key, seen);
   }
   return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/**
- * Claude Code stops honouring a Stop hook after 8 consecutive continuations, so
- * we count how many replies we have injected without a real terminal turn in
- * between and surface it before the ceiling is hit.
- */
-export function sessionBlockCount(sessionId) {
-  return sessions.get(sessionId)?.blocks ?? 0;
-}
-
-export function noteSessionTurn(sessionId, { continuedByHook }) {
-  if (!sessionId) return 0;
-  const state = sessions.get(sessionId) ?? { blocks: 0 };
-  if (!continuedByHook) state.blocks = 0;
-  sessions.set(sessionId, state);
-  return state.blocks;
-}
-
-export function noteSessionBlock(sessionId) {
-  if (!sessionId) return 0;
-  const state = sessions.get(sessionId) ?? { blocks: 0 };
-  state.blocks += 1;
-  sessions.set(sessionId, state);
-  return state.blocks;
 }
 
 export async function storeImage(sourcePath, { mime, ext }) {

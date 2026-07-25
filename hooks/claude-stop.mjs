@@ -2,12 +2,15 @@
 /**
  * Claude Code Stop hook — register a waiting entry and long-poll for a reply.
  *
- * Returns:
- *   {}                                              — allow stop
- *   { decision: "block", reason: "..." }            — continue with reason as feedback
+ * Installed with `asyncRewake`, so this runs in the background: the session
+ * stops as usual and stays yours to type into while the entry sits in the
+ * browser. Exiting 2 wakes it back up with whatever went to stderr.
  *
- * Fail open on any error. Claude force-stops after 8 consecutive blocks; the
- * UI surfaces the count so you can resume the session in-terminal before that.
+ * Exit 2 with the reply on stderr is also the plain blocking protocol, so where
+ * asyncRewake is not understood the same exit holds the stop open instead. The
+ * reply lands either way; only the waiting differs.
+ *
+ * Fail open on any error.
  */
 import {
   readStdin,
@@ -18,7 +21,6 @@ import {
   sessionTitle,
   effortLevel,
   uploadImages,
-  out,
   failOpen,
 } from './lib.mjs';
 
@@ -72,11 +74,12 @@ if (!resolution) {
 }
 
 if (resolution.action === 'reply' && resolution.message) {
-  out({
-    decision: 'block',
-    reason: `pitwall 経由でユーザーから返信が届きました。まずこの返信をそのまま一度引用してから、内容に応じて続けてください:\n\n"${resolution.message}"`,
-  });
-  process.exit(0);
+  // stderr, not stdout: this is the text Claude wakes up holding.
+  process.stderr.write(
+    'ユーザーから返信が届きました。まずこの返信をそのまま一度引用してから、'
+      + `内容に応じて続けてください:\n\n"${resolution.message}"\n`,
+  );
+  process.exit(2);
 }
 
 failOpen();

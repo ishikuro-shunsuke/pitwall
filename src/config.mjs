@@ -18,8 +18,9 @@ export const config = {
     : path.join(ROOT, 'data'),
 
   /**
-   * Hybrid hold: idle wait window. If nobody opens the composer, the agent
-   * is released after this many seconds and the entry becomes `expired`.
+   * Hybrid hold: idle wait window for an agent that is being held. If nobody
+   * opens the composer, it is released after this many seconds and the entry
+   * becomes `expired`.
    */
   holdSeconds: num(process.env.PITWALL_HOLD_SECONDS, 90),
 
@@ -35,10 +36,17 @@ export const config = {
   maxBodyChars: num(process.env.PITWALL_MAX_BODY_CHARS, 40_000),
   maxImagesPerEntry: num(process.env.PITWALL_MAX_IMAGES, 12),
   maxImageBytes: num(process.env.PITWALL_MAX_IMAGE_BYTES, 32 * 1024 * 1024),
-
-  /** Claude Code force-stops after this many consecutive Stop-hook blocks. */
-  claudeBlockCeiling: 8,
 };
+
+/**
+ * Cursor's stop hook holds the agent for as long as it waits, so an entry
+ * nobody is looking at has to let go early. Claude's hook waits in the
+ * background with the session already stopped, where nothing is being held —
+ * so it stays answerable for the whole window.
+ */
+export function softHoldSeconds(agent) {
+  return agent === 'claude' ? config.maxHoldSeconds : config.holdSeconds;
+}
 
 export const paths = {
   entries: path.join(config.dataDir, 'entries.json'),

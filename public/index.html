@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>pitwall</title>
   <link rel="stylesheet" href="/styles.css" />
+  <script>
+    try {
+      const t = localStorage.getItem('pitwall.theme');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch { /* ignore */ }
+  </script>
 </head>
 <body>
   <header class="topbar">
@@ -28,6 +34,10 @@
           <button type="button" class="filter-chip" data-value="cursor" aria-pressed="false">cursor</button>
           <button type="button" class="filter-chip" data-value="claude" aria-pressed="false">claude</button>
         </div>
+      </div>
+      <div class="filter">
+        <span>theme</span>
+        <button type="button" class="filter-chip theme-toggle" id="theme-toggle"></button>
       </div>
       <label class="filter">
         <span>order</span>

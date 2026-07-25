@@ -5,10 +5,10 @@ import { config } from './config.mjs';
  * on the entry in the browser. This registry is the hand-off point between the
  * two halves of that exchange.
  *
- * Hybrid hold: each slot starts with a short deadline (holdSeconds). Opening
- * the reply composer sends heartbeats that push the deadline forward, up to
- * maxHoldSeconds from creation. When the deadline elapses with no action the
- * waiter resolves with `{ action: 'release', reason: 'expired' }`.
+ * Hybrid hold: each slot starts with a soft deadline. Opening the reply
+ * composer sends heartbeats that push it forward, up to maxHoldSeconds from
+ * creation. When the deadline elapses with no action the waiter resolves with
+ * `{ action: 'release', reason: 'expired' }`.
  */
 const slots = new Map();
 
@@ -16,18 +16,19 @@ function now() {
   return Date.now();
 }
 
-function deadlineFor(createdAtMs, fromMs = now()) {
-  const soft = fromMs + config.holdSeconds * 1000;
+function deadlineFor(createdAtMs, softSeconds, fromMs = now()) {
+  const soft = fromMs + softSeconds * 1000;
   const hard = createdAtMs + config.maxHoldSeconds * 1000;
   return Math.min(soft, hard);
 }
 
 /** Opened when the entry is created, before the hook starts polling. */
-export function reserve(entryId, { createdAtMs = now() } = {}) {
+export function reserve(entryId, { createdAtMs = now(), softHoldSeconds = config.holdSeconds } = {}) {
   if (slots.has(entryId)) return slots.get(entryId);
   const slot = {
     createdAtMs,
-    deadlineMs: deadlineFor(createdAtMs),
+    softHoldSeconds,
+    deadlineMs: deadlineFor(createdAtMs, softHoldSeconds),
     resolution: null,
     settle: null,
     timer: null,
@@ -107,7 +108,7 @@ export function extendHold(entryId) {
   if (!slot) return null;
   if (slot.resolution) return null;
 
-  const next = deadlineFor(slot.createdAtMs);
+  const next = deadlineFor(slot.createdAtMs, slot.softHoldSeconds);
   if (next <= slot.deadlineMs && next <= now()) {
     // Already at the hard ceiling and past it — nothing to do.
     return slot.deadlineMs;
