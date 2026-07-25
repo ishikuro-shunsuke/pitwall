@@ -29,10 +29,14 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/inst
   | sh -s -- --devcontainer
 ```
 
-`postCreateCommand` に置く。docker compose の場合は名前解決を追加する:
+`postCreateCommand` に置く。`host.docker.internal` は Docker Desktop ならそのまま引けるが、Linux の Docker Engine（Docker Desktop なしの WSL2 を含む）では自分で足す:
 
 ```yaml
-extra_hosts: ["host.docker.internal:host-gateway"]
+extra_hosts: ["host.docker.internal:host-gateway"]           # docker compose
+```
+
+```jsonc
+"runArgs": ["--add-host=host.docker.internal:host-gateway"]  // devcontainer.json 単体
 ```
 
 ## 設定
