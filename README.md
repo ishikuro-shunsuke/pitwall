@@ -31,6 +31,12 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/inst
 
 コンテナからは `host.docker.internal` 経由でホストの pitwall に繋ぐ。それが引けない環境なら、インストーラが必要な設定を出力する。
 
+消すときは同じように:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/cleanup.sh | sh
+```
+
 ## 開発
 
 `npm run dev`（`--watch`）、`npm run smoke`（end-to-end 検証）。既定値は `src/config.mjs`、`PITWALL_*` で上書きできる。

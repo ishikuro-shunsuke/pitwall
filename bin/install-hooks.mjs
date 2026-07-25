@@ -234,13 +234,20 @@ try {
   installCursor();
   installClaude();
   if (!uninstall) {
-    console.log('\nNext:');
-    console.log('  1. Start pitwall:  npm start   (http://127.0.0.1:4477/)');
-    console.log('  2. Restart Cursor / open a new Claude Code session so hooks reload.');
-    if (explicitUrl) {
-      console.log(`\nEvery agent using these hooks posts to ${explicitUrl}`);
+    // A container is a client: it has no repo to start a server from, and the
+    // timeline it posts to lives on the host.
+    console.log('\n次にやること:');
+    if (inContainer()) {
+      console.log(`  1. ホスト側で pitwall を起動しておく（このコンテナでは起動しない）`);
+      console.log(`     このコンテナのフックの送信先: ${explicitUrl || 'http://127.0.0.1:4477'}`);
+    } else if (explicitUrl) {
+      console.log(`  1. npm start で起動する（フックの送信先: ${explicitUrl}）`);
     } else {
-      console.log('\nFor DevContainer use: npm run install-hooks:devcontainer');
+      console.log('  1. npm start で起動する  → http://127.0.0.1:4477/');
+    }
+    console.log('  2. Cursor は再起動、Claude Code は新しいセッションを開くとフックが読み込まれる');
+    if (!explicitUrl && !inContainer()) {
+      console.log('\nDevContainer で使うなら: npm run install-hooks:devcontainer');
     }
     await checkHookUrl();
   }
