@@ -71,11 +71,11 @@ async function checkHookUrl() {
   try {
     await dns.lookup(hostname);
   } catch {
-    console.log(`\n${hostname} はこのコンテナから解決できない。次のどちらかを足して作り直す:`);
-    console.log('  compose を使う場合          該当サービスに');
-    console.log(`                              extra_hosts: ["${hostname}:host-gateway"]`);
-    console.log('  image / dockerFile の場合   devcontainer.json に');
-    console.log(`                              "runArgs": ["--add-host=${hostname}:host-gateway"]`);
+    console.log(`\n${hostname} はこのコンテナから解決できない。足してコンテナを作り直す:`);
+    console.log('  devcontainer.json が dockerComposeFile を指しているなら、その compose の該当サービスに');
+    console.log(`    extra_hosts: ["${hostname}:host-gateway"]`);
+    console.log('  image / dockerFile を直接書いているなら、devcontainer.json に');
+    console.log(`    "runArgs": ["--add-host=${hostname}:host-gateway"]`);
   }
 }
 
