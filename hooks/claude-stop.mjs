@@ -16,6 +16,7 @@ import {
   detectHost,
   modelFromTranscript,
   effortLevel,
+  uploadImages,
   out,
   failOpen,
 } from './lib.mjs';
@@ -25,13 +26,16 @@ const cwd = payload.cwd || process.cwd();
 const repo = detectRepo([cwd]);
 const host = detectHost(cwd);
 const modelLabel = modelFromTranscript(payload.transcript_path);
+const lastMessage = payload.last_assistant_message || '';
+const images = await uploadImages(lastMessage, [repo.root, cwd]);
 
 const waitBody = {
   agent: 'claude',
   sessionId: payload.session_id,
   transcriptPath: payload.transcript_path || null,
   stop_hook_active: Boolean(payload.stop_hook_active),
-  last_assistant_message: payload.last_assistant_message || '',
+  last_assistant_message: lastMessage,
+  images,
   background_tasks: payload.background_tasks || [],
   session_crons: payload.session_crons || [],
   agent_type: payload.agent_type || null,

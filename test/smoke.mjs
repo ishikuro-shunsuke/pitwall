@@ -312,8 +312,8 @@ async function main() {
       if (probe.status === 200) ok('cursor-after-response.mjs uploaded image');
       else fail('cursor-after-response.mjs uploaded image', probe.status);
 
-      const notify = await runHook('sh', [
-        path.join(ROOT, 'hooks', 'claude-notification.sh'),
+      const notify = await runHook(process.execPath, [
+        path.join(ROOT, 'hooks', 'claude-notification.mjs'),
       ], {
         session_id: 'sess-hook-sh',
         cwd: fixtures,
@@ -324,8 +324,8 @@ async function main() {
       await new Promise((r) => setTimeout(r, 200));
       const notices = await json('GET', '/api/entries?view=timeline');
       const notice = notices.data.entries?.find((e) => e.notificationType === 'idle_prompt');
-      if (notify.code === 0 && notice) ok('claude-notification.sh created notice');
-      else fail('claude-notification.sh created notice', { notify, notice });
+      if (notify.code === 0 && notice) ok('claude-notification.mjs created notice');
+      else fail('claude-notification.mjs created notice', { notify, notice });
     }
   } catch (error) {
     fail('unexpected', error);

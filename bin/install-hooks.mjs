@@ -126,7 +126,7 @@ function installCursor() {
 
 function installClaude() {
   const configDir = path.join(os.homedir(), '.claude');
-  const scripts = copyScripts(configDir, ['claude-stop.mjs', 'claude-notification.sh']);
+  const scripts = copyScripts(configDir, ['claude-stop.mjs', 'claude-notification.mjs']);
   const file = path.join(configDir, 'settings.json');
   const bak = backup(file);
   const data = readJson(file, {});
@@ -161,7 +161,7 @@ function installClaude() {
       {
         hooks: [{
           type: 'command',
-          command: `${notifyEnv}"$HOME/.claude/hooks/pitwall/claude-notification.sh"`,
+          command: `${notifyEnv}node "$HOME/.claude/hooks/pitwall/claude-notification.mjs"`,
           timeout: 10,
         }],
       },

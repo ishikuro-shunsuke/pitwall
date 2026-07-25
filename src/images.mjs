@@ -99,3 +99,7 @@ export async function collectImages(text, searchDirs) {
 export function mimeForFile(filename) {
   return MIME_BY_EXT[path.extname(filename).toLowerCase()] ?? 'application/octet-stream';
 }
+
+export function mimeForExt(ext) {
+  return MIME_BY_EXT[String(ext || '').toLowerCase()] ?? null;
+}

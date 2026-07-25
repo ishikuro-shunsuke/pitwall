@@ -2,12 +2,13 @@ import http from 'node:http';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { config, paths } from './config.mjs';
 import * as store from './store.mjs';
 import * as waiters from './waiters.mjs';
 import { buildEntry, publicEntry } from './normalize.mjs';
-import { collectImages, mimeForFile } from './images.mjs';
+import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
 store.init();
 
@@ -63,6 +64,24 @@ function readBody(req, limit = 2 * 1024 * 1024) {
   });
 }
 
+function readRawBody(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on('data', (chunk) => {
+      size += chunk.length;
+      if (size > limit) {
+        reject(new Error('body too large'));
+        req.destroy();
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+
 function broadcast(type, entry) {
   const data = `event: ${type}\ndata: ${JSON.stringify(publicEntry(entry))}\n\n`;
   for (const client of sseClients) {
@@ -92,13 +111,68 @@ async function handleCursorResponse(req, res) {
   const body = await readBody(req);
   const conversationId = body.conversationId || body.conversation_id;
   const text = body.text || '';
-  store.pushResponse(conversationId, text);
+  const images = Array.isArray(body.images) ? body.images : [];
+  store.pushResponse(conversationId, text, images);
   sendJson(res, 200, { ok: true });
 }
+
+/**
+ * Hooks read and hash image files themselves, then PUSH the bytes here. The
+ * server never resolves a path from a payload: an agent inside a container
+ * reports `/workspaces/...`, which does not exist on the host.
+ */
+async function handleImageUpload(req, res, url) {
+  const sha = String(url.searchParams.get('sha') || '').toLowerCase();
+  const ext = String(url.searchParams.get('ext') || '').toLowerCase();
+  const mime = mimeForExt(ext);
+
+  if (!/^[0-9a-f]{32}$/.test(sha) || !mime) {
+    req.resume();
+    return sendJson(res, 400, { error: 'bad sha or unsupported ext' });
+  }
+
+  let buffer;
+  try {
+    buffer = await readRawBody(req, config.maxImageBytes);
+  } catch {
+    return sendJson(res, 413, { error: 'image too large' });
+  }
+  if (!buffer.length) return sendJson(res, 400, { error: 'empty body' });
+
+  const actual = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 32);
+  if (actual !== sha) return sendJson(res, 400, { error: 'sha mismatch' });
+
+  const stored = await store.storeImageBytes(buffer, { sha, ext, mime });
+  sendJson(res, 200, { ok: true, ...stored });
+}
+
+/** Existence probe so a hook can skip re-uploading bytes already in the store. */
+function handleImageProbe(_req, res, params) {
+  const filename = path.basename(params.file);
+  const found = mimeForExt(path.extname(filename)) && store.imageExists(filename);
+  res.writeHead(found ? 200 : 404, found ? { 'Content-Type': mimeForFile(filename) } : undefined);
+  res.end();
+}
+
+/** Notification types worth a timeline card; anything else is noise. */
+const INTERESTING_NOTICES = new Set([
+  'permission_prompt',
+  'idle_prompt',
+  'agent_needs_input',
+  'elicitation_dialog',
+]);
 
 async function handleNotify(req, res) {
   const body = await readBody(req);
   const agent = body.agent || 'claude';
+  const type = body.notificationType || body.notification_type;
+
+  // Hooks filter too, but the endpoint accepts raw payloads, so re-check here.
+  if (type && !INTERESTING_NOTICES.has(type)) {
+    sendJson(res, 200, { ok: true, skipped: true, reason: 'uninteresting' });
+    return;
+  }
+
   const entry = buildEntry({
     agent,
     kind: 'notice',
@@ -120,10 +194,13 @@ async function handleWait(req, res) {
 
   let turnMessages = [];
   let bodyText = body.body || body.last_assistant_message || '';
+  const uploaded = Array.isArray(body.images) ? [...body.images] : [];
 
   if (agent === 'cursor') {
     const conversationId = body.conversationId || body.conversation_id;
-    turnMessages = store.takeResponses(conversationId);
+    const buffered = store.takeResponses(conversationId);
+    turnMessages = buffered.map((chunk) => chunk.text).filter(Boolean);
+    for (const chunk of buffered) uploaded.push(...(chunk.images || []));
     if (!bodyText && turnMessages.length) {
       bodyText = turnMessages[turnMessages.length - 1];
     }
@@ -148,10 +225,15 @@ async function handleWait(req, res) {
     ...(body.workspace_roots || body.workspaceRoots || []),
   ].filter(Boolean);
 
-  const images = await collectImages(
-    [bodyText, ...turnMessages].join('\n'),
-    searchDirs,
-  );
+  // The same screenshot is usually mentioned in several chunks of one turn.
+  const byKey = new Map();
+  for (const image of uploaded) {
+    const key = image?.url || image?.ref;
+    if (key && !byKey.has(key)) byKey.set(key, image);
+  }
+  const images = byKey.size
+    ? [...byKey.values()].slice(0, config.maxImagesPerEntry)
+    : await collectImages([bodyText, ...turnMessages].join('\n'), searchDirs);
 
   const sessionId = body.sessionId || body.session_id || body.conversationId || body.conversation_id;
   if (agent === 'claude' && sessionId) {
@@ -466,6 +548,10 @@ async function router(req, res) {
     if (method === 'POST' && pathname === '/api/hooks/wait') return handleWait(req, res);
     if (method === 'POST' && pathname === '/api/hooks/response') return handleCursorResponse(req, res);
     if (method === 'POST' && pathname === '/api/hooks/notify') return handleNotify(req, res);
+    if (method === 'POST' && pathname === '/api/hooks/images') return handleImageUpload(req, res, url);
+
+    params = match(pathname, '/api/hooks/images/:file');
+    if ((method === 'HEAD' || method === 'GET') && params) return handleImageProbe(req, res, params);
 
     params = match(pathname, '/api/hooks/wait/:id/resolve');
     if (method === 'GET' && params) return handleResolve(req, res, params);

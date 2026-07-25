@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -64,6 +65,139 @@ export async function request(method, pathname, { body, timeoutMs = 1500 } = {})
   } finally {
     clearTimeout(timer);
   }
+}
+
+const IMAGE_MIME = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.avif': 'image/avif',
+  '.bmp': 'image/bmp',
+  '.svg': 'image/svg+xml',
+  '.tif': 'image/tiff',
+  '.tiff': 'image/tiff',
+};
+
+const EXT_GROUP = 'png|jpe?g|gif|webp|avif|bmp|svg|tiff?';
+
+const IMAGE_PATTERNS = [
+  new RegExp(String.raw`!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)`, 'gi'),
+  new RegExp(String.raw`<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']`, 'gi'),
+  new RegExp(String.raw`file://(/[^\s"'\`)<>]+\.(?:${EXT_GROUP}))`, 'gi'),
+  new RegExp(String.raw`((?:[A-Za-z]:)?[~.\w][\w.@+-]*(?:[/\\][^\s"'\`)<>|*?]+)+\.(?:${EXT_GROUP}))`, 'gi'),
+];
+
+export function extractImageRefs(text) {
+  if (!text) return [];
+  const found = [];
+  const seen = new Set();
+
+  for (const pattern of IMAGE_PATTERNS) {
+    pattern.lastIndex = 0;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      let ref = match[1]?.trim();
+      if (!ref) continue;
+      ref = ref.replace(/^file:\/\//, '').replace(/[),.;]+$/, '');
+      if (/^(https?|data):/i.test(ref)) continue;
+      if (!Object.hasOwn(IMAGE_MIME, path.extname(ref).toLowerCase())) continue;
+      if (seen.has(ref)) continue;
+      seen.add(ref);
+      found.push(ref);
+    }
+  }
+  return found;
+}
+
+async function imageInStore(filename) {
+  try {
+    const res = await fetch(`${baseUrl()}/api/hooks/images/${filename}`, {
+      method: 'HEAD',
+      signal: AbortSignal.timeout(1500),
+    });
+    return res.status === 200;
+  } catch {
+    return false;
+  }
+}
+
+async function putImage(sha, ext, buffer, mime) {
+  try {
+    const res = await fetch(
+      `${baseUrl()}/api/hooks/images?sha=${sha}&ext=${encodeURIComponent(ext)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': mime },
+        body: buffer,
+        signal: AbortSignal.timeout(10_000),
+      },
+    );
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolve image references against the agent's own filesystem and push the
+ * bytes to pitwall. Reading happens here, not on the server, because a
+ * container path like /workspaces/... does not exist on the host.
+ */
+export async function uploadImages(text, searchDirs, { max = 12, maxBytes = 32 * 1024 * 1024 } = {}) {
+  const refs = extractImageRefs(text).slice(0, max);
+  const dirs = searchDirs.filter(Boolean);
+  const images = [];
+
+  for (const ref of refs) {
+    const expanded = ref.startsWith('~/') ? path.join(os.homedir(), ref.slice(2)) : ref;
+    const candidates = path.isAbsolute(expanded)
+      ? [expanded]
+      : dirs.map((dir) => path.resolve(dir, expanded));
+
+    const resolved = candidates.find((candidate) => {
+      try {
+        return fs.statSync(candidate).isFile();
+      } catch {
+        return false;
+      }
+    });
+    if (!resolved) {
+      images.push({ ref, missing: true });
+      continue;
+    }
+
+    const ext = path.extname(resolved).toLowerCase();
+    const mime = IMAGE_MIME[ext];
+    const name = path.basename(resolved);
+
+    let buffer;
+    try {
+      if (fs.statSync(resolved).size > maxBytes) {
+        images.push({ ref, sourcePath: resolved, name, missing: true, error: 'too large' });
+        continue;
+      }
+      buffer = fs.readFileSync(resolved);
+    } catch (error) {
+      images.push({ ref, sourcePath: resolved, name, missing: true, error: error.message });
+      continue;
+    }
+
+    const sha = crypto.createHash('sha256').update(buffer).digest('hex').slice(0, 32);
+    const filename = `${sha}${ext}`;
+    const base = { ref, sourcePath: resolved, name, mime, bytes: buffer.length };
+
+    if (await imageInStore(filename)) {
+      images.push({ ...base, filename, url: `/images/${filename}` });
+      continue;
+    }
+    const stored = await putImage(sha, ext, buffer, mime);
+    if (stored?.url) images.push({ ...base, filename, url: stored.url });
+    else images.push({ ...base, missing: true, error: 'upload failed' });
+  }
+  return images;
 }
 
 function git(cwd, args) {

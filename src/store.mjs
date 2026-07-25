@@ -182,11 +182,24 @@ export async function storeImage(sourcePath, { mime, ext }) {
   return { filename, url: `/images/${filename}`, bytes: stat.size, mime };
 }
 
+export function imageExists(filename) {
+  return fs.existsSync(path.join(paths.images, filename));
+}
+
+/** Store bytes uploaded by a hook. Content-addressed, so re-uploads are no-ops. */
+export async function storeImageBytes(buffer, { sha, ext, mime }) {
+  const filename = `${sha}${ext}`;
+  const target = path.join(paths.images, filename);
+  if (!fs.existsSync(target)) await fsp.writeFile(target, buffer);
+  return { filename, url: `/images/${filename}`, bytes: buffer.length, mime };
+}
+
 /** Buffer an afterAgentResponse chunk for a Cursor conversation. */
-export function pushResponse(conversationId, text) {
-  if (!conversationId || !text) return;
+export function pushResponse(conversationId, text, images = []) {
+  if (!conversationId) return;
+  if (!text && !images.length) return;
   const list = responseBuffers.get(conversationId) ?? [];
-  list.push({ text: String(text), at: Date.now() });
+  list.push({ text: String(text || ''), images, at: Date.now() });
   // Keep a bound so a stuck conversation cannot grow forever.
   if (list.length > 40) list.splice(0, list.length - 40);
   responseBuffers.set(conversationId, list);
@@ -197,7 +210,7 @@ export function takeResponses(conversationId) {
   if (!conversationId) return [];
   const list = responseBuffers.get(conversationId) ?? [];
   responseBuffers.delete(conversationId);
-  return list.map((item) => item.text);
+  return list;
 }
 
 export function shutdown() {
