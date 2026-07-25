@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>pitwall</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <h1>pitwall</h1>
+      <span id="status-dot" class="status-dot" title="connecting"></span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button type="button" class="tab active" data-view="timeline">Timeline</button>
+      <button type="button" class="tab" data-view="archive">Archive</button>
+    </nav>
+    <div class="filters">
+      <label class="filter">
+        <span>repo</span>
+        <select id="filter-repo" multiple size="1"></select>
+      </label>
+      <label class="filter">
+        <span>agent</span>
+        <select id="filter-agent" multiple size="1">
+          <option value="cursor">cursor</option>
+          <option value="claude">claude</option>
+        </select>
+      </label>
+      <label class="filter">
+        <span>order</span>
+        <select id="filter-order">
+          <option value="desc">newest first</option>
+          <option value="asc">oldest first</option>
+        </select>
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <div class="rail" aria-hidden="true"></div>
+    <div id="timeline" class="timeline"></div>
+    <p id="empty" class="empty hidden">No entries.</p>
+  </main>
+
+  <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
+    <button type="button" class="lightbox-close" id="lightbox-close">×</button>
+    <img id="lightbox-img" alt="" />
+    <p id="lightbox-cap" class="lightbox-cap"></p>
+  </div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

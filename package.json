@@ -1,0 +1,21 @@
+{
+  "name": "pitwall",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One timeline for every coding agent that is waiting on you.",
+  "type": "module",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "bin": {
+    "pitwall": "./bin/pitwall.mjs"
+  },
+  "scripts": {
+    "start": "PITWALL_HOST=0.0.0.0 node src/server.mjs",
+    "dev": "PITWALL_HOST=0.0.0.0 node --watch src/server.mjs",
+    "install-hooks": "node bin/install-hooks.mjs",
+    "install-hooks:devcontainer": "node bin/install-hooks.mjs --devcontainer",
+    "uninstall-hooks": "node bin/install-hooks.mjs --uninstall",
+    "smoke": "node test/smoke.mjs"
+  }
+}
