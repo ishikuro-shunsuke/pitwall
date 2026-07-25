@@ -99,6 +99,7 @@ function installCursor() {
   data.hooks = data.hooks || {};
 
   const strip = (list) => (list || []).filter((h) => !isPitwallCommand(h.command));
+  const added = [];
 
   if (uninstall) {
     data.hooks.afterAgentResponse = strip(data.hooks.afterAgentResponse);
@@ -108,22 +109,25 @@ function installCursor() {
   } else {
     // Cursor runs user hooks with ~/.cursor as the working directory, so these
     // relative commands resolve correctly on any machine or container.
-    data.hooks.afterAgentResponse = [
-      ...strip(data.hooks.afterAgentResponse),
-      { command: `node ./hooks/pitwall/cursor-after-response.mjs${urlArgs}`, timeout: 60 },
-    ];
-    data.hooks.stop = [
-      ...strip(data.hooks.stop),
-      {
-        command: `node ./hooks/pitwall/cursor-stop.mjs${urlArgs}`,
-        timeout: HOOK_TIMEOUT,
-        loop_limit: null,
-      },
-    ];
+    const afterResponse = {
+      command: `node ./hooks/pitwall/cursor-after-response.mjs${urlArgs}`,
+      timeout: 60,
+    };
+    const stop = {
+      command: `node ./hooks/pitwall/cursor-stop.mjs${urlArgs}`,
+      timeout: HOOK_TIMEOUT,
+      loop_limit: null,
+    };
+    data.hooks.afterAgentResponse = [...strip(data.hooks.afterAgentResponse), afterResponse];
+    data.hooks.stop = [...strip(data.hooks.stop), stop];
+    added.push(
+      { at: 'hooks.afterAgentResponse[]', value: afterResponse },
+      { at: 'hooks.stop[]', value: stop },
+    );
   }
 
   writeJson(file, data);
-  report('Cursor', file, scripts, bak);
+  report('Cursor', file, scripts, bak, added);
 }
 
 function installClaude() {
@@ -139,6 +143,8 @@ function installClaude() {
       .map((g) => ({ ...g, hooks: (g.hooks || []).filter((h) => !isPitwallCommand(h.command)) }))
       .filter((g) => g.hooks.length > 0);
 
+  const added = [];
+
   if (uninstall) {
     data.hooks.Stop = stripGroups(data.hooks.Stop);
     data.hooks.Notification = stripGroups(data.hooks.Notification);
@@ -148,41 +154,48 @@ function installClaude() {
   } else {
     // Claude Code does not run hooks from ~/.claude, so use $HOME instead of a
     // baked-in absolute path: the shell expands it per environment.
-    data.hooks.Stop = [
-      ...stripGroups(data.hooks.Stop),
-      {
-        hooks: [{
-          type: 'command',
-          command: `node "$HOME/.claude/hooks/pitwall/claude-stop.mjs"${urlArgs}`,
-          timeout: HOOK_TIMEOUT,
-        }],
-      },
-    ];
-    data.hooks.Notification = [
-      ...stripGroups(data.hooks.Notification),
-      {
-        hooks: [{
-          type: 'command',
-          command: `${notifyEnv}node "$HOME/.claude/hooks/pitwall/claude-notification.mjs"`,
-          timeout: 10,
-        }],
-      },
-    ];
+    const stop = {
+      hooks: [{
+        type: 'command',
+        command: `node "$HOME/.claude/hooks/pitwall/claude-stop.mjs"${urlArgs}`,
+        timeout: HOOK_TIMEOUT,
+      }],
+    };
+    const notification = {
+      hooks: [{
+        type: 'command',
+        command: `${notifyEnv}node "$HOME/.claude/hooks/pitwall/claude-notification.mjs"`,
+        timeout: 10,
+      }],
+    };
+    data.hooks.Stop = [...stripGroups(data.hooks.Stop), stop];
+    data.hooks.Notification = [...stripGroups(data.hooks.Notification), notification];
+    added.push(
+      { at: 'hooks.Stop[]', value: stop },
+      { at: 'hooks.Notification[]', value: notification },
+    );
   }
 
   writeJson(file, data);
-  report('Claude Code', file, scripts, bak);
+  report('Claude Code', file, scripts, bak, added);
 }
 
-// The report is what the user learns from, so print the paths actually written
-// rather than documenting them somewhere that can fall out of step.
-function report(label, file, scripts, bak) {
+/**
+ * The config files belong to the user and already have their own hooks in them,
+ * so show the entries appended rather than describing the edit elsewhere.
+ */
+function report(label, file, scripts, bak, added = []) {
   const verb = uninstall ? 'removed' : 'installed';
   console.log(`${verb} ${label} hooks`);
   console.log(`  config:  ${file}${bak ? `  (backup: ${bak})` : ''}`);
   console.log(
     `  scripts: ${scripts.dir}${scripts.files.length ? `  → ${scripts.files.join(', ')}` : '  (deleted)'}`,
   );
+  const width = Math.max(0, ...added.map((entry) => entry.at.length));
+  added.forEach((entry, i) => {
+    const gutter = i === 0 ? '  added:  ' : '          ';
+    console.log(`${gutter} ${entry.at.padEnd(width)}  ${JSON.stringify(entry.value)}`);
+  });
 }
 
 try {

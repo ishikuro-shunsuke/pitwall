@@ -9,14 +9,16 @@ npm start              # → http://127.0.0.1:4477/
 npm run install-hooks  # 別ターミナルで一度だけ
 ```
 
-フックが読み込まれるのは Cursor は再起動後、Claude Code は次のセッションから。
+フックが読み込まれるのは Cursor は再起動後、Claude Code は次のセッションから。外すのは `npm run uninstall-hooks`。
 
 ## 返信する
 
-| あなたの操作 | エージェント |
-|---|---|
-| 何もしない | 90 秒待って通常どおり停止する |
-| 返信欄を開いている | 最大 30 分まで待ち続ける |
+
+| あなたの操作    | エージェント           |
+| --------- | ---------------- |
+| 何もしない     | 90 秒待って通常どおり停止する |
+| 返信欄を開いている | 最大 30 分まで待ち続ける   |
+
 
 Claude Code へ連続で返信できるのは 8 回まで。超えるとセッションが打ち切られるので、近づくとカードが警告する。ターミナルで一度入力すればリセットされる。
 
@@ -29,22 +31,24 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/inst
   | sh -s -- --devcontainer
 ```
 
-`postCreateCommand` に置く。`host.docker.internal` は Docker Desktop ならそのまま引けるが、Linux の Docker Engine（Docker Desktop なしの WSL2 を含む）では自分で足す:
+`.devcontainer/devcontainer.json` の `postCreateCommand` に置く。
+
+`host.docker.internal` は Docker Desktop ならそのまま引けるが、Linux の Docker Engine（Docker Desktop なしの WSL2 を含む）では自分で足す。`devcontainer.json` が `dockerComposeFile` を指しているなら、その compose ファイルの該当サービスに:
 
 ```yaml
-extra_hosts: ["host.docker.internal:host-gateway"]           # docker compose
+services:
+  app:
+    extra_hosts: ["host.docker.internal:host-gateway"]
 ```
+
+`image` か `dockerFile` を直接書いているなら、`devcontainer.json` に:
 
 ```jsonc
-"runArgs": ["--add-host=host.docker.internal:host-gateway"]  // devcontainer.json 単体
+"runArgs": ["--add-host=host.docker.internal:host-gateway"]
 ```
 
-## 設定
 
-`PITWALL_PORT`（既定 `4477`）、`PITWALL_HOLD_SECONDS`（`90`）、`PITWALL_MAX_HOLD_SECONDS`（`1800`）、`PITWALL_DATA`（`./data`）、`PITWALL_URL`（フックからの接続先）。
-
-インストーラは既存の設定を消さず追記し、`.bak.<timestamp>` を残す。書き込んだ場所は実行時に出力する。
 
 ## 開発
 
-`npm run dev`（`--watch`）、`npm run smoke`（end-to-end 検証）。
+`npm run dev`（`--watch`）、`npm run smoke`（end-to-end 検証）。既定値は `src/config.mjs`、`PITWALL_*` で上書きできる。
