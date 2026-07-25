@@ -57,8 +57,13 @@
 
   <div id="lightbox" class="lightbox hidden" role="dialog" aria-modal="true">
     <button type="button" class="lightbox-close" id="lightbox-close">×</button>
-    <img id="lightbox-img" alt="" />
-    <p id="lightbox-cap" class="lightbox-cap"></p>
+    <div id="lightbox-stage" class="lightbox-stage">
+      <img id="lightbox-img" alt="" />
+    </div>
+    <div class="lightbox-bar">
+      <p id="lightbox-cap" class="lightbox-cap"></p>
+      <a id="lightbox-raw" class="lightbox-raw" target="_blank" rel="noopener noreferrer">open original</a>
+    </div>
   </div>
 
   <script src="/app.js" type="module"></script>

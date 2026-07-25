@@ -19,8 +19,10 @@ const el = {
   filterAgent: document.getElementById('filter-agent'),
   filterOrder: document.getElementById('filter-order'),
   lightbox: document.getElementById('lightbox'),
+  lightboxStage: document.getElementById('lightbox-stage'),
   lightboxImg: document.getElementById('lightbox-img'),
   lightboxCap: document.getElementById('lightbox-cap'),
+  lightboxRaw: document.getElementById('lightbox-raw'),
   themeToggle: document.getElementById('theme-toggle'),
 };
 
@@ -85,23 +87,73 @@ el.filterAgent.addEventListener('click', (e) => {
   toggleChip(el.filterAgent, state.agents, chip.dataset.value);
 });
 
+const lightbox = { items: [], index: 0 };
+
 document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
 el.lightbox.addEventListener('click', (e) => {
-  if (e.target === el.lightbox) closeLightbox();
+  if (e.target === el.lightbox || e.target === el.lightboxStage) closeLightbox();
 });
+el.lightboxImg.addEventListener('click', toggleZoom);
+el.lightboxImg.addEventListener('load', paintLightboxCap);
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'Escape') {
+    closeLightbox();
+    return;
+  }
+  if (el.lightbox.classList.contains('hidden')) return;
+  if (e.key === 'ArrowLeft') stepLightbox(-1);
+  else if (e.key === 'ArrowRight') stepLightbox(1);
+  else return;
+  e.preventDefault();
 });
 
 function closeLightbox() {
   el.lightbox.classList.add('hidden');
+  el.lightbox.classList.remove('zoomed');
   el.lightboxImg.removeAttribute('src');
+  lightbox.items = [];
 }
 
-function openLightbox(url, cap) {
-  el.lightboxImg.src = url;
-  el.lightboxCap.textContent = cap || '';
+function openLightbox(items, index) {
+  lightbox.items = items;
   el.lightbox.classList.remove('hidden');
+  showLightbox(index);
+}
+
+function stepLightbox(delta) {
+  const n = lightbox.items.length;
+  if (n < 2) return;
+  showLightbox((lightbox.index + delta + n) % n);
+}
+
+function showLightbox(index) {
+  const item = lightbox.items[index];
+  if (!item) return;
+  lightbox.index = index;
+  el.lightbox.classList.remove('zoomed');
+  el.lightboxImg.src = item.url;
+  el.lightboxRaw.href = item.url;
+  paintLightboxCap();
+}
+
+// Natural size only exists once the bytes land, so the caption is painted both
+// on navigation and on load.
+function paintLightboxCap() {
+  const item = lightbox.items[lightbox.index];
+  if (!item) return;
+  const w = el.lightboxImg.naturalWidth;
+  const parts = [item.cap];
+  if (w) parts.push(`${w}×${el.lightboxImg.naturalHeight}`);
+  if (lightbox.items.length > 1) parts.push(`${lightbox.index + 1}/${lightbox.items.length} · ← →`);
+  el.lightboxCap.textContent = parts.filter(Boolean).join(' · ');
+}
+
+function toggleZoom() {
+  const zoomed = el.lightbox.classList.toggle('zoomed');
+  if (!zoomed) return;
+  const stage = el.lightboxStage;
+  stage.scrollLeft = (stage.scrollWidth - stage.clientWidth) / 2;
+  stage.scrollTop = (stage.scrollHeight - stage.clientHeight) / 2;
 }
 
 function esc(s) {
@@ -505,7 +557,10 @@ el.timeline.addEventListener('keydown', (e) => {
 el.timeline.addEventListener('click', async (e) => {
   const imgBtn = e.target.closest('[data-img]');
   if (imgBtn) {
-    openLightbox(imgBtn.dataset.img, imgBtn.dataset.cap);
+    // Arrow keys walk every image on screen, not just the card that was clicked.
+    const buttons = [...el.timeline.querySelectorAll('[data-img]')];
+    const items = buttons.map((b) => ({ url: b.dataset.img, cap: b.dataset.cap }));
+    openLightbox(items, buttons.indexOf(imgBtn));
     return;
   }
 
