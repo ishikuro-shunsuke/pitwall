@@ -1162,7 +1162,13 @@ async function dismissEntry(id) {
 el.timeline.addEventListener('keydown', (e) => {
   const id = e.target.getAttribute?.('data-reply-input');
   if (!id) return;
-  if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey)) return;
+  // The key under the finger, not what it produced. Mid-conversion an IME takes
+  // the keypress for itself and hands the page `Process`, so a reply typed in
+  // Japanese and sent before committing the text would land on nothing at all —
+  // no send, no card leaving, nothing to tell you the chord had missed. Plain
+  // Enter is the one an IME really is claiming, and it is already not the chord.
+  const enter = e.code === 'Enter' || e.code === 'NumpadEnter' || e.key === 'Enter';
+  if (!enter || !(e.ctrlKey || e.metaKey)) return;
   e.preventDefault();
   sendReply(id).catch((err) => alert(err.message || String(err)));
 });
