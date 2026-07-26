@@ -554,9 +554,9 @@ function cardHtml(entry) {
         <div class="head-line">
           <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
-          <span class="meta" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
+          <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
         </div>
-        <div class="chips">${holdChip(entry)}${modelChips(entry)}</div>
+        <div class="chips">${modelChips(entry)}${holdChip(entry)}</div>
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}

@@ -224,6 +224,10 @@ main {
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chips:empty { display: none; }
+/* What the card is stays left; when it runs out goes to the far end. */
+.head-line .stamp,
+.chips .hold,
+.chips .closed { margin-left: auto; }
 .chip {
   font-family: var(--mono);
   font-size: 11px;
