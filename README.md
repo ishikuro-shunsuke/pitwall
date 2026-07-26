@@ -1,41 +1,91 @@
 # pitwall
 
-Cursor と Claude Code が**あなたの入力を待っている**状態を、ブラウザのひとつのタイムラインにまとめて表示する。そこから返信すると、同じチャット／セッションにそのまま届く。ローカル完結・依存パッケージなし（Node.js 20+）。
+One timeline for every coding agent that is waiting on you.
 
-## 使いはじめる
+Cursor and Claude Code stop and wait for your input in windows you are not looking at. pitwall collects those moments into a single timeline in your browser, and delivers your reply back into the same chat or session. Everything runs on your machine, with no dependencies beyond Node.js.
+
+https://github.com/user-attachments/assets/942aed4a-8fb7-4f03-b8a2-f58dd02ed616
+
+## Requirements
+
+- Node.js 20.6+
+- Cursor, Claude Code, or both
+
+## Getting started
+
+Start the server and leave it running:
 
 ```bash
-npm start              # → http://127.0.0.1:4477/
-npm run install-hooks  # 別ターミナルで一度だけ
+npm start   # http://127.0.0.1:4477/
 ```
 
-フックが読み込まれるのは Cursor は再起動後、Claude Code は次のセッションから。外すのは `npm run uninstall-hooks`。
+Then install the hooks once in every place an agent runs:
 
-## 返信する
+```bash
+npm run install-hooks
+```
 
-Cursor は返信が来るまでエージェントを止めて待つ。放っておくと 90 秒で通常どおり停止し、返信欄を開いている間は最大 30 分まで待ち続ける。
+Cursor loads them after a restart, Claude Code from the next session.
 
-Claude Code は待たない。セッションはいつもどおり停止しているので手元でそのまま続きを打ってもよく、30 分以内にカードから返信すればそこから起き上がって続ける。同じセッションが先に次の停止をすると、古いカードは期限切れになる。
+### Inside a devcontainer
 
-返信した文章そのものは Claude Code の画面には出ない。Claude が最初に一度引用するので、そこで読む。
-
-## DevContainer
-
-コンテナの中で実行する。`.devcontainer/devcontainer.json` の `postCreateCommand` に置けば、作り直すたびに入る:
+Run this in the container. Put it in `postCreateCommand` to get the hooks back on every rebuild:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/install.sh \
   | sh -s -- --devcontainer
 ```
 
-コンテナからは `host.docker.internal` 経由でホストの pitwall に繋ぐ。それが引けない環境なら、インストーラが必要な設定を出力する。
+The container reaches the host through `host.docker.internal`. Where that does not resolve, the installer prints the setting to add.
 
-消すときは同じように:
+### Somewhere else on the network
+
+```bash
+npm run install-hooks -- --url http://192.168.1.10:4477
+```
+
+## Replying
+
+**Cursor** stops the agent and waits for your reply. If nobody opens the composer it gives up after 90 seconds and the agent stops as usual; with the composer open it waits up to 30 minutes.
+
+**Claude Code** holds nothing. The session stops the way it always does, so you can keep typing locally, and a reply sent from the card within 30 minutes wakes it up and continues from there. Once the same session stops again, the older card expires. What you typed does not show up in the Claude Code UI — Claude quotes it once at the start of its reply.
+
+## Configuration
+
+| Variable | Default | |
+| --- | --- | --- |
+| `PITWALL_HOST` | `127.0.0.1` | `npm start` sets `0.0.0.0` |
+| `PITWALL_PORT` | `4477` | |
+| `PITWALL_DATA` | `./data` | timeline, uploaded images, replies |
+| `PITWALL_HOLD_SECONDS` | `90` | how long Cursor waits with nobody looking |
+| `PITWALL_MAX_HOLD_SECONDS` | `1800` | how long a card stays answerable |
+| `PITWALL_RETENTION_DAYS` | `30` | older entries are dropped at boot |
+
+## What it puts on your machine
+
+| Path | |
+| --- | --- |
+| `~/.cursor/hooks/pitwall/`, `~/.claude/hooks/pitwall/` | copies of the hook scripts |
+| `~/.cursor/hooks.json` | `stop` and `afterAgentResponse` entries |
+| `~/.claude/settings.json` | `Stop` and `Notification` entries |
+| `<config>.bak.<timestamp>` | a backup of each file before it is edited |
+| `./data` | the timeline itself |
+
+## Uninstall
+
+```bash
+npm run uninstall-hooks
+```
+
+This removes the copied scripts and the pitwall entries, and leaves the backups and `./data` alone. In a container with no checkout to run it from:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/cleanup.sh | sh
 ```
 
-## 開発
+## Development
 
-`npm run dev`（`--watch`）、`npm run smoke`（end-to-end 検証）。既定値は `src/config.mjs`、`PITWALL_*` で上書きできる。
+```bash
+npm run dev    # --watch
+npm test       # end-to-end smoke test and installer test
+```
