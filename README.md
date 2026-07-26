@@ -46,7 +46,7 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 
 ## Replying
 
-**Cursor** stops the agent and waits for your reply. If nobody opens the composer it gives up after 90 seconds and the agent stops as usual; with the composer open it waits up to 30 minutes.
+**Cursor** stops the agent and waits for your reply. If nobody opens the composer it gives up after 5 minutes and the agent stops as usual; with the composer open it waits up to 30 minutes.
 
 **Claude Code** holds nothing. The session stops the way it always does, so you can keep typing locally, and a reply sent from the card within 30 minutes wakes it up and continues from there. Once the same session stops again, the older card expires. What you typed does not show up in the Claude Code UI — Claude quotes it once at the start of its reply.
 
@@ -57,7 +57,7 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 | `PITWALL_HOST` | `127.0.0.1` | `npm start` sets `0.0.0.0` |
 | `PITWALL_PORT` | `4477` | |
 | `PITWALL_DATA` | `./data` | timeline, uploaded images, replies |
-| `PITWALL_HOLD_SECONDS` | `90` | how long Cursor waits with nobody looking |
+| `PITWALL_HOLD_SECONDS` | `300` | how long Cursor waits with nobody looking |
 | `PITWALL_MAX_HOLD_SECONDS` | `1800` | how long a card stays answerable |
 | `PITWALL_RETENTION_DAYS` | `30` | older entries are dropped at boot |
 

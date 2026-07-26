@@ -22,7 +22,7 @@ export const config = {
    * opens the composer, it is released after this many seconds and the entry
    * becomes `expired`.
    */
-  holdSeconds: num(process.env.PITWALL_HOLD_SECONDS, 90),
+  holdSeconds: num(process.env.PITWALL_HOLD_SECONDS, 300),
 
   /**
    * Maximum total hold from entry creation, even with heartbeats.
