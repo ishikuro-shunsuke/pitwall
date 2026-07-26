@@ -1,7 +1,12 @@
+/** Cards painted per page. Scrolling to the end adds another page. */
+const PAGE = 20;
+
 const state = {
   view: 'timeline',
   repoQuery: '',
   agents: new Set(),
+  unansweredOnly: false,
+  limit: PAGE,
   entries: new Map(),
   drafts: new Map(),
   engaged: new Set(),
@@ -10,11 +15,15 @@ const state = {
 };
 
 const el = {
+  topbar: document.querySelector('.topbar'),
   timeline: document.getElementById('timeline'),
   empty: document.getElementById('empty'),
   status: document.getElementById('status-dot'),
   filterRepo: document.getElementById('filter-repo'),
   filterAgent: document.getElementById('filter-agent'),
+  filterAnswer: document.getElementById('filter-answer'),
+  filterUnanswered: document.getElementById('filter-unanswered'),
+  more: document.getElementById('more'),
   lightbox: document.getElementById('lightbox'),
   lightboxStage: document.getElementById('lightbox-stage'),
   lightboxImg: document.getElementById('lightbox-img'),
@@ -54,8 +63,18 @@ document.querySelectorAll('.tab').forEach((btn) => {
     document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     state.view = btn.dataset.view;
+    // Nothing in the timeline has finished, so there is nothing to narrow.
+    el.filterAnswer.hidden = state.view !== 'archive';
+    resetPaging();
     refresh();
   });
+});
+
+el.filterUnanswered.addEventListener('click', () => {
+  state.unansweredOnly = !state.unansweredOnly;
+  el.filterUnanswered.setAttribute('aria-pressed', String(state.unansweredOnly));
+  resetPaging();
+  render();
 });
 
 function toggleChip(group, set, value) {
@@ -64,11 +83,13 @@ function toggleChip(group, set, value) {
   for (const chip of group.querySelectorAll('.filter-chip')) {
     chip.setAttribute('aria-pressed', String(set.has(chip.dataset.value)));
   }
+  resetPaging();
   render();
 }
 
 el.filterRepo.addEventListener('input', () => {
   state.repoQuery = el.filterRepo.value.trim().toLowerCase();
+  resetPaging();
   render();
 });
 
@@ -177,14 +198,22 @@ function nowMs() {
   return Date.now() + state.serverSkew;
 }
 
-function repoColor(key) {
+/**
+ * The hue carries the repo, so the border and the bands that frame the card
+ * are the same colour at two strengths — full for a line, washed out behind
+ * text that still has to be readable.
+ */
+function repoTones(key) {
   if (!key) return null;
   let hash = 0;
   for (let i = 0; i < key.length; i++) {
     hash = (hash * 31 + key.charCodeAt(i)) | 0;
   }
   const hue = Math.abs(hash) % 360;
-  return `hsl(${hue}deg 65% var(--repo-l))`;
+  return {
+    color: `hsl(${hue}deg 65% var(--repo-l))`,
+    tint: `hsl(${hue}deg 65% var(--repo-l) / 0.12)`,
+  };
 }
 
 /** What the repo filter matches on: the name you see, plus the path and branch. */
@@ -195,6 +224,7 @@ function repoHaystack(entry) {
 
 function selectedEntries() {
   let items = [...state.entries.values()].filter((e) => e.bucket === state.view);
+  if (state.view === 'archive' && state.unansweredOnly) items = items.filter((e) => e.unanswered);
   if (state.repoQuery) items = items.filter((e) => repoHaystack(e).includes(state.repoQuery));
   if (state.agents.size) items = items.filter((e) => state.agents.has(e.agent));
   items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
@@ -233,23 +263,72 @@ function imagesHtml(entry) {
 function turnsHtml(entry) {
   if (!entry.turnMessages || entry.turnMessages.length <= 1) return '';
   const earlier = entry.turnMessages.slice(0, -1).join('\n\n---\n\n');
-  return `<details class="turn-fold"><summary>${entry.turnMessages.length - 1} earlier message(s) this turn</summary><div class="markdown">${renderMarkdown(earlier)}</div></details>`;
+  return `<details class="turn-fold"><summary>${entry.turnMessages.length - 1} earlier message(s) this turn</summary><div class="markdown">${renderMarkdown(earlier, entry.images)}</div></details>`;
 }
 
-function inlineMd(s) {
+/**
+ * Escaped ref -> stored image, for the links inside the body. The body text is
+ * escaped before it is parsed, so the keys have to be escaped to match.
+ */
+function imageRefs(images) {
+  const byRef = new Map();
+  for (const img of images || []) {
+    if (img.missing || !img.url) continue;
+    byRef.set(esc(img.ref), img);
+  }
+  return byRef;
+}
+
+function inlineMd(s, images) {
   return s
     .replace(/`([^`]+?)`/g, (_m, code) => `<code>${code}</code>`)
     .replace(/\*\*([^*]+?)\*\*|__([^_]+?)__/g, (_m, a, b) => `<strong>${a ?? b}</strong>`)
     .replace(/\*([^*]+?)\*|_([^_]+?)_/g, (_m, a, b) => `<em>${a ?? b}</em>`)
-    .replace(/\[([^\]]+?)\]\((https?:\/\/[^\s)]+?)\)/g, (_m, text, url) => `<a href="${url}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+    .replace(/(!?)\[([^\]]*?)\]\(\s*([^\s)]+?)\s*\)/g, (m, bang, text, target) => {
+      // A link to one of this entry's own images opens it in the viewer, so the
+      // label stays readable and the path still lands somewhere.
+      const img = images?.get(target);
+      if (img) {
+        const cap = img.name || img.ref;
+        return `<a class="img-link" href="${esc(img.url)}" data-img-open="${esc(img.url)}" data-cap="${esc(cap)}" target="_blank" rel="noopener noreferrer">${text || esc(cap)}</a>`;
+      }
+      if (text && /^https?:\/\//.test(target)) {
+        return `${bang}<a href="${target}" target="_blank" rel="noopener noreferrer">${text}</a>`;
+      }
+      return m;
+    });
 }
 
-function renderMarkdown(raw) {
+const TABLE_DELIM = /^\s*\|?(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?\s*$/;
+
+function tableCells(line) {
+  const cells = [];
+  let cur = '';
+  for (let j = 0; j < line.length; j++) {
+    if (line[j] === '\\' && line[j + 1] === '|') {
+      cur += '|';
+      j++;
+    } else if (line[j] === '|') {
+      cells.push(cur);
+      cur = '';
+    } else {
+      cur += line[j];
+    }
+  }
+  cells.push(cur);
+  if (cells.length > 1 && cells[0].trim() === '') cells.shift();
+  if (cells.length > 1 && cells[cells.length - 1].trim() === '') cells.pop();
+  return cells.map((c) => c.trim());
+}
+
+function renderMarkdown(raw, entryImages) {
   const lines = esc(raw).split('\n');
+  const images = imageRefs(entryImages);
+  const inline = (s) => inlineMd(s, images);
   const out = [];
   let para = [];
   const flushPara = () => {
-    if (para.length) out.push(`<p>${inlineMd(para.join('<br>'))}</p>`);
+    if (para.length) out.push(`<p>${inline(para.join('<br>'))}</p>`);
     para = [];
   };
 
@@ -272,11 +351,35 @@ function renderMarkdown(raw) {
       continue;
     }
 
+    if (line.includes('|') && i + 1 < lines.length && TABLE_DELIM.test(lines[i + 1])) {
+      const head = tableCells(line);
+      const delim = tableCells(lines[i + 1]);
+      if (head.length === delim.length) {
+        flushPara();
+        const align = delim.map((d) => {
+          if (/^:-+:$/.test(d)) return ' style="text-align:center"';
+          if (/^-+:$/.test(d)) return ' style="text-align:right"';
+          return '';
+        });
+        i += 2;
+        const rows = [];
+        while (i < lines.length && lines[i].trim() !== '' && lines[i].includes('|')) {
+          rows.push(tableCells(lines[i]));
+          i++;
+        }
+        const cell = (tag, text, idx) => `<${tag}${align[idx]}>${inline(text || '')}</${tag}>`;
+        const thead = `<tr>${head.map((h, idx) => cell('th', h, idx)).join('')}</tr>`;
+        const tbody = rows.map((r) => `<tr>${head.map((_h, idx) => cell('td', r[idx], idx)).join('')}</tr>`).join('');
+        out.push(`<div class="md-table-wrap"><table><thead>${thead}</thead><tbody>${tbody}</tbody></table></div>`);
+        continue;
+      }
+    }
+
     const heading = line.match(/^(#{1,6})\s+(.*)$/);
     if (heading) {
       flushPara();
       const level = heading[1].length;
-      out.push(`<h${level}>${inlineMd(heading[2])}</h${level}>`);
+      out.push(`<h${level}>${inline(heading[2])}</h${level}>`);
       i++;
       continue;
     }
@@ -290,7 +393,7 @@ function renderMarkdown(raw) {
         quoteLines.push(lines[i].replace(/^&gt;\s?/, ''));
         i++;
       }
-      out.push(`<blockquote>${inlineMd(quoteLines.join('<br>'))}</blockquote>`);
+      out.push(`<blockquote>${inline(quoteLines.join('<br>'))}</blockquote>`);
       continue;
     }
 
@@ -305,7 +408,7 @@ function renderMarkdown(raw) {
         items.push(m2[1]);
         i++;
       }
-      out.push(`<ul>${items.map((it) => `<li>${inlineMd(it)}</li>`).join('')}</ul>`);
+      out.push(`<ul>${items.map((it) => `<li>${inline(it)}</li>`).join('')}</ul>`);
       continue;
     }
 
@@ -320,7 +423,7 @@ function renderMarkdown(raw) {
         items.push(m2[1]);
         i++;
       }
-      out.push(`<ol>${items.map((it) => `<li>${inlineMd(it)}</li>`).join('')}</ol>`);
+      out.push(`<ol>${items.map((it) => `<li>${inline(it)}</li>`).join('')}</ol>`);
       continue;
     }
 
@@ -384,9 +487,9 @@ function cardHtml(entry) {
   const repo = entry.repo || {};
   const branch = repo.branch ? `@${repo.branch}` : '';
   const dirty = repo.dirty ? ' • dirty' : '';
-  const color = repoColor(repo.key || repo.name);
+  const tones = repoTones(repo.key || repo.name);
   const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
-  if (color) decl.push(`--repo-color: ${color}`);
+  if (tones) decl.push(`--repo-color: ${tones.color}`, `--repo-tint: ${tones.tint}`);
   const style = ` style="${decl.join('; ')}"`;
   return `
     <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
@@ -399,7 +502,7 @@ function cardHtml(entry) {
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
-        <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)')}</div>
+        <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)', entry.images)}</div>
         ${turnsHtml(entry)}
         ${imagesHtml(entry)}
       </div>
@@ -410,23 +513,95 @@ function cardHtml(entry) {
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let painted = null;
 
-function render() {
-  const items = selectedEntries();
+function render({ grew = false } = {}) {
+  const selected = selectedEntries();
+  const items = selected.slice(0, state.limit);
   const ids = items.map((e) => e.id);
   const shuffled = painted && (ids.length !== painted.length || ids.some((id, i) => id !== painted[i]));
   const first = painted === null;
   painted = ids;
+  paintMore(selected.length - items.length);
 
   // Only arrivals, departures and reorders are worth animating. A card whose
-  // text changed under you while you were typing in it should not move at all.
-  if (first || !shuffled || reduceMotion.matches || !document.startViewTransition) {
+  // text changed under you while you were typing in it should not move at all,
+  // and a page appended below the fold has nothing to animate either.
+  if (first || grew || !shuffled || reduceMotion.matches || !document.startViewTransition) {
     paint(items);
     return;
   }
   document.startViewTransition(() => paint(items));
 }
 
+/**
+ * The button doubles as the scroll sentinel. Hiding it takes it out of layout,
+ * which is also what stops the observer once nothing is held back.
+ */
+function paintMore(held) {
+  el.more.classList.toggle('hidden', held <= 0);
+  if (held > 0) el.more.textContent = `Show ${Math.min(PAGE, held)} more · ${held} left`;
+}
+
+function showMore() {
+  if (el.more.classList.contains('hidden')) return;
+  state.limit += PAGE;
+  render({ grew: true });
+}
+
+/** A different set of entries is about to be listed, so start from page one. */
+function resetPaging() {
+  state.limit = PAGE;
+  // Scrolled deep into the longer list, the reset would leave you past the end
+  // of the shorter one, and the sentinel would pull the pages straight back in.
+  if (window.scrollY > TOP_SLACK) window.scrollTo({ top: 0, behavior: 'instant' });
+}
+
+el.more.addEventListener('click', showMore);
+
+// Reaching the end of the page asks for the next one; the margin means it is
+// already painted by the time the last card clears the fold.
+new IntersectionObserver((entries) => {
+  if (entries.some((e) => e.isIntersecting)) showMore();
+}, { rootMargin: '600px 0px' }).observe(el.more);
+
+// Newest first means an arrival pushes whatever you are reading down the page.
+// Nothing survives the repaint for the browser to anchor to, so the card at the
+// top of the reading area is measured before the swap and put back after it.
+
+/** Scrolled this close to the head of the feed, arrivals are meant to show up. */
+const TOP_SLACK = 8;
+
+/** The topbar is sticky, so the first line you can actually read sits under it. */
+function readingTop() {
+  return el.topbar.getBoundingClientRect().bottom;
+}
+
+/** Several cards deep, so a repaint that drops the top one can fall back. */
+function captureAnchors() {
+  if (window.scrollY <= TOP_SLACK) return [];
+  const top = readingTop();
+  const anchors = [];
+  for (const card of el.timeline.children) {
+    const rect = card.getBoundingClientRect();
+    if (rect.bottom <= top) continue;
+    anchors.push({ id: card.dataset.id, top: rect.top });
+    if (anchors.length === 5) break;
+  }
+  return anchors;
+}
+
+function restoreAnchors(anchors) {
+  for (const anchor of anchors) {
+    const card = el.timeline.querySelector(`.card[data-id="${CSS.escape(anchor.id)}"]`);
+    if (!card) continue;
+    const drift = card.getBoundingClientRect().top - anchor.top;
+    if (drift) window.scrollBy({ top: drift, behavior: 'instant' });
+    return;
+  }
+}
+
 function paint(items) {
+  const anchors = captureAnchors();
+
   // A card can be replaced mid-sentence by an SSE update, so carry the caret
   // across the swap along with the draft text.
   const active = document.activeElement;
@@ -448,6 +623,9 @@ function paint(items) {
       input.setSelectionRange(focused.start, focused.end);
     }
   }
+
+  // Last, so that refocusing the reply box cannot scroll out from under you.
+  restoreAnchors(anchors);
 }
 
 function upsert(entry) {
@@ -549,13 +727,35 @@ el.timeline.addEventListener('keydown', (e) => {
   el.timeline.querySelector(`[data-act="send"][data-id="${CSS.escape(id)}"]`)?.click();
 });
 
+/**
+ * Opens `url` in the viewer. Arrow keys walk every image on screen, not just
+ * the card that was clicked, so `from` says which thumbnail was the way in —
+ * two refs with the same bytes share one url and can't be told apart by it.
+ */
+function openImage(url, cap, from) {
+  const buttons = [...el.timeline.querySelectorAll('[data-img]')];
+  const items = buttons.map((b) => ({ url: b.dataset.img, cap: b.dataset.cap }));
+  let index = from ? buttons.indexOf(from) : items.findIndex((it) => it.url === url);
+  if (index < 0) {
+    items.unshift({ url, cap });
+    index = 0;
+  }
+  openLightbox(items, index);
+}
+
 el.timeline.addEventListener('click', async (e) => {
+  const imgLink = e.target.closest('[data-img-open]');
+  if (imgLink) {
+    // A modified click keeps the href, so the file can still be opened raw.
+    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    openImage(imgLink.dataset.imgOpen, imgLink.dataset.cap);
+    return;
+  }
+
   const imgBtn = e.target.closest('[data-img]');
   if (imgBtn) {
-    // Arrow keys walk every image on screen, not just the card that was clicked.
-    const buttons = [...el.timeline.querySelectorAll('[data-img]')];
-    const items = buttons.map((b) => ({ url: b.dataset.img, cap: b.dataset.cap }));
-    openLightbox(items, buttons.indexOf(imgBtn));
+    openImage(imgBtn.dataset.img, imgBtn.dataset.cap, imgBtn);
     return;
   }
 

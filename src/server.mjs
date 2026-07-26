@@ -294,11 +294,30 @@ async function handleResolve(req, res, params) {
     return;
   }
 
+  // The hold outlasts a silent response: node's fetch gives a reply five
+  // minutes to start arriving and then drops the socket, which reads here as
+  // the agent having been interrupted. Send the headers now and a space every
+  // so often — JSON.parse skips leading whitespace, so the poll still ends in
+  // one parseable object.
+  res.writeHead(200, {
+    'Content-Type': 'application/json; charset=utf-8',
+    'Cache-Control': 'no-store',
+  });
+  res.flushHeaders();
+  const heartbeat = setInterval(() => res.write(' '), 30_000);
+  heartbeat.unref?.();
+  res.on('close', () => clearInterval(heartbeat));
+  const finish = (body) => {
+    clearInterval(heartbeat);
+    res.end(JSON.stringify(body));
+  };
+
   // Client disconnect (agent interrupted) → mark detached.
   let finished = false;
   const onClose = () => {
     if (finished) return;
     finished = true;
+    clearInterval(heartbeat);
     if (entry.status === 'waiting' && waiters.isLive(entry.id)) {
       waiters.drop(entry.id);
       store.update(entry.id, {
@@ -323,7 +342,7 @@ async function handleResolve(req, res, params) {
         resolution: reason,
       });
     }
-    sendJson(res, 200, { action: 'release', reason });
+    finish({ action: 'release', reason });
     return;
   }
 
@@ -334,7 +353,7 @@ async function handleResolve(req, res, params) {
       resolution: 'reply',
       reply: resolution.message,
     });
-    sendJson(res, 200, { action: 'reply', message: resolution.message });
+    finish({ action: 'reply', message: resolution.message });
     return;
   }
 
@@ -344,11 +363,11 @@ async function handleResolve(req, res, params) {
       resolvedAt: new Date().toISOString(),
       resolution: 'dismiss',
     });
-    sendJson(res, 200, { action: 'dismiss' });
+    finish({ action: 'dismiss' });
     return;
   }
 
-  sendJson(res, 200, { action: 'release', reason: 'unknown' });
+  finish({ action: 'release', reason: 'unknown' });
 }
 
 async function handleList(req, res, url) {
@@ -359,6 +378,7 @@ async function handleList(req, res, url) {
   let items = store.list().map(publicEntry);
 
   if (view !== 'all') items = items.filter((e) => e.bucket === view);
+  if (url.searchParams.get('unanswered') === '1') items = items.filter((e) => e.unanswered);
 
   if (repo.length) {
     const set = new Set(repo);

@@ -8,6 +8,8 @@
   --muted: light-dark(#5d6b7f, #8b9bb0);
   --accent-cursor: light-dark(#4a55c9, #7c8cff);
   --accent-claude: light-dark(#9a6420, #d4a574);
+  /* The accents flip from dark to light with the theme, so what sits on top flips too. */
+  --on-accent: light-dark(#ffffff, #0e1116);
   --danger: light-dark(#c62f26, #f85149);
   --ok: light-dark(#1a7f37, #3fb950);
   --warn: light-dark(#8a6100, #d29922);
@@ -71,6 +73,7 @@ a { color: var(--accent-cursor); }
 
 .filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.filter[hidden] { display: none; }
 .filter input {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -121,11 +124,28 @@ main {
 .timeline { display: flex; flex-direction: column; gap: var(--gap); position: relative; }
 .empty { color: var(--muted); text-align: center; padding: 60px 0; }
 
+.more {
+  display: block;
+  width: calc(100% - 36px);
+  margin: var(--gap) 0 0 36px;
+  padding: 10px;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.more:hover { border-color: var(--muted); color: var(--text); }
+
 .card {
   position: relative;
   margin-left: 36px;
   background: var(--panel);
   border: 1px solid var(--repo-color, var(--border));
+  border-left-width: 3px;
   border-radius: 0;
   overflow: hidden;
   box-shadow: none;
@@ -141,8 +161,6 @@ main {
   border: 2px solid var(--rail);
   border-radius: 0;
 }
-.card[data-agent="cursor"] { border-left: 3px solid var(--accent-cursor); }
-.card[data-agent="claude"] { border-left: 3px solid var(--accent-claude); }
 .card[data-agent="cursor"]::before { border-color: var(--accent-cursor); }
 .card[data-agent="claude"]::before { border-color: var(--accent-claude); }
 
@@ -152,7 +170,7 @@ main {
   gap: 8px;
   align-items: center;
   padding: 12px 14px;
-  background: var(--panel-2);
+  background: var(--repo-tint, var(--panel-2));
   border-bottom: 1px solid var(--border);
 }
 .badge {
@@ -163,8 +181,8 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.badge.cursor { color: var(--accent-cursor); }
-.badge.claude { color: var(--accent-claude); }
+.badge.cursor { background: var(--accent-cursor); border-color: var(--accent-cursor); color: var(--on-accent); }
+.badge.claude { background: var(--accent-claude); border-color: var(--accent-claude); color: var(--on-accent); }
 .badge.status-waiting { color: var(--ok); }
 .badge.status-notice { color: var(--warn); }
 .badge.status-answered { color: var(--muted); }
@@ -250,6 +268,36 @@ main {
   padding: 0;
   font-size: 12.5px;
 }
+.markdown .img-link {
+  cursor: zoom-in;
+  text-decoration: underline dotted;
+  text-underline-offset: 2px;
+}
+/* An inline-block escapes the underline the link propagates down. */
+.markdown .img-link::before {
+  content: "▣";
+  display: inline-block;
+  margin-right: 3px;
+  font-size: 0.9em;
+}
+.markdown .md-table-wrap {
+  margin: 0 0 10px;
+  overflow-x: auto;
+}
+.markdown table {
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.markdown th, .markdown td {
+  border: 1px solid var(--border);
+  padding: 4px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+.markdown th {
+  background: var(--bg);
+  font-weight: 600;
+}
 
 .images {
   display: flex;
@@ -282,7 +330,7 @@ main {
   gap: 8px;
   padding: 12px 14px;
   border-top: 1px solid var(--border);
-  background: var(--panel-2);
+  background: var(--repo-tint, var(--panel-2));
 }
 .btn {
   border: 1px solid var(--border);

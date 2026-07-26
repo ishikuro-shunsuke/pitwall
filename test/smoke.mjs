@@ -249,12 +249,12 @@ async function main() {
       if (resolved.data?.action === 'dismiss') ok('claude dismiss');
       else fail('claude dismiss', resolved.data);
 
-      const unanswered = await json('GET', '/api/entries?view=unanswered');
+      const unanswered = await json('GET', '/api/entries?view=archive&unanswered=1');
       const archived = await json('GET', '/api/entries?view=archive');
       const inUnanswered = unanswered.data.entries?.some((e) => e.id === id);
       const inArchive = archived.data.entries?.some((e) => e.id === id);
-      if (inUnanswered && !inArchive) ok('dismissed lands in unanswered, not archive');
-      else fail('dismissed lands in unanswered, not archive', { inUnanswered, inArchive });
+      if (inUnanswered && inArchive) ok('dismissed sits in the archive, under the unanswered filter');
+      else fail('dismissed sits in the archive, under the unanswered filter', { inUnanswered, inArchive });
     }
 
     // Claude's hook waits with the session already stopped, so its card is not
@@ -336,10 +336,10 @@ async function main() {
       await new Promise((r) => setTimeout(r, 4200));
       const after = await json('GET', `/api/entries/${id}`);
       const entry = after.data.entry;
-      if (entry?.status === 'expired' && entry.bucket === 'unanswered') {
+      if (entry?.status === 'expired' && entry.bucket === 'archive' && entry.unanswered) {
         ok('an unpolled entry expires on its own');
       } else {
-        fail('an unpolled entry expires on its own', { status: entry?.status, bucket: entry?.bucket });
+        fail('an unpolled entry expires on its own', { status: entry?.status, bucket: entry?.bucket, unanswered: entry?.unanswered });
       }
     }
 
@@ -380,6 +380,32 @@ async function main() {
       const resolved = await json('GET', `/api/hooks/wait/${id}/resolve`, null, { timeoutMs: 10_000 });
       if (resolved.data?.action === 'release' && resolved.data.reason === 'expired') ok('expire release');
       else fail('expire release', resolved.data);
+    }
+
+    // A poll that outlives the client's five-minute headers timeout: the reply
+    // headers have to land long before the reply does.
+    {
+      const created = await json('POST', '/api/hooks/wait', {
+        agent: 'claude',
+        sessionId: 'smoke-headers',
+        last_assistant_message: 'slow poll',
+        repo: { root: DATA, name: 'smoke-repo' },
+        host: { cwd: DATA },
+      });
+      const id = created.data.id;
+      const poll = fetch(`${BASE}/api/hooks/wait/${id}/resolve`);
+      // Nothing has resolved yet, so this can only settle on the early flush.
+      const headers = await Promise.race([
+        poll.then((res) => res.status),
+        new Promise((r) => setTimeout(() => r('timeout'), 2000)),
+      ]);
+      if (headers === 200) ok('resolve flushes headers before it answers');
+      else fail('resolve flushes headers before it answers', headers);
+
+      await json('POST', `/api/entries/${id}/reply`, { message: 'late' });
+      const body = await poll.then((res) => res.text());
+      if (JSON.parse(body)?.message === 'late') ok('heartbeat padding stays parseable');
+      else fail('heartbeat padding stays parseable', body);
     }
 
     // static UI

@@ -18,14 +18,20 @@ const UNANSWERED_STATUSES = new Set(['dismissed', 'expired', 'detached']);
 
 /**
  * Which tab an entry belongs to: 'timeline' while it is still live, then
- * 'archive' once it ended with your reply in the agent's hands, or
- * 'unanswered' when the agent stopped without ever hearing back. A notice was
- * never a question, so clearing one lands in 'archive'.
+ * 'archive' once it is over, however it ended.
  */
 export function bucketOf(entry) {
-  if (ACTIVE_STATUSES.has(entry.status)) return 'timeline';
-  if (entry.kind === 'notice') return 'archive';
-  return UNANSWERED_STATUSES.has(entry.status) ? 'unanswered' : 'archive';
+  return ACTIVE_STATUSES.has(entry.status) ? 'timeline' : 'archive';
+}
+
+/**
+ * The agent stopped without ever hearing back from you — a filter over the
+ * archive, not a place of its own. A notice was never a question, so clearing
+ * one does not count as leaving it unanswered.
+ */
+export function isUnanswered(entry) {
+  if (entry.kind === 'notice') return false;
+  return UNANSWERED_STATUSES.has(entry.status);
 }
 
 const listeners = new Set();

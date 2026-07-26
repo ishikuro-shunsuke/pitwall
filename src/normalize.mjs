@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { config, softHoldSeconds } from './config.mjs';
 import { buildLinks } from './deeplink.mjs';
-import { newId, bucketOf } from './store.mjs';
+import { newId, bucketOf, isUnanswered } from './store.mjs';
 
 function clip(text, max = config.maxBodyChars) {
   if (!text) return '';
@@ -114,6 +114,7 @@ export function publicEntry(entry) {
   return {
     ...entry,
     bucket: bucketOf(entry),
+    unanswered: isUnanswered(entry),
     holdRemainingMs: entry.status === 'waiting'
       ? Math.max(0, (entry.holdUntil ?? 0) - Date.now())
       : 0,
