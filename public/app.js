@@ -507,10 +507,10 @@ function actionsHtml(entry) {
   const parts = [];
 
   if (entry.status === 'waiting') {
-    parts.push(`<button type="button" class="btn primary" data-act="send" data-id="${esc(entry.id)}">Send &amp; archive</button>`);
-    parts.push(`<button type="button" class="btn danger" data-act="dismiss" data-id="${esc(entry.id)}">Close without reply</button>`);
+    parts.push(`<button type="button" class="btn primary" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
+    parts.push(`<button type="button" class="btn danger" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   } else if (entry.status === 'notice') {
-    parts.push(`<button type="button" class="btn" data-act="dismiss" data-id="${esc(entry.id)}">Archive</button>`);
+    parts.push(`<button type="button" class="btn" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   }
 
   if (links.openWorkspace) {
