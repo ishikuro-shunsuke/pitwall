@@ -1,0 +1,34 @@
+{
+  "name": "pitwall",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22-bookworm",
+  "features": {
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1.0": {}
+  },
+  "remoteUser": "node",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "forwardPorts": [4477],
+  "portsAttributes": {
+    "4477": {
+      "label": "pitwall",
+      "onAutoForward": "notify"
+    }
+  },
+  "runArgs": ["--add-host=host.docker.internal:host-gateway"],
+  "mounts": [
+    "source=${localEnv:HOME}/.ssh,target=/home/node/.ssh,type=bind,consistency=cached",
+    "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind,consistency=cached"
+  ],
+  "containerEnv": {
+    "EDITOR": "code",
+    "GIT_EDITOR": "code --wait"
+  },
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      }
+    }
+  }
+}
