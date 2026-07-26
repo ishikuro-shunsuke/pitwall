@@ -25,6 +25,14 @@ import {
 } from './lib.mjs';
 
 const payload = await readStdin();
+
+// Cursor runs this hook too, from its own agent. cursor-stop already holds that
+// turn, and what arrives here has no message, no workspace root, and a cwd of
+// ~/.claude — a second card with nothing in it.
+if (/[\\/]\.cursor[\\/]/.test(payload.transcript_path || '')) {
+  failOpen();
+}
+
 const cwd = payload.cwd || process.cwd();
 const repo = detectRepo([cwd]);
 const host = detectHost(cwd);
