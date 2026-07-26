@@ -544,8 +544,10 @@ async function serveStatic(req, res, pathname) {
     return;
   }
 
-  const file = path.join(paths.public, rel);
-  if (!file.startsWith(paths.public)) {
+  // The card body builds editor links out of the file references in the text,
+  // so the browser is handed the server's own link module instead of a copy.
+  const file = rel === '/deeplink.mjs' ? paths.deeplink : path.join(paths.public, rel);
+  if (file !== paths.deeplink && !file.startsWith(paths.public)) {
     res.writeHead(400);
     res.end('bad path');
     return;

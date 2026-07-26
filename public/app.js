@@ -1,3 +1,5 @@
+import { parseFileRef, fileRefLink } from '/deeplink.mjs';
+
 /** Cards painted per page. Scrolling to the end adds another page. */
 const PAGE = 20;
 
@@ -191,6 +193,15 @@ function esc(s) {
     .replaceAll('"', '&quot;');
 }
 
+/** Back out of `esc` for values that go into a URL rather than into markup. */
+function unesc(s) {
+  return String(s ?? '')
+    .replaceAll('&quot;', '"')
+    .replaceAll('&gt;', '>')
+    .replaceAll('&lt;', '<')
+    .replaceAll('&amp;', '&');
+}
+
 function fmtAge(iso, now = Date.now()) {
   const ms = Math.max(0, now - Date.parse(iso));
   const s = Math.floor(ms / 1000);
@@ -302,7 +313,7 @@ function imagesHtml(entry) {
 function turnsHtml(entry) {
   if (!entry.turnMessages || entry.turnMessages.length <= 1) return '';
   const earlier = entry.turnMessages.slice(0, -1).join('\n\n---\n\n');
-  return `<details class="turn-fold"><summary>${entry.turnMessages.length - 1} earlier message(s) this turn</summary><div class="markdown">${renderMarkdown(earlier, entry.images)}</div></details>`;
+  return `<details class="turn-fold"><summary>${entry.turnMessages.length - 1} earlier message(s) this turn</summary><div class="markdown">${renderMarkdown(earlier, entry)}</div></details>`;
 }
 
 /**
@@ -318,7 +329,8 @@ function imageRefs(images) {
   return byRef;
 }
 
-function inlineMd(s, images) {
+function inlineMd(s, ctx) {
+  const images = ctx.images;
   // Protect code/links before *_/__ emphasis — otherwise filenames like
   // compare_paint_1to1.png get eaten mid-path and never match entry.images.
   const slots = [];
@@ -341,6 +353,19 @@ function inlineMd(s, images) {
     }
     if (text && /^https?:\/\//.test(target)) {
       return protect(`${bang}<a href="${target}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+    }
+
+    // A file reference reads as its label — repeating the path in parentheses is
+    // most of what makes these paragraphs hard to follow. The path stays in the
+    // tooltip, and lands on the line when there is a workspace to anchor it to.
+    const ref = parseFileRef(unesc(target));
+    if (ref) {
+      const label = text || esc(ref.path);
+      const href = fileRefLink(ref, ctx.root, ctx.host);
+      const tip = ` title="${target}"`;
+      return protect(href
+        ? `<a class="file-ref" href="${esc(href)}"${tip}>${label}</a>`
+        : `<span class="file-ref"${tip}>${label}</span>`);
     }
     return m;
   });
@@ -374,10 +399,14 @@ function tableCells(line) {
   return cells.map((c) => c.trim());
 }
 
-function renderMarkdown(raw, entryImages) {
+function renderMarkdown(raw, entry) {
   const lines = esc(raw).split('\n');
-  const images = imageRefs(entryImages);
-  const inline = (s) => inlineMd(s, images);
+  const ctx = {
+    images: imageRefs(entry?.images),
+    root: entry?.repo?.root || entry?.host?.cwd || null,
+    host: entry?.host || {},
+  };
+  const inline = (s) => inlineMd(s, ctx);
   const out = [];
   let para = [];
   const flushPara = () => {
@@ -556,7 +585,7 @@ function cardHtml(entry) {
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
-        <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)', entry.images)}</div>
+        <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)', entry)}</div>
         ${turnsHtml(entry)}
         ${imagesHtml(entry)}
       </div>

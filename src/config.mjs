@@ -53,4 +53,5 @@ export const paths = {
   images: path.join(config.dataDir, 'images'),
   responses: path.join(config.dataDir, 'responses'),
   public: path.join(ROOT, 'public'),
+  deeplink: path.join(ROOT, 'src', 'deeplink.mjs'),
 };

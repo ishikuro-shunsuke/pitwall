@@ -28,6 +28,51 @@ export function fileLink(absolutePath, { wslDistro } = {}) {
   return `cursor://file${encodePath(normalized)}`;
 }
 
+const SCHEME = /^[a-z][a-z0-9+.-]+:/i;
+
+/**
+ * Agents write file references as workspace-relative markdown links with the
+ * line in the fragment — `[app.js:42](public/app.js#L42)`. Anything carrying a
+ * scheme, or pointing at nothing but an anchor, belongs to somebody else.
+ */
+export function parseFileRef(target) {
+  if (!target || SCHEME.test(target) || target.startsWith('#') || /\s/.test(target)) return null;
+  const m = target.match(/^(.*?)(?:#L?(\d+)(?:-L?\d+)?|:(\d+))?$/);
+  const file = m?.[1];
+  if (!file) return null;
+  return { path: file, line: m[2] || m[3] || null };
+}
+
+function isAbsolute(p) {
+  return /^([A-Za-z]:)?[\\/]/.test(p);
+}
+
+function joinPath(root, rel) {
+  const out = [];
+  for (const part of `${root.replace(/\\/g, '/').replace(/\/+$/, '')}/${rel.replace(/\\/g, '/')}`.split('/')) {
+    if (part === '.') continue;
+    if (part === '..') {
+      if (out.length > 1) out.pop();
+      continue;
+    }
+    if (part === '' && out.length) continue;
+    out.push(part);
+  }
+  return out.join('/') || '/';
+}
+
+/**
+ * The repo root is the base a relative reference is written against, so the
+ * resulting link lands in the same window `openWorkspace` would open.
+ */
+export function fileRefLink(ref, root, host) {
+  if (!ref) return null;
+  const absolute = isAbsolute(ref.path) ? ref.path : root && joinPath(root, ref.path);
+  if (!absolute) return null;
+  const link = fileLink(absolute, host);
+  return link && ref.line ? `${link}:${ref.line}` : link;
+}
+
 export function promptLink(text) {
   const url = new URL('cursor://anysphere.cursor-deeplink/prompt');
   url.searchParams.set('text', text);
