@@ -6,28 +6,42 @@
   --border: light-dark(#d0d7e0, #2d3644);
   --text: light-dark(#1b2430, #e6edf3);
   --muted: light-dark(#5d6b7f, #8b9bb0);
-  --accent-cursor: light-dark(#4a55c9, #7c8cff);
-  --accent-claude: light-dark(#9a6420, #d4a574);
-  /* The accents flip from dark to light with the theme, so what sits on top flips too. */
-  --on-accent: light-dark(#ffffff, #0e1116);
-  --danger: light-dark(#c62f26, #f85149);
-  --ok: light-dark(#1a7f37, #3fb950);
-  --warn: light-dark(#8a6100, #d29922);
   --rail: light-dark(#d0d7e0, #2a3342);
   --topbar-bg: light-dark(rgba(243, 245, 248, 0.94), rgba(14, 17, 22, 0.94));
-  --repo-l: 42%;
+
+  /* Every colour in the app is this one tone at a different hue — the repo hues
+     from script included. Hue says which thing it is; nothing says it louder
+     than its neighbour. Set per theme rather than through light-dark(), which
+     browsers only reliably take for whole colours. */
+  --tone-l: 45%;
+  --tone-c: 0.12;
+  /* Anything you can act on, and anything waiting to be acted on. */
+  --accent: oklch(var(--tone-l) var(--tone-c) 162);
+  --danger: oklch(var(--tone-l) var(--tone-c) 25);
+  /* Half the chroma at the same hue, so a countdown can escalate towards red
+     without a second hue on the way. */
+  --danger-soft: oklch(var(--tone-l) calc(var(--tone-c) * 0.5) 25);
+  /* Worn by the agent badges alone. */
+  --brand-cursor: oklch(var(--tone-l) var(--tone-c) 280);
+  --brand-claude: oklch(var(--tone-l) var(--tone-c) 65);
+  /* The tone flips from dark to light with the theme, so what sits on top flips too. */
+  --on-accent: light-dark(#ffffff, #0e1116);
+  /* The lightbox is dark under either theme, so its text does not follow one. */
+  --overlay-text: #e6edf3;
+  --overlay-muted: #8b9bb0;
+
   --gap: 18px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
-@media (prefers-color-scheme: dark) { :root { --repo-l: 62%; } }
-:root[data-theme="light"] { color-scheme: light; --repo-l: 42%; }
-:root[data-theme="dark"] { color-scheme: dark; --repo-l: 62%; }
+@media (prefers-color-scheme: dark) { :root { --tone-l: 76%; --tone-c: 0.13; } }
+:root[data-theme="light"] { color-scheme: light; --tone-l: 45%; --tone-c: 0.12; }
+:root[data-theme="dark"] { color-scheme: dark; --tone-l: 76%; --tone-c: 0.13; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
 button, select, textarea { font: inherit; color: inherit; }
-a { color: var(--accent-cursor); }
+a { color: var(--accent); }
 .hidden { display: none !important; }
 
 .topbar {
@@ -47,14 +61,14 @@ a { color: var(--accent-cursor); }
 .brand h1 { margin: 0; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
 .brand-mark {
   width: 12px; height: 12px;
-  background: linear-gradient(135deg, var(--accent-cursor), var(--accent-claude));
+  background: var(--accent);
   border: 1px solid var(--border);
 }
 .status-dot {
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--muted);
 }
-.status-dot.ok { background: var(--ok); }
+.status-dot.ok { background: var(--accent); }
 .status-dot.bad { background: var(--danger); }
 
 .tabs { display: flex; gap: 4px; justify-content: center; }
@@ -70,7 +84,7 @@ a { color: var(--accent-cursor); }
   background: var(--panel);
   color: var(--text);
 }
-/* Each tab's badge is the colour its unread cards carry on the rail. */
+/* A badge counts cards that are waiting, and wears what waiting wears. */
 .tab-badge {
   display: inline-block;
   margin-left: 8px;
@@ -80,10 +94,12 @@ a { color: var(--accent-cursor); }
   font-size: 10px;
   line-height: 16px;
   text-align: center;
+  background: var(--accent);
+  border: 1px solid var(--accent);
   color: var(--on-accent);
 }
-.tab[data-view="timeline"] .tab-badge { background: var(--ok); }
-.tab[data-view="archive"] .tab-badge { background: var(--warn); }
+/* The archive is a step further from you, so its count sits a step back. */
+.tab[data-view="archive"] .tab-badge { background: transparent; color: var(--accent); }
 /* The count is clickable — it takes what it counts as read. */
 .tab-badge:hover { opacity: 0.65; }
 
@@ -104,7 +120,7 @@ a { color: var(--accent-cursor); }
   letter-spacing: normal;
 }
 .filter input::placeholder { color: var(--muted); }
-.filter input:focus { outline: none; border-color: var(--accent-cursor); }
+.filter input:focus { outline: none; border-color: var(--accent); }
 .filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
 .filter-chip {
   font: inherit;
@@ -119,7 +135,7 @@ a { color: var(--accent-cursor); }
 .theme-toggle:hover { border-color: var(--muted); color: var(--text); }
 .filter-chip[aria-pressed="true"] {
   background: var(--panel-2);
-  border-color: var(--accent-cursor);
+  border-color: var(--accent);
   color: var(--text);
 }
 
@@ -194,11 +210,10 @@ main {
   border: 2px solid var(--rail);
   border-radius: 0;
 }
-.card[data-agent="cursor"]::before { border-color: var(--accent-cursor); }
-.card[data-agent="claude"]::before { border-color: var(--accent-claude); }
-/* Unread fills the node on the rail; read leaves it hollow. */
-.card[data-unread="timeline"]::before { background: var(--ok); border-color: var(--ok); }
-.card[data-unread="archive"]::before { background: var(--warn); border-color: var(--warn); }
+/* The node carries one thing — unread fills it, read leaves it hollow. Which
+   agent it came from is on the badge a few pixels to the right. */
+.card[data-unread="timeline"]::before { background: var(--accent); border-color: var(--accent); }
+.card[data-unread="archive"]::before { border-color: var(--accent); }
 
 .card-head {
   display: flex;
@@ -217,14 +232,16 @@ main {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
-.badge.cursor { background: var(--accent-cursor); border-color: var(--accent-cursor); color: var(--on-accent); }
-.badge.claude { background: var(--accent-claude); border-color: var(--accent-claude); color: var(--on-accent); }
-.badge.status-waiting { color: var(--ok); }
-.badge.status-notice { color: var(--warn); }
-.badge.status-answered { color: var(--muted); }
+.badge.cursor { background: var(--brand-cursor); border-color: var(--brand-cursor); color: var(--on-accent); }
+.badge.claude { background: var(--brand-claude); border-color: var(--brand-claude); color: var(--on-accent); }
+/* The word is already in the badge, so the colour only says how far up your
+   list it is: waiting on you, still open, or done with. */
+.badge.status-waiting { color: var(--accent); }
+.badge.status-notice { color: var(--text); }
+.badge.status-answered,
 .badge.status-dismissed,
 .badge.status-expired,
-.badge.status-detached { color: var(--warn); opacity: 0.75; }
+.badge.status-detached { color: var(--muted); }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
@@ -236,9 +253,11 @@ main {
   background: var(--bg);
   color: var(--text);
 }
-.chip.warn { border-color: var(--warn); color: var(--warn); }
-.chip.hold { border-color: var(--ok); color: var(--ok); }
-.chip.hold.low { border-color: var(--warn); color: var(--warn); }
+.chip.tasks { border-color: var(--muted); }
+/* The countdown runs from the colour of something you can still answer to the
+   colour of the button that throws it away. */
+.chip.hold { border-color: var(--accent); color: var(--accent); }
+.chip.hold.low { border-color: var(--danger-soft); color: var(--danger-soft); }
 .chip.hold.critical { border-color: var(--danger); color: var(--danger); }
 
 /* Alpha, so it lands over the card's own panel rather than replacing it. */
@@ -315,7 +334,7 @@ main {
   text-decoration: none;
 }
 a.file-ref:hover {
-  color: var(--accent-cursor);
+  color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -392,12 +411,12 @@ a.file-ref:hover {
   font-size: 13px;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.btn.primary { border-color: var(--accent-cursor); color: var(--accent-cursor); }
+.btn.primary { border-color: var(--accent); color: var(--accent); }
 .btn.danger { border-color: var(--danger); color: var(--danger); }
 /* Hover washes the button in the colour that a press then fills it with, so the
    pointer shows where it is and what it is about to do. */
 .btn:hover { border-color: var(--muted); background: var(--panel-2); }
-.btn.primary:hover { background: color-mix(in oklab, var(--accent-cursor) 16%, var(--bg)); }
+.btn.primary:hover { background: color-mix(in oklab, var(--accent) 16%, var(--bg)); }
 .btn.danger:hover { background: color-mix(in oklab, var(--danger) 16%, var(--bg)); }
 /* A press fills the button the rest of the way, and `firing` holds that fill
    while the action is in flight — the keyboard has no press to show. Last, so
@@ -406,8 +425,8 @@ a.file-ref:hover {
 .btn.firing { border-color: var(--muted); background: var(--panel-2); }
 .btn.primary:active,
 .btn.primary.firing {
-  background: var(--accent-cursor);
-  border-color: var(--accent-cursor);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--on-accent);
 }
 .btn.danger:active,
@@ -470,9 +489,9 @@ a.file-ref:hover {
   flex-wrap: wrap;
   justify-content: center;
 }
-.lightbox-cap { color: #8b9bb0; font-family: var(--mono); font-size: 12px; }
+.lightbox-cap { color: var(--overlay-muted); font-family: var(--mono); font-size: 12px; }
 .lightbox-raw {
-  color: #8b9bb0;
+  color: var(--overlay-muted);
   font-family: var(--mono);
   font-size: 12px;
 }
@@ -483,7 +502,7 @@ a.file-ref:hover {
   font-size: 28px;
   background: transparent;
   border: none;
-  color: #e6edf3;
+  color: var(--overlay-text);
   cursor: pointer;
 }
 

@@ -228,6 +228,10 @@ function nowMs() {
  * The hue carries the repo, so the whole card is one colour at three
  * strengths: full for a line, and two washes faint enough to keep text
  * readable — the heavier one on the bands, so they still read as bands.
+ *
+ * oklch off the app's own tone, so every repo lands at the same weight as
+ * every other and as the rest of the interface. The same hues in hsl would
+ * hand the yellow repos a glaring card and the blue ones a sunk one.
  */
 function repoTones(key) {
   if (!key) return null;
@@ -236,10 +240,11 @@ function repoTones(key) {
     hash = (hash * 31 + key.charCodeAt(i)) | 0;
   }
   const hue = Math.abs(hash) % 360;
+  const tone = `var(--tone-l) var(--tone-c) ${hue}`;
   return {
-    color: `hsl(${hue}deg 65% var(--repo-l))`,
-    tint: `hsl(${hue}deg 65% var(--repo-l) / 0.12)`,
-    wash: `hsl(${hue}deg 65% var(--repo-l) / 0.05)`,
+    color: `oklch(${tone})`,
+    tint: `oklch(${tone} / 0.12)`,
+    wash: `oklch(${tone} / 0.05)`,
   };
 }
 
@@ -294,7 +299,7 @@ function modelChips(entry) {
     chips.push(`<span class="chip" title="${esc(p.id)}">${esc(p.id)}:${esc(p.value)}</span>`);
   }
   if (entry.backgroundTaskCount > 0) {
-    chips.push(`<span class="chip warn">bg:${entry.backgroundTaskCount}</span>`);
+    chips.push(`<span class="chip tasks">bg:${entry.backgroundTaskCount}</span>`);
   }
   return chips.join('');
 }
