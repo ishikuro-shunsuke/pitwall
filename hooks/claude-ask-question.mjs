@@ -21,7 +21,11 @@ if (payload.tool_name !== 'AskUserQuestion') {
   failOpen();
 }
 
-/** The dialog, as markdown: each question a heading, each option a bullet. */
+/**
+ * The dialog, as markdown. The question is the card's own sentence, not a
+ * heading over one: the card already carries a title, and a second bolder line
+ * under it reads as a section of something longer.
+ */
 function render(input) {
   const questions = Array.isArray(input?.questions) ? input.questions : [];
   const blocks = [];
@@ -30,7 +34,7 @@ function render(input) {
     const text = String(question?.question || question?.header || '').trim();
     if (!text) continue;
     const multi = question?.multiSelect ? ' _(multiple)_' : '';
-    const lines = [`### ${text}${multi}`];
+    const lines = [`**${text}**${multi}`, ''];
     for (const option of Array.isArray(question?.options) ? question.options : []) {
       const label = String(option?.label || '').trim();
       if (!label) continue;

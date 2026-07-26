@@ -244,13 +244,6 @@ main {
 /* The clock is not running any more, and the dashes are how the rest of the page
    draws something that is no longer live. */
 .chip.closed { border-style: dashed; color: var(--muted); }
-/* Filled, because it is the one chip that changes what you do with the card:
-   nothing on the card answers it. */
-.chip.question {
-  background: var(--accent-soft);
-  border-color: var(--accent-soft);
-  color: var(--on-accent);
-}
 
 /* Alpha, so it lands over the card's own panel rather than replacing it. */
 .card-body { padding: 14px; background: var(--repo-wash, transparent); }

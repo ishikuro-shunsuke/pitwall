@@ -258,12 +258,14 @@ function taskChip(entry) {
 }
 
 /**
- * A question card is a list of options and nothing else — the same shape as any
- * other message, and the one card on the feed whose answer is not typed here.
+ * A question card is a heading and a list of options — the shape any message
+ * can have — and it is the one card whose answer is not typed into it. So it
+ * says so where the countdown would have been, in the same dashes the page
+ * draws every other card there is nothing left to say to.
  */
 function questionChip(entry) {
   if (entry.notificationType !== 'ask_user_question') return '';
-  return '<span class="chip question" title="Answered in the terminal">question</span>';
+  return '<span class="chip closed" title="Answered in the terminal">question</span>';
 }
 
 function imagesHtml(entry) {
@@ -573,9 +575,9 @@ function cardHtml(entry) {
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
-          ${holdChip(entry)}
+          ${questionChip(entry)}${holdChip(entry)}
         </div>
-        <div class="chips">${questionChip(entry)}${taskChip(entry)}</div>
+        <div class="chips">${taskChip(entry)}</div>
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
