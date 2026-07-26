@@ -390,21 +390,31 @@ a.file-ref:hover {
   cursor: pointer;
   border-radius: 0;
   font-size: 13px;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-.btn:hover { border-color: var(--muted); }
 .btn.primary { border-color: var(--accent-cursor); color: var(--accent-cursor); }
 .btn.danger { border-color: var(--danger); color: var(--danger); }
-/* The button you pressed fills in and stays filled until the card leaves. */
+/* Hover washes the button in the colour that a press then fills it with, so the
+   pointer shows where it is and what it is about to do. */
+.btn:hover { border-color: var(--muted); background: var(--panel-2); }
+.btn.primary:hover { background: color-mix(in oklab, var(--accent-cursor) 16%, var(--bg)); }
+.btn.danger:hover { background: color-mix(in oklab, var(--danger) 16%, var(--bg)); }
+/* A press fills the button the rest of the way, and `firing` holds that fill
+   while the action is in flight — the keyboard has no press to show. Last, so
+   the fill survives the pointer still hovering over it. */
+.btn:active,
 .btn.firing { border-color: var(--muted); background: var(--panel-2); }
+.btn.primary:active,
 .btn.primary.firing {
   background: var(--accent-cursor);
   border-color: var(--accent-cursor);
-  color: var(--bg);
+  color: var(--on-accent);
 }
+.btn.danger:active,
 .btn.danger.firing {
   background: var(--danger);
   border-color: var(--danger);
-  color: var(--bg);
+  color: var(--on-accent);
 }
 .btn a { color: inherit; text-decoration: none; }
 
