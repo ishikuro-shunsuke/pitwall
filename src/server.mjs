@@ -376,7 +376,6 @@ async function handleList(req, res, url) {
   let items = store.list().map(publicEntry);
 
   if (view !== 'all') items = items.filter((e) => e.bucket === view);
-  if (url.searchParams.get('unanswered') === '1') items = items.filter((e) => e.unanswered);
 
   items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 

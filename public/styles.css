@@ -57,7 +57,7 @@ a { color: var(--accent); }
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 1fr auto;
   gap: 16px;
   align-items: center;
   padding: 12px 20px;
@@ -87,24 +87,10 @@ a { color: var(--accent); }
   .conn { animation: none; }
 }
 
-/* The end of the title's line, at every width — a column of their own, so a
-   filter appearing beside them cannot push them onto a second row. Pulled out
-   by the padding the buttons hold for the pointer, so the strokes end on the
-   same edge as the cards below rather than short of it. */
+/* The end of the title's line, at every width — a column of their own.
+   Pulled out by the padding the buttons hold for the pointer, so the strokes
+   end on the same edge as the cards below rather than short of it. */
 .actions { display: flex; align-items: center; gap: 12px; margin-right: -4px; }
-.filters { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
-.filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.filter[hidden] { display: none; }
-.filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
-.filter-chip {
-  font: inherit;
-  background: var(--panel);
-  border: 1px solid var(--border);
-  color: var(--muted);
-  padding: 4px 8px;
-  border-radius: 0;
-  cursor: pointer;
-}
 /* Lucide's 24px geometry, drawn the size of the title it sits beside. */
 .icon {
   display: block;
@@ -130,18 +116,14 @@ a { color: var(--accent); }
   color: var(--muted);
   cursor: pointer;
 }
-.icon-btn:hover, .icon-btn[aria-pressed="true"] { color: var(--text); }
-.filter-chip[aria-pressed="true"] {
-  background: var(--panel-2);
-  border-color: var(--accent);
+.icon-btn:hover { color: var(--text); }
+/* Held down: the stroke itself sinks a hair and thickens, so the archive
+   screen reads as still on this button without swapping the glyph for a close. */
+.icon-btn[aria-pressed="true"] {
   color: var(--text);
+  transform: translateY(1px);
 }
-
-/* Somewhere you go now and then, so it sits at the end of the title's line
-   rather than in the middle of the bar, and the close mark only appears once
-   you are there. */
-.history-x { display: none; }
-.history-btn[aria-pressed="true"] .history-x { display: block; }
+.icon-btn[aria-pressed="true"] .icon { stroke-width: 2.5; }
 
 main {
   position: relative;

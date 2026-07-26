@@ -249,12 +249,10 @@ async function main() {
       if (resolved.data?.action === 'dismiss') ok('claude dismiss');
       else fail('claude dismiss', resolved.data);
 
-      const unanswered = await json('GET', '/api/entries?view=archive&unanswered=1');
       const archived = await json('GET', '/api/entries?view=archive');
-      const inUnanswered = unanswered.data.entries?.some((e) => e.id === id);
-      const inArchive = archived.data.entries?.some((e) => e.id === id);
-      if (inUnanswered && inArchive) ok('dismissed sits in the archive, under the unanswered filter');
-      else fail('dismissed sits in the archive, under the unanswered filter', { inUnanswered, inArchive });
+      const entry = archived.data.entries?.find((e) => e.id === id);
+      if (entry?.unanswered) ok('dismissed sits in the archive unanswered');
+      else fail('dismissed sits in the archive unanswered', { entry });
     }
 
     // Claude's hook waits with the session already stopped, so its card is not

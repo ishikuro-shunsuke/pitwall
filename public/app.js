@@ -5,7 +5,6 @@ const PAGE = 20;
 
 const state = {
   view: 'timeline',
-  unansweredOnly: false,
   limit: PAGE,
   entries: new Map(),
   drafts: new Map(),
@@ -19,8 +18,6 @@ const el = {
   timeline: document.getElementById('timeline'),
   empty: document.getElementById('empty'),
   conn: document.getElementById('conn'),
-  filterAnswer: document.getElementById('filter-answer'),
-  filterUnanswered: document.getElementById('filter-unanswered'),
   history: document.getElementById('history'),
   more: document.getElementById('more'),
   lightbox: document.getElementById('lightbox'),
@@ -79,20 +76,11 @@ function setView(view) {
   // The icon says neither, so the name has to carry where the button leads.
   el.history.title = view === 'archive' ? 'back to the timeline' : 'past entries';
   el.history.setAttribute('aria-label', el.history.title);
-  // Nothing in the timeline has finished, so there is nothing to narrow.
-  el.filterAnswer.hidden = view !== 'archive';
   resetPaging();
   refresh();
 }
 
 el.history.addEventListener('click', () => setView(otherView()));
-
-el.filterUnanswered.addEventListener('click', () => {
-  state.unansweredOnly = !state.unansweredOnly;
-  el.filterUnanswered.setAttribute('aria-pressed', String(state.unansweredOnly));
-  resetPaging();
-  render();
-});
 
 const lightbox = { items: [], index: 0 };
 
@@ -237,14 +225,9 @@ function repoTones(key) {
   };
 }
 
-function passesFilters(entry) {
-  if (entry.bucket === 'archive' && state.unansweredOnly && !entry.unanswered) return false;
-  return true;
-}
-
 function selectedEntries() {
   const items = [...state.entries.values()]
-    .filter((e) => e.bucket === state.view && passesFilters(e));
+    .filter((e) => e.bucket === state.view);
   items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   return items;
 }
