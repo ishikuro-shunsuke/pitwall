@@ -169,9 +169,10 @@ main {
   overflow: hidden;
   box-shadow: none;
 }
-/* The card in the middle of the reading area is the one you are on; the rest of
-   the feed is pushed out of focus so it cannot pull your eye off it. The class
-   is set from script, so a card is never left blurred with nothing sharp. */
+/* On the timeline the card in the middle of the reading area is the one you are
+   on, and the rest of the feed is pushed out of focus so it cannot pull your eye
+   off it. The class is set from script — never on the archive, and never before
+   there is a sharp card to leave behind. */
 .timeline.solo .card {
   filter: blur(3px);
   opacity: 0.32;
@@ -231,10 +232,11 @@ main {
 .badge.status-expired,
 .badge.status-detached { color: var(--muted); }
 /* The node out on the rail says this from across the page; the badge says it in
-   the row you are reading. Filled and hollow the same way round, and a card you
-   have read carries nothing — the word is only worth the space while it is true. */
-.badge.unread { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.card[data-unread="archive"] .badge.unread { background: transparent; color: var(--accent); }
+   the row you are reading. Outlined rather than filled — most of a live feed is
+   unread, and a screenful of solid red would drown out the one card that is
+   actually waiting. A card you have read carries nothing: the word is only
+   worth the space while it is true. */
+.badge.unread { border-color: var(--accent); color: var(--accent); }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }

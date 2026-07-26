@@ -796,7 +796,10 @@ function paintFocus() {
   for (const card of cards) {
     card.classList.toggle('focused', card === sharp || card === typing);
   }
-  el.timeline.classList.add('solo');
+  // One at a time is right for the timeline, where the next card down might be
+  // waiting on you and the blur is what keeps you from reading ahead. The
+  // archive is over — you scan it, so nothing there is pushed out of focus.
+  el.timeline.classList.toggle('solo', state.view === 'timeline');
 }
 
 // Reading is pointing: whatever you click is what you are on, wherever the
