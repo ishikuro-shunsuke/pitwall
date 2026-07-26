@@ -230,17 +230,31 @@ function selectedEntries() {
   return items;
 }
 
+/**
+ * What the turn was run with, as one slug: model, then whatever the agent set
+ * on top of it. A box around `auto` adds nothing the word does not already
+ * say, and four boxes in a row read as four separate facts when they are one.
+ * Which part is which is in the tooltip, spelled out.
+ */
 function modelChips(entry) {
-  const chips = [];
   const m = entry.model || {};
-  if (m.label || m.id) chips.push(`<span class="chip" title="model">${esc(m.label || m.id)}</span>`);
-  if (m.effort) chips.push(`<span class="chip" title="effort">effort:${esc(m.effort)}</span>`);
-  if (m.permissionMode) chips.push(`<span class="chip" title="permission">${esc(m.permissionMode)}</span>`);
-  if (m.agentType) chips.push(`<span class="chip" title="agent type">${esc(m.agentType)}</span>`);
+  const parts = [];
+  const add = (name, value) => value && parts.push({ name, value: String(value) });
+
+  add('model', m.label || m.id);
+  add('effort', m.effort);
+  add('permission', m.permissionMode);
+  add('agent type', m.agentType);
   for (const p of m.params || []) {
     if (!p.id) continue;
     if (p.id === 'effort' && m.effort) continue;
-    chips.push(`<span class="chip" title="${esc(p.id)}">${esc(p.id)}:${esc(p.value)}</span>`);
+    add(p.id, `${p.id}:${p.value}`);
+  }
+
+  const chips = [];
+  if (parts.length) {
+    const title = parts.map((p) => `${p.name}: ${p.value}`).join('\n');
+    chips.push(`<span class="chip" title="${esc(title)}">${esc(parts.map((p) => p.value).join('/'))}</span>`);
   }
   if (entry.backgroundTaskCount > 0) {
     chips.push(`<span class="chip tasks">bg:${entry.backgroundTaskCount}</span>`);
