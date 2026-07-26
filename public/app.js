@@ -319,23 +319,37 @@ function imageRefs(images) {
 }
 
 function inlineMd(s, images) {
-  return s
-    .replace(/`([^`]+?)`/g, (_m, code) => `<code>${code}</code>`)
+  // Protect code/links before *_/__ emphasis — otherwise filenames like
+  // compare_paint_1to1.png get eaten mid-path and never match entry.images.
+  const slots = [];
+  const protect = (html) => {
+    const i = slots.length;
+    slots.push(html);
+    return `\0${i}\0`;
+  };
+
+  let out = s.replace(/`([^`]+?)`/g, (_m, code) => protect(`<code>${code}</code>`));
+  out = out.replace(/(!?)\[([^\]]*?)\]\(\s*([^\s)]+?)\s*\)/g, (m, bang, text, target) => {
+    // A link to one of this entry's own images opens it in the viewer, so the
+    // label stays readable and the path still lands somewhere.
+    const img = images?.get(target);
+    if (img) {
+      const cap = img.name || img.ref;
+      return protect(
+        `<a class="img-link" href="${esc(img.url)}" data-img-open="${esc(img.url)}" data-cap="${esc(cap)}" target="_blank" rel="noopener noreferrer">${text || esc(cap)}</a>`,
+      );
+    }
+    if (text && /^https?:\/\//.test(target)) {
+      return protect(`${bang}<a href="${target}" target="_blank" rel="noopener noreferrer">${text}</a>`);
+    }
+    return m;
+  });
+
+  out = out
     .replace(/\*\*([^*]+?)\*\*|__([^_]+?)__/g, (_m, a, b) => `<strong>${a ?? b}</strong>`)
-    .replace(/\*([^*]+?)\*|_([^_]+?)_/g, (_m, a, b) => `<em>${a ?? b}</em>`)
-    .replace(/(!?)\[([^\]]*?)\]\(\s*([^\s)]+?)\s*\)/g, (m, bang, text, target) => {
-      // A link to one of this entry's own images opens it in the viewer, so the
-      // label stays readable and the path still lands somewhere.
-      const img = images?.get(target);
-      if (img) {
-        const cap = img.name || img.ref;
-        return `<a class="img-link" href="${esc(img.url)}" data-img-open="${esc(img.url)}" data-cap="${esc(cap)}" target="_blank" rel="noopener noreferrer">${text || esc(cap)}</a>`;
-      }
-      if (text && /^https?:\/\//.test(target)) {
-        return `${bang}<a href="${target}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-      }
-      return m;
-    });
+    .replace(/\*([^*]+?)\*|_([^_]+?)_/g, (_m, a, b) => `<em>${a ?? b}</em>`);
+
+  return out.replace(/\0(\d+)\0/g, (_m, i) => slots[Number(i)]);
 }
 
 const TABLE_DELIM = /^\s*\|?(\s*:?-+:?\s*\|)*\s*:?-+:?\s*\|?\s*$/;
