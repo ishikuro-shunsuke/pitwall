@@ -554,6 +554,18 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let painted = null;
 let animating = false;
 let queued = null;
+/** id → 'left' | 'right' — reply slides left, archive slides right. */
+const exits = new Map();
+
+/** Stamp the live card so the old snapshot leaves in the right direction. */
+function applyExits(nextIds) {
+  for (const [id, dir] of exits) {
+    if (nextIds.has(id)) continue;
+    const card = el.timeline.querySelector(`.card[data-id="${CSS.escape(id)}"]`);
+    if (card) card.style.viewTransitionClass = dir === 'right' ? 'card leave-right' : 'card leave-left';
+    exits.delete(id);
+  }
+}
 
 function render({ grew = false } = {}) {
   // The browser snapshots the cards a frame after a transition starts and holds
@@ -571,6 +583,7 @@ function render({ grew = false } = {}) {
   const ids = items.map((e) => e.id);
   const shuffled = painted && (ids.length !== painted.length || ids.some((id, i) => id !== painted[i]));
   const first = painted === null;
+  applyExits(new Set(ids));
   painted = ids;
   paintMore(selected.length - items.length);
   paintBadges();
@@ -931,12 +944,14 @@ el.timeline.addEventListener('click', async (e) => {
         input?.focus();
         return;
       }
+      exits.set(id, 'left');
       await api(`/api/entries/${id}/reply`, { message });
       release(id);
       await refresh();
       return;
     }
     if (act === 'dismiss') {
+      exits.set(id, 'right');
       await api(`/api/entries/${id}/dismiss`);
       release(id);
       await refresh();
@@ -948,6 +963,7 @@ el.timeline.addEventListener('click', async (e) => {
       setTimeout(() => { btn.textContent = 'Copy resume cmd'; }, 1200);
     }
   } catch (err) {
+    if (id) exits.delete(id);
     alert(err.message || String(err));
   }
 });

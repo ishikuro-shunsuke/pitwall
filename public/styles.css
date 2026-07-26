@@ -445,15 +445,24 @@ main {
   animation: card-arrive 260ms cubic-bezier(0.2, 0, 0, 1);
 }
 ::view-transition-old(.card):only-child {
-  animation: card-leave 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: card-leave-left 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+::view-transition-old(.leave-left):only-child {
+  animation: card-leave-left 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+::view-transition-old(.leave-right):only-child {
+  animation: card-leave-right 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 ::view-transition-old(root), ::view-transition-new(root) { animation-duration: 160ms; }
 
 @keyframes card-arrive {
   from { opacity: 0; transform: translateY(-12px); }
 }
-@keyframes card-leave {
-  to { opacity: 0; transform: translateX(-20px); }
+@keyframes card-leave-left {
+  to { opacity: 0; transform: translateX(-24px); }
+}
+@keyframes card-leave-right {
+  to { opacity: 0; transform: translateX(24px); }
 }
 
 @media (max-width: 720px) {
