@@ -257,6 +257,15 @@ function taskChip(entry) {
   return `<span class="chip tasks">bg:${entry.backgroundTaskCount}</span>`;
 }
 
+/**
+ * A question card is a list of options and nothing else — the same shape as any
+ * other message, and the one card on the feed whose answer is not typed here.
+ */
+function questionChip(entry) {
+  if (entry.notificationType !== 'ask_user_question') return '';
+  return '<span class="chip question" title="Answered in the terminal">question</span>';
+}
+
 function imagesHtml(entry) {
   if (!entry.images?.length) return '';
   const parts = entry.images.map((img) => {
@@ -565,7 +574,7 @@ function cardHtml(entry) {
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
         </div>
-        <div class="chips">${taskChip(entry)}${holdChip(entry)}</div>
+        <div class="chips">${questionChip(entry)}${taskChip(entry)}${holdChip(entry)}</div>
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
