@@ -13,13 +13,14 @@
   --warn: light-dark(#8a6100, #d29922);
   --rail: light-dark(#d0d7e0, #2a3342);
   --topbar-bg: light-dark(rgba(243, 245, 248, 0.94), rgba(14, 17, 22, 0.94));
-  --repo-l: light-dark(42%, 62%);
+  --repo-l: 42%;
   --gap: 18px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --sans: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
 }
-:root[data-theme="light"] { color-scheme: light; }
-:root[data-theme="dark"] { color-scheme: dark; }
+@media (prefers-color-scheme: dark) { :root { --repo-l: 62%; } }
+:root[data-theme="light"] { color-scheme: light; --repo-l: 42%; }
+:root[data-theme="dark"] { color-scheme: dark; --repo-l: 62%; }
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
