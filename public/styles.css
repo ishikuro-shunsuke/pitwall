@@ -480,8 +480,13 @@ a.file-ref:hover {
 .composer textarea {
   display: block;
   width: 100%;
+  /* The box follows the lines you type. It starts at the height a short reply
+     fits in and stops at half the screen, past which the card would push its
+     own buttons out of reach; a longer draft scrolls inside it. Nothing to drag
+     because the box is already the size of what is in it. */
   min-height: 90px;
-  resize: vertical;
+  max-height: 50vh;
+  resize: none;
   background: var(--bg);
   border: 1px solid var(--repo-line, var(--border));
   padding: 10px;

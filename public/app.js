@@ -851,6 +851,11 @@ function paint(items) {
   el.empty.classList.toggle('hidden', items.length > 0);
   observeUnread();
 
+  // The fields are new elements, so a draft carried across the swap is back at
+  // one line's worth of height until it is measured again. Before the anchors
+  // go back, so the heights are settled by the time the scroll is restored.
+  el.timeline.querySelectorAll('[data-reply-input]').forEach(grow);
+
   if (focused) {
     const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(focused.id)}"]`);
     if (input) {
@@ -1072,10 +1077,22 @@ el.timeline.addEventListener('focusout', (e) => {
   disengage(id);
 });
 
+/**
+ * Sets the box to the height of what is in it, so a reply that runs to several
+ * lines is on screen whole. Measured from nothing first, so it comes back down
+ * as well as up, and the borders are added back because the box is border-box
+ * and scrollHeight is not. Past the cap in the stylesheet it scrolls instead.
+ */
+function grow(box) {
+  box.style.height = 'auto';
+  box.style.height = `${box.scrollHeight + box.offsetHeight - box.clientHeight}px`;
+}
+
 el.timeline.addEventListener('input', (e) => {
   const id = e.target.getAttribute?.('data-reply-input');
   if (!id) return;
   state.drafts.set(id, e.target.value);
+  grow(e.target);
 });
 
 /**
