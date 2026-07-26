@@ -46,7 +46,7 @@ function currentTheme() {
 
 function paintThemeToggle() {
   const theme = currentTheme();
-  el.themeToggle.textContent = theme;
+  el.themeToggle.textContent = theme === 'dark' ? '🌙' : '☀️';
   el.themeToggle.title = `switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
 }
 

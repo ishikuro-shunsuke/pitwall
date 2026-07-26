@@ -106,7 +106,9 @@ a { color: var(--accent); }
   border-radius: 0;
   cursor: pointer;
 }
-.theme-toggle { min-width: 62px; text-align: left; }
+/* An emoji has no letterforms to match, so it gets its own size and no
+   uppercasing ladder to sit on. */
+.theme-toggle, .history-glyph { font-size: 13px; line-height: 1; }
 .theme-toggle:hover { border-color: var(--muted); color: var(--text); }
 .filter-chip[aria-pressed="true"] {
   background: var(--panel-2);
