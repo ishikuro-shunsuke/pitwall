@@ -243,7 +243,14 @@ async function handleWait(req, res) {
     for (const open of store.list()) {
       if (open.agent !== 'claude' || open.status !== 'waiting') continue;
       if (open.sessionId !== sessionId) continue;
-      waiters.resolve(open.id, { action: 'release', reason: 'superseded' });
+      const landed = waiters.resolve(open.id, { action: 'release', reason: 'superseded' });
+      if (landed !== 'delivered') {
+        store.update(open.id, {
+          status: 'expired',
+          resolvedAt: new Date().toISOString(),
+          resolution: 'superseded',
+        });
+      }
     }
   }
 
@@ -259,6 +266,17 @@ async function handleWait(req, res) {
   waiters.reserve(entry.id, {
     createdAtMs: entry.createdAtMs,
     softHoldSeconds: softHoldSeconds(agent),
+    // The hook may die before its long poll ever starts, and then there is no
+    // request to release — the card would sit in Timeline for good. Retire it
+    // on the same deadline everything else honours.
+    onExpire: () => {
+      if (store.get(entry.id)?.status !== 'waiting') return;
+      store.update(entry.id, {
+        status: 'expired',
+        resolvedAt: new Date().toISOString(),
+        resolution: 'expired',
+      });
+    },
   });
   store.add(entry);
   sendJson(res, 200, {
@@ -388,6 +406,17 @@ async function handleReply(req, res, params) {
 
   const ok = waiters.resolve(params.id, { action: 'reply', message });
   if (!ok) return sendJson(res, 409, { error: 'hook no longer listening' });
+  // Only a polling hook reaches handleResolve to record the answer. When the
+  // reply was merely stashed, write it here too, or the card sits in `waiting`
+  // for a hook that may never come back and the button looks dead.
+  if (ok !== 'delivered') {
+    store.update(params.id, {
+      status: 'answered',
+      resolvedAt: new Date().toISOString(),
+      resolution: 'reply',
+      reply: message,
+    });
+  }
   sendJson(res, 200, { ok: true });
 }
 
@@ -396,11 +425,11 @@ async function handleDismiss(req, res, params) {
   if (!entry) return sendJson(res, 404, { error: 'not found' });
   if (entry.status === 'waiting') {
     const ok = waiters.resolve(params.id, { action: 'dismiss' });
-    if (!ok) {
+    if (ok !== 'delivered') {
       store.update(params.id, {
         status: 'dismissed',
         resolvedAt: new Date().toISOString(),
-        resolution: 'dismiss-offline',
+        resolution: ok ? 'dismiss' : 'dismiss-offline',
       });
     }
     return sendJson(res, 200, { ok: true });

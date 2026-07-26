@@ -22,8 +22,17 @@ function deadlineFor(createdAtMs, softSeconds, fromMs = now()) {
   return Math.min(soft, hard);
 }
 
-/** Opened when the entry is created, before the hook starts polling. */
-export function reserve(entryId, { createdAtMs = now(), softHoldSeconds = config.holdSeconds } = {}) {
+/**
+ * Opened when the entry is created, before the hook starts polling. The clock
+ * starts here rather than at the first poll: a hook can die in between, and a
+ * slot nobody ever polls still must not outlive its hold. `onExpire` is how the
+ * owner hears about that case, since no long poll is around to be released.
+ */
+export function reserve(entryId, {
+  createdAtMs = now(),
+  softHoldSeconds = config.holdSeconds,
+  onExpire = null,
+} = {}) {
   if (slots.has(entryId)) return slots.get(entryId);
   const slot = {
     createdAtMs,
@@ -31,27 +40,34 @@ export function reserve(entryId, { createdAtMs = now(), softHoldSeconds = config
     deadlineMs: deadlineFor(createdAtMs, softHoldSeconds),
     resolution: null,
     settle: null,
+    onExpire,
     timer: null,
   };
   slots.set(entryId, slot);
+  armTimer(entryId);
   return slot;
 }
 
 function armTimer(entryId) {
   const slot = slots.get(entryId);
-  if (!slot || slot.settle == null) return;
+  if (!slot) return;
 
   if (slot.timer) clearTimeout(slot.timer);
   const remaining = Math.max(0, slot.deadlineMs - now());
   slot.timer = setTimeout(() => {
-    if (!slots.has(entryId)) return;
+    // Re-check identity, not just presence: the id may have been reserved again.
+    if (slots.get(entryId) !== slot) return;
+    slots.delete(entryId);
+
     if (slot.settle) {
       const settle = slot.settle;
       slot.settle = null;
-      if (slot.timer) clearTimeout(slot.timer);
-      slots.delete(entryId);
       settle({ action: 'release', reason: 'expired' });
+      return;
     }
+    // A stashed resolution was already recorded by whoever stashed it, so the
+    // slot just goes. An untouched one leaves an entry nobody has retired.
+    if (!slot.resolution) slot.onExpire?.();
   }, remaining);
   slot.timer.unref?.();
 }
@@ -83,19 +99,24 @@ export function waitFor(entryId) {
 }
 
 /**
- * Browser side. Returns false when the agent has already moved on, in which
- * case the resolution cannot be delivered.
+ * Browser side. 'delivered' when a hook was polling and took it, 'stashed' when
+ * the slot is open but nothing is polling yet, false when the agent has already
+ * moved on and the resolution cannot be delivered at all.
+ *
+ * A stash is only a bet that the hook comes back — it may have died between
+ * registering and polling — so the caller still owns the entry's status.
  */
 export function resolve(entryId, resolution) {
   const slot = slots.get(entryId);
   if (!slot) return false;
   if (slot.settle) {
     slot.settle(resolution);
-    return true;
+    return 'delivered';
   }
   slot.resolution = resolution;
-  if (slot.timer) clearTimeout(slot.timer);
-  return true;
+  // Leave the deadline armed. If the hook never comes back to collect this, the
+  // slot is dropped on time instead of sitting in the map for good.
+  return 'stashed';
 }
 
 /**
@@ -114,7 +135,7 @@ export function extendHold(entryId) {
     return slot.deadlineMs;
   }
   slot.deadlineMs = Math.max(slot.deadlineMs, next);
-  if (slot.settle) armTimer(entryId);
+  armTimer(entryId);
   return slot.deadlineMs;
 }
 

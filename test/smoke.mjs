@@ -284,6 +284,65 @@ async function main() {
       }
     }
 
+    // A hook can die between registering and polling — the agent was
+    // interrupted, or the server restarted under it. Acting on the card must
+    // still move it, or the button looks dead and the card never leaves.
+    {
+      const payload = (session) => ({
+        agent: 'claude',
+        sessionId: session,
+        last_assistant_message: 'registered but never polled',
+        repo: { root: DATA, name: 'smoke-repo' },
+        host: { cwd: DATA },
+        model: { label: 'claude-sonnet' },
+      });
+
+      const created = await json('POST', '/api/hooks/wait', payload('sess-no-poll'));
+      const id = created.data.id;
+      const reply = await json('POST', `/api/entries/${id}/reply`, { message: 'answer me' });
+      const after = await json('GET', `/api/entries/${id}`);
+      if (reply.status === 200 && after.data.entry?.status === 'answered') {
+        ok('reply to an unpolled entry lands');
+      } else {
+        fail('reply to an unpolled entry lands', { status: reply.status, entry: after.data.entry?.status });
+      }
+
+      const other = await json('POST', '/api/hooks/wait', payload('sess-no-poll-dismiss'));
+      const otherId = other.data.id;
+      await json('POST', `/api/entries/${otherId}/dismiss`);
+      const dismissed = await json('GET', `/api/entries/${otherId}`);
+      if (dismissed.data.entry?.status === 'dismissed') ok('dismissing an unpolled entry lands');
+      else fail('dismissing an unpolled entry lands', dismissed.data.entry?.status);
+
+      const superseded = await json('POST', '/api/hooks/wait', payload('sess-no-poll-super'));
+      const superId = superseded.data.id;
+      await json('POST', '/api/hooks/wait', payload('sess-no-poll-super'));
+      const retired = await json('GET', `/api/entries/${superId}`);
+      if (retired.data.entry?.status === 'expired') ok('superseding an unpolled entry retires it');
+      else fail('superseding an unpolled entry retires it', retired.data.entry?.status);
+    }
+
+    // Left alone, an unpolled card still has to come off the clock by itself.
+    // Cursor's hold is the short one, so this is the 3s window.
+    {
+      const created = await json('POST', '/api/hooks/wait', {
+        agent: 'cursor',
+        conversationId: 'conv-no-poll-expire',
+        last_assistant_message: 'nobody ever polls this',
+        repo: { root: DATA, name: 'smoke-repo' },
+        host: { cwd: DATA },
+      });
+      const id = created.data.id;
+      await new Promise((r) => setTimeout(r, 4200));
+      const after = await json('GET', `/api/entries/${id}`);
+      const entry = after.data.entry;
+      if (entry?.status === 'expired' && entry.bucket === 'unanswered') {
+        ok('an unpolled entry expires on its own');
+      } else {
+        fail('an unpolled entry expires on its own', { status: entry?.status, bucket: entry?.bucket });
+      }
+    }
+
     // notice: raw Claude Notification payload forwarded by the curl hook
     {
       const n = await json('POST', '/api/hooks/notify?agent=claude', {
