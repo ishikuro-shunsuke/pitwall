@@ -84,6 +84,8 @@ a { color: var(--accent-cursor); }
 }
 .tab[data-view="timeline"] .tab-badge { background: var(--ok); }
 .tab[data-view="archive"] .tab-badge { background: var(--warn); }
+/* The count is clickable — it takes what it counts as read. */
+.tab-badge:hover { opacity: 0.65; }
 
 .filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }

@@ -64,8 +64,16 @@ systemTheme.addEventListener('change', paintThemeToggle);
 paintThemeToggle();
 
 document.querySelectorAll('.tab').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    if (state.view === btn.dataset.view) return;
+  btn.addEventListener('click', (event) => {
+    // Clicking the count takes it as read. Scrolling every card past the
+    // topbar is the honest way to clear it, but a tab you were never looking
+    // at can collect a backlog you have no intention of reading through, and
+    // the number has to be able to reach zero. The tab you are already on
+    // does the same, so this is reachable from the keyboard too.
+    if (event.target.closest('.tab-badge') || state.view === btn.dataset.view) {
+      markViewRead(btn.dataset.view);
+      return;
+    }
     document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
     settleMarks();
@@ -695,6 +703,9 @@ function settleMarks() {
   }
 }
 
+/** The topbar covers the head of the feed, so a card only counts once it is clear of it. */
+const SEEN_INSET = 56;
+
 /**
  * A card counts as read once it has been on screen — no clicking through a
  * feed you are already reading. The cards are replaced wholesale on every
@@ -704,9 +715,7 @@ const seenObserver = new IntersectionObserver((entries) => {
   for (const entry of entries) {
     if (entry.isIntersecting) markRead(entry.target.dataset.id);
   }
-  // The topbar covers the head of the feed, so a card only counts once it is
-  // clear of it.
-}, { rootMargin: '-56px 0px' });
+}, { rootMargin: `-${SEEN_INSET}px 0px` });
 
 function observeUnread() {
   seenObserver.disconnect();
@@ -716,6 +725,14 @@ function observeUnread() {
   for (const card of el.timeline.children) {
     if (state.entries.get(card.dataset.id)?.readAt) continue;
     seenObserver.observe(card);
+    // The observer reports asynchronously and every paint disconnects it, so
+    // on a moving feed a card can be swapped out before it is ever reported.
+    // What is already in the reading area is measured here rather than waited
+    // for; the observer is left to handle scrolling.
+    const rect = card.getBoundingClientRect();
+    if (rect.bottom > SEEN_INSET && rect.top < window.innerHeight - SEEN_INSET) {
+      markRead(card.dataset.id);
+    }
   }
 }
 
@@ -732,14 +749,48 @@ function markRead(id) {
   readTimer = setTimeout(flushRead, 500);
 }
 
+/**
+ * Everything the badge is counting for this tab, taken as read in one go.
+ * Same set the badge counts, filters and all, so the number it clears is the
+ * number you clicked.
+ */
+function markViewRead(view) {
+  for (const entry of state.entries.values()) {
+    if (entry.readAt || entry.bucket !== view || !passesFilters(entry)) continue;
+    state.readPending.add(entry.id);
+  }
+  flushRead();
+}
+
 async function flushRead() {
+  clearTimeout(readTimer);
   readTimer = null;
   const ids = [...state.readPending];
   state.readPending.clear();
   if (!ids.length) return;
+  let marked;
   try {
-    await api('/api/entries/read', { ids });
-  } catch { /* the next paint puts these cards back in front of the observer */ }
+    ({ marked } = await api('/api/entries/read', { ids }));
+  } catch {
+    // Nothing was marked. The cards are not guaranteed another paint, so hold
+    // on to the ids instead of waiting to be shown them again.
+    for (const id of ids) state.readPending.add(id);
+    clearTimeout(readTimer);
+    readTimer = setTimeout(flushRead, 5000);
+    return;
+  }
+  // The same stamps arrive over SSE, but the badge should not need the stream
+  // to be up to come down.
+  const at = new Date().toISOString();
+  let changed = false;
+  for (const id of marked || []) {
+    const entry = state.entries.get(id);
+    if (entry && !entry.readAt) {
+      entry.readAt = at;
+      changed = true;
+    }
+  }
+  if (changed) render();
 }
 
 /** The entry can no longer take a reply — drop the draft and stop holding it. */
