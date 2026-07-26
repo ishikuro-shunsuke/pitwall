@@ -366,6 +366,29 @@ main {
   cursor: pointer;
 }
 
+/* Every card carries its own view-transition-name, so rebuilding the timeline
+   tweens each one from the row it was in to the row it ends up in. :only-child
+   picks out the cards that exist on just one side of the swap — the arrivals
+   and the departures — and leaves the ones that merely moved to cross-fade. */
+::view-transition-group(.card) {
+  animation-duration: 260ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+::view-transition-new(.card):only-child {
+  animation: card-arrive 260ms cubic-bezier(0.2, 0, 0, 1);
+}
+::view-transition-old(.card):only-child {
+  animation: card-leave 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 160ms; }
+
+@keyframes card-arrive {
+  from { opacity: 0; transform: translateY(-12px); }
+}
+@keyframes card-leave {
+  to { opacity: 0; transform: translateX(-20px); }
+}
+
 @media (max-width: 720px) {
   .topbar { grid-template-columns: 1fr; }
   .filters { justify-content: flex-start; }

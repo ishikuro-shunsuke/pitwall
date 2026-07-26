@@ -385,7 +385,9 @@ function cardHtml(entry) {
   const branch = repo.branch ? `@${repo.branch}` : '';
   const dirty = repo.dirty ? ' • dirty' : '';
   const color = repoColor(repo.key || repo.name);
-  const style = color ? ` style="--repo-color: ${color}"` : '';
+  const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
+  if (color) decl.push(`--repo-color: ${color}`);
+  const style = ` style="${decl.join('; ')}"`;
   return `
     <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
       <div class="card-head">
@@ -405,7 +407,26 @@ function cardHtml(entry) {
     </article>`;
 }
 
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
+let painted = null;
+
 function render() {
+  const items = selectedEntries();
+  const ids = items.map((e) => e.id);
+  const shuffled = painted && (ids.length !== painted.length || ids.some((id, i) => id !== painted[i]));
+  const first = painted === null;
+  painted = ids;
+
+  // Only arrivals, departures and reorders are worth animating. A card whose
+  // text changed under you while you were typing in it should not move at all.
+  if (first || !shuffled || reduceMotion.matches || !document.startViewTransition) {
+    paint(items);
+    return;
+  }
+  document.startViewTransition(() => paint(items));
+}
+
+function paint(items) {
   // A card can be replaced mid-sentence by an SSE update, so carry the caret
   // across the swap along with the draft text.
   const active = document.activeElement;
@@ -417,7 +438,6 @@ function render() {
     }
     : null;
 
-  const items = selectedEntries();
   el.timeline.innerHTML = items.map(cardHtml).join('');
   el.empty.classList.toggle('hidden', items.length > 0);
 
