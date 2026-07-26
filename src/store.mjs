@@ -139,20 +139,6 @@ export function list() {
   return [...entries.values()];
 }
 
-/** Repos seen across all entries, for the filter dropdown. */
-export function repos() {
-  const byKey = new Map();
-  for (const entry of entries.values()) {
-    const key = entry.repo?.key;
-    if (!key) continue;
-    const seen = byKey.get(key) ?? { key, name: entry.repo.name, root: entry.repo.root, active: 0, total: 0 };
-    seen.total += 1;
-    if (ACTIVE_STATUSES.has(entry.status)) seen.active += 1;
-    byKey.set(key, seen);
-  }
-  return [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name));
-}
-
 export async function storeImage(sourcePath, { mime, ext }) {
   const stat = await fsp.stat(sourcePath);
   if (stat.size > config.maxImageBytes) {

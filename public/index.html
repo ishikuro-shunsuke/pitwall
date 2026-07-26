@@ -25,10 +25,11 @@
       <button type="button" class="tab" data-view="unanswered">Unanswered</button>
     </nav>
     <div class="filters">
-      <div class="filter">
+      <label class="filter">
         <span>repo</span>
-        <div class="filter-group" id="filter-repo"></div>
-      </div>
+        <input type="search" id="filter-repo" placeholder="name or path"
+               autocomplete="off" spellcheck="false">
+      </label>
       <div class="filter">
         <span>agent</span>
         <div class="filter-group" id="filter-agent">
@@ -40,13 +41,6 @@
         <span>theme</span>
         <button type="button" class="filter-chip theme-toggle" id="theme-toggle"></button>
       </div>
-      <label class="filter">
-        <span>order</span>
-        <select id="filter-order">
-          <option value="desc">newest first</option>
-          <option value="asc">oldest first</option>
-        </select>
-      </label>
     </div>
   </header>
 

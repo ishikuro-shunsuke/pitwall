@@ -355,7 +355,6 @@ async function handleList(req, res, url) {
   const view = url.searchParams.get('view') || 'timeline';
   const repo = url.searchParams.getAll('repo');
   const agent = url.searchParams.getAll('agent');
-  const order = url.searchParams.get('order') || 'desc';
 
   let items = store.list().map(publicEntry);
 
@@ -370,15 +369,10 @@ async function handleList(req, res, url) {
     items = items.filter((e) => set.has(e.agent));
   }
 
-  items.sort((a, b) => {
-    const da = Date.parse(a.createdAt);
-    const db = Date.parse(b.createdAt);
-    return order === 'asc' ? da - db : db - da;
-  });
+  items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
   sendJson(res, 200, {
     entries: items,
-    repos: store.repos(),
     serverTime: Date.now(),
   });
 }

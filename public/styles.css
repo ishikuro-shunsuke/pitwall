@@ -70,13 +70,21 @@ a { color: var(--accent-cursor); }
 
 .filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
-.filter select {
+.filter input {
   background: var(--panel);
   border: 1px solid var(--border);
   min-width: 120px;
   padding: 4px 6px;
   border-radius: 0;
 }
+.filter input {
+  font: inherit;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+.filter input::placeholder { color: var(--muted); }
+.filter input:focus { outline: none; border-color: var(--accent-cursor); }
 .filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
 .filter-chip {
   font: inherit;

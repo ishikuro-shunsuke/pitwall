@@ -1,10 +1,8 @@
 const state = {
   view: 'timeline',
-  order: 'desc',
-  repos: new Set(),
+  repoQuery: '',
   agents: new Set(),
   entries: new Map(),
-  repoOptions: [],
   drafts: new Map(),
   engaged: new Set(),
   holdTimers: new Map(),
@@ -17,7 +15,6 @@ const el = {
   status: document.getElementById('status-dot'),
   filterRepo: document.getElementById('filter-repo'),
   filterAgent: document.getElementById('filter-agent'),
-  filterOrder: document.getElementById('filter-order'),
   lightbox: document.getElementById('lightbox'),
   lightboxStage: document.getElementById('lightbox-stage'),
   lightboxImg: document.getElementById('lightbox-img'),
@@ -61,11 +58,6 @@ document.querySelectorAll('.tab').forEach((btn) => {
   });
 });
 
-el.filterOrder.addEventListener('change', () => {
-  state.order = el.filterOrder.value;
-  render();
-});
-
 function toggleChip(group, set, value) {
   if (set.has(value)) set.delete(value);
   else set.add(value);
@@ -75,10 +67,9 @@ function toggleChip(group, set, value) {
   render();
 }
 
-el.filterRepo.addEventListener('click', (e) => {
-  const chip = e.target.closest('.filter-chip');
-  if (!chip) return;
-  toggleChip(el.filterRepo, state.repos, chip.dataset.value);
+el.filterRepo.addEventListener('input', () => {
+  state.repoQuery = el.filterRepo.value.trim().toLowerCase();
+  render();
 });
 
 el.filterAgent.addEventListener('click', (e) => {
@@ -196,15 +187,17 @@ function repoColor(key) {
   return `hsl(${hue}deg 65% var(--repo-l))`;
 }
 
+/** What the repo filter matches on: the name you see, plus the path and branch. */
+function repoHaystack(entry) {
+  const repo = entry.repo || {};
+  return [repo.name, repo.root, repo.key, repo.branch].filter(Boolean).join(' ').toLowerCase();
+}
+
 function selectedEntries() {
   let items = [...state.entries.values()].filter((e) => e.bucket === state.view);
-  if (state.repos.size) items = items.filter((e) => state.repos.has(e.repo?.key));
+  if (state.repoQuery) items = items.filter((e) => repoHaystack(e).includes(state.repoQuery));
   if (state.agents.size) items = items.filter((e) => state.agents.has(e.agent));
-  items.sort((a, b) => {
-    const da = Date.parse(a.createdAt);
-    const db = Date.parse(b.createdAt);
-    return state.order === 'asc' ? da - db : db - da;
-  });
+  items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   return items;
 }
 
@@ -412,12 +405,6 @@ function cardHtml(entry) {
     </article>`;
 }
 
-function renderRepoOptions() {
-  el.filterRepo.innerHTML = state.repoOptions
-    .map((r) => `<button type="button" class="filter-chip" data-value="${esc(r.key)}" aria-pressed="${state.repos.has(r.key)}">${esc(r.name)}</button>`)
-    .join('');
-}
-
 function render() {
   // A card can be replaced mid-sentence by an SSE update, so carry the caret
   // across the swap along with the draft text.
@@ -459,12 +446,10 @@ function release(id) {
 async function refresh() {
   // Fetch every tab's entries; the client filters by tab so an SSE update that
   // moves a card between tabs still lands somewhere.
-  const data = await fetch(`/api/entries?view=all&order=${state.order}`).then((r) => r.json());
+  const data = await fetch('/api/entries?view=all').then((r) => r.json());
   if (data.serverTime) state.serverSkew = data.serverTime - Date.now();
   state.entries.clear();
   for (const e of data.entries || []) upsert(e);
-  state.repoOptions = data.repos || [];
-  renderRepoOptions();
   render();
 }
 
@@ -625,15 +610,6 @@ function connectSse() {
     try {
       const entry = JSON.parse(ev.data);
       upsert(entry);
-      // Keep repo list roughly fresh
-      if (entry.repo?.key && !state.repoOptions.some((r) => r.key === entry.repo.key)) {
-        state.repoOptions.push({
-          key: entry.repo.key,
-          name: entry.repo.name,
-          root: entry.repo.root,
-        });
-        renderRepoOptions();
-      }
       render();
     } catch { /* ignore */ }
   };
