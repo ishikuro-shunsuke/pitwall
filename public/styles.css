@@ -67,6 +67,18 @@ a { color: var(--accent); }
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand h1 { margin: 0; font-size: 16px; letter-spacing: 0.08em; text-transform: uppercase; font-weight: 600; }
+/* The flag the word is named after, in the word's own colour and closer to it
+   than the badge that follows — one wordmark, not two things. Landscape and
+   unboxed so it stays a flag rather than a swatch, and on a 4px grid: finer
+   checks read as pixel dust beside a word this heavy, and coarser ones stop
+   landing on whole pixels next to the title's cap height. */
+.brand-mark {
+  display: block;
+  width: 16px;
+  height: 12px;
+  margin-right: -2px;
+  fill: currentColor;
+}
 /* A live feed is not news. Connected is the whole point of the page, so it
    says nothing; the word only appears when the feed has stopped, and it says
    which state it is in rather than asking you to remember a colour. The pulse
