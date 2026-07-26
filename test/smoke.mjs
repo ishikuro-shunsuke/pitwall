@@ -200,6 +200,36 @@ async function main() {
       else fail('wsl deeplink', entry?.links);
     }
 
+    // an absolute path in the message text, with no upload to fall back on
+    {
+      const conv = 'smoke-cursor-abs';
+      const abs = path.join(DATA, 'abs-ref.png');
+      await fsp.writeFile(abs, Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
+        'base64',
+      ));
+      await json('POST', '/api/hooks/response', {
+        conversationId: conv,
+        text: `saved to ${abs} and to ~/nope.png`,
+      });
+      const created = await json('POST', '/api/hooks/wait', {
+        agent: 'cursor',
+        status: 'completed',
+        conversationId: conv,
+        repo: { root: DATA, name: 'smoke-repo', branch: 'main', dirty: false },
+      });
+      const id = created.data?.id;
+      const resolveP = json('GET', `/api/hooks/wait/${id}/resolve`, null, { timeoutMs: 10_000 });
+      const list = await json('GET', '/api/entries?view=timeline');
+      const entry = list.data.entries?.find((e) => e.id === id);
+      const found = entry?.images?.find((i) => i.ref === abs);
+      if (found?.url && !found.missing) ok('absolute path in prose resolves');
+      else fail('absolute path in prose resolves', entry?.images);
+
+      await json('POST', `/api/entries/${id}/dismiss`);
+      await resolveP;
+    }
+
     // claude wait + dismiss
     {
       const created = await json('POST', '/api/hooks/wait', {

@@ -102,7 +102,9 @@ const IMAGE_PATTERNS = [
   new RegExp(String.raw`!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)`, 'gi'),
   new RegExp(String.raw`<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']`, 'gi'),
   new RegExp(String.raw`file://(/[^\s"'\`)<>]+\.(?:${EXT_GROUP}))`, 'gi'),
-  new RegExp(String.raw`((?:[A-Za-z]:)?[~.\w][\w.@+-]*(?:[/\\][^\s"'\`)<>|*?]+)+\.(?:${EXT_GROUP}))`, 'gi'),
+  // The leading slash of an absolute path belongs to the ref — without it
+  // /tmp/shot.png is looked up relative to the repo and comes out missing.
+  new RegExp(String.raw`((?:[A-Za-z]:)?[/\\~.\w][\w.@+-]*(?:[/\\][^\s"'\`)<>|*?]+)+\.(?:${EXT_GROUP}))`, 'gi'),
 ];
 
 export function extractImageRefs(text) {
@@ -118,6 +120,8 @@ export function extractImageRefs(text) {
       if (!ref) continue;
       ref = ref.replace(/^file:\/\//, '').replace(/[),.;]+$/, '');
       if (/^(https?|data):/i.test(ref)) continue;
+      // The tail of a URL reads as an absolute path once the scheme is cut off.
+      if (/^(?:[A-Za-z]+:)?\/\//.test(ref)) continue;
       if (!Object.hasOwn(IMAGE_MIME, path.extname(ref).toLowerCase())) continue;
       if (seen.has(ref)) continue;
       seen.add(ref);

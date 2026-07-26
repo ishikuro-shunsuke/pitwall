@@ -26,8 +26,10 @@ const PATTERNS = [
   new RegExp(String.raw`<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["']`, 'gi'),
   // file:///abs/path.png
   new RegExp(String.raw`file://(/[^\s"'\`)<>]+\.(?:${EXT_GROUP}))`, 'gi'),
-  // bare paths that contain a separator, in prose or backticks
-  new RegExp(String.raw`((?:[A-Za-z]:)?[~.\w][\w.@+-]*(?:[/\\][^\s"'\`)<>|*?]+)+\.(?:${EXT_GROUP}))`, 'gi'),
+  // bare paths that contain a separator, in prose or backticks. The leading
+  // slash of a POSIX absolute path is part of the ref, not a separator before
+  // it — without it /tmp/shot.png resolves against the repo and goes missing.
+  new RegExp(String.raw`((?:[A-Za-z]:)?[/\\~.\w][\w.@+-]*(?:[/\\][^\s"'\`)<>|*?]+)+\.(?:${EXT_GROUP}))`, 'gi'),
 ];
 
 function isImagePath(candidate) {
@@ -48,6 +50,8 @@ export function extractImageRefs(text) {
       if (!ref) continue;
       ref = ref.replace(/^file:\/\//, '').replace(/[),.;]+$/, '');
       if (/^(https?|data):/i.test(ref)) continue;
+      // The tail of a URL reads as an absolute path once the scheme is cut off.
+      if (/^(?:[A-Za-z]+:)?\/\//.test(ref)) continue;
       if (!isImagePath(ref)) continue;
       if (seen.has(ref)) continue;
       seen.add(ref);
