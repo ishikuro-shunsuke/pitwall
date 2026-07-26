@@ -12,11 +12,6 @@ const state = {
   engaged: new Set(),
   holdTimers: new Map(),
   serverSkew: 0,
-  // Cards on screen are marked read within the second, so the mark on the card
-  // has to outlive the flag: these are the ids that were still unread when this
-  // screen last showed them, and they keep their mark until you leave it.
-  marked: new Set(),
-  readPending: new Set(),
 };
 
 const el = {
@@ -27,7 +22,6 @@ const el = {
   filterAnswer: document.getElementById('filter-answer'),
   filterUnanswered: document.getElementById('filter-unanswered'),
   history: document.getElementById('history'),
-  historyCount: document.getElementById('history-count'),
   more: document.getElementById('more'),
   lightbox: document.getElementById('lightbox'),
   lightboxStage: document.getElementById('lightbox-stage'),
@@ -80,7 +74,6 @@ function otherView() {
 
 function setView(view) {
   if (state.view === view) return;
-  settleMarks();
   state.view = view;
   el.history.setAttribute('aria-pressed', String(view === 'archive'));
   // The icon says neither, so the name has to carry where the button leads.
@@ -92,17 +85,7 @@ function setView(view) {
   refresh();
 }
 
-el.history.addEventListener('click', (event) => {
-  // Clicking the count takes it as read. Scrolling every card past the topbar
-  // is the honest way to clear it, but the screen you are not on can collect a
-  // backlog you have no intention of reading through, and the number has to be
-  // able to reach zero.
-  if (event.target.closest('.history-count')) {
-    markViewRead(otherView());
-    return;
-  }
-  setView(otherView());
-});
+el.history.addEventListener('click', () => setView(otherView()));
 
 el.filterUnanswered.addEventListener('click', () => {
   state.unansweredOnly = !state.unansweredOnly;
@@ -264,23 +247,6 @@ function selectedEntries() {
     .filter((e) => e.bucket === state.view && passesFilters(e));
   items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   return items;
-}
-
-/**
- * The button carries the count for the screen it leads to — the cards on this
- * one say for themselves whether they have been read. It counts what the filter
- * would show, so whatever it points at is always one press away: a count you
- * cannot reach by pressing it would just sit there.
- */
-function paintHistoryCount() {
-  const view = otherView();
-  let n = 0;
-  for (const entry of state.entries.values()) {
-    if (entry.readAt || entry.bucket !== view || !passesFilters(entry)) continue;
-    n += 1;
-  }
-  el.historyCount.hidden = n === 0;
-  el.historyCount.textContent = n > 99 ? '99+' : String(n);
 }
 
 function modelChips(entry) {
@@ -593,13 +559,10 @@ function cardHtml(entry) {
     );
   }
   const style = ` style="${decl.join('; ')}"`;
-  const unread = state.marked.has(entry.id);
-  const mark = unread ? ` data-unread="${esc(entry.bucket)}"` : '';
   return `
-    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${mark}${style}>
+    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
       <div class="card-head">
         <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
-        ${unread ? '<span class="badge unread">unread</span>' : ''}
         <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
         <span class="meta" title="${esc(entry.createdAt)}">${fmtAge(entry.createdAt, nowMs())}</span>
         <div class="chips">${holdChip(entry)}${modelChips(entry)}</div>
@@ -657,7 +620,6 @@ function render() {
   applyExits(new Set(ids));
   painted = ids;
   paintMore(selected.length - items.length);
-  paintHistoryCount();
 
   // Only arrivals, departures and reorders are worth animating. A card whose
   // text changed under you while you were typing in it should not move at all,
@@ -855,7 +817,6 @@ function paint(items) {
   swapping = true;
   el.timeline.innerHTML = items.map(cardHtml).join('');
   el.empty.classList.toggle('hidden', items.length > 0);
-  observeUnread();
 
   // The fields are new elements, so a draft carried across the swap is back at
   // one line's worth of height until it is measured again. Before the anchors
@@ -886,105 +847,8 @@ function paint(items) {
 
 function upsert(entry) {
   if (!entry?.id) return;
-  if (!entry.readAt) state.marked.add(entry.id);
   state.entries.set(entry.id, entry);
   if (entry.status !== 'waiting') release(entry.id);
-}
-
-/** Leaving a screen clears the marks you have had the chance to look at. */
-function settleMarks() {
-  for (const id of state.marked) {
-    if (state.entries.get(id)?.readAt !== null) state.marked.delete(id);
-  }
-}
-
-/** The topbar covers the head of the feed, so a card only counts once it is clear of it. */
-const SEEN_INSET = 56;
-
-/**
- * A card counts as read once it has been on screen — no clicking through a
- * feed you are already reading. The cards are replaced wholesale on every
- * paint, so the observer is pointed at the new ones each time.
- */
-const seenObserver = new IntersectionObserver((entries) => {
-  for (const entry of entries) {
-    if (entry.isIntersecting) markRead(entry.target.dataset.id);
-  }
-}, { rootMargin: `-${SEEN_INSET}px 0px` });
-
-function observeUnread() {
-  seenObserver.disconnect();
-  // Nothing is on screen in a browser tab you are not looking at; observing
-  // there would mark the whole feed read behind your back.
-  if (document.visibilityState !== 'visible') return;
-  for (const card of el.timeline.children) {
-    if (state.entries.get(card.dataset.id)?.readAt) continue;
-    seenObserver.observe(card);
-    // The observer reports asynchronously and every paint disconnects it, so
-    // on a moving feed a card can be swapped out before it is ever reported.
-    // What is already in the reading area is measured here rather than waited
-    // for; the observer is left to handle scrolling.
-    const rect = card.getBoundingClientRect();
-    if (rect.bottom > SEEN_INSET && rect.top < window.innerHeight - SEEN_INSET) {
-      markRead(card.dataset.id);
-    }
-  }
-}
-
-document.addEventListener('visibilitychange', observeUnread);
-
-let readTimer = null;
-
-function markRead(id) {
-  const entry = state.entries.get(id);
-  if (!entry || entry.readAt || state.readPending.has(id)) return;
-  state.readPending.add(id);
-  // A batch, so scrolling past a screenful is one request rather than twenty.
-  if (readTimer) return;
-  readTimer = setTimeout(flushRead, 500);
-}
-
-/**
- * Everything the badge is counting, taken as read in one go. Same set the badge
- * counts, filters and all, so the number it clears is the number you clicked.
- */
-function markViewRead(view) {
-  for (const entry of state.entries.values()) {
-    if (entry.readAt || entry.bucket !== view || !passesFilters(entry)) continue;
-    state.readPending.add(entry.id);
-  }
-  flushRead();
-}
-
-async function flushRead() {
-  clearTimeout(readTimer);
-  readTimer = null;
-  const ids = [...state.readPending];
-  state.readPending.clear();
-  if (!ids.length) return;
-  let marked;
-  try {
-    ({ marked } = await api('/api/entries/read', { ids }));
-  } catch {
-    // Nothing was marked. The cards are not guaranteed another paint, so hold
-    // on to the ids instead of waiting to be shown them again.
-    for (const id of ids) state.readPending.add(id);
-    clearTimeout(readTimer);
-    readTimer = setTimeout(flushRead, 5000);
-    return;
-  }
-  // The same stamps arrive over SSE, but the badge should not need the stream
-  // to be up to come down.
-  const at = new Date().toISOString();
-  let changed = false;
-  for (const id of marked || []) {
-    const entry = state.entries.get(id);
-    if (entry && !entry.readAt) {
-      entry.readAt = at;
-      changed = true;
-    }
-  }
-  if (changed) render();
 }
 
 /** The entry can no longer take a reply — drop the draft and stop holding it. */

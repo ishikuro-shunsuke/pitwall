@@ -10,7 +10,6 @@
   --border: light-dark(oklch(87% 0 0), oklch(32% 0 0));
   --text: light-dark(oklch(22% 0 0), oklch(93% 0 0));
   --muted: light-dark(oklch(53% 0 0), oklch(66% 0 0));
-  --rail: light-dark(oklch(87% 0 0), oklch(30% 0 0));
   --topbar-bg: light-dark(oklch(97% 0 0 / 0.94), oklch(15% 0 0 / 0.94));
 
   /* Colours that only say which thing this is — the repo hues from script, and
@@ -148,11 +147,6 @@ a { color: var(--accent); }
    you are there. */
 .history-x { display: none; }
 .history-btn[aria-pressed="true"] .history-x { display: block; }
-/* What is behind the button and unread: the archive's count on the way in, the
-   timeline's on the way out. Bare, and red, because unread is the only thing
-   it has to say. Clicking it takes what it counts as read. */
-.history-count { font-family: var(--mono); font-size: 10px; color: var(--accent); }
-.history-count:hover { opacity: 0.65; }
 
 main {
   position: relative;
@@ -160,21 +154,13 @@ main {
   margin: 0 auto;
   padding: 28px 20px 80px;
 }
-.rail {
-  position: absolute;
-  left: 39px;
-  top: 28px;
-  bottom: 80px;
-  width: 2px;
-  background: var(--rail);
-}
 .timeline { display: flex; flex-direction: column; gap: var(--gap); position: relative; }
 .empty { color: var(--muted); text-align: center; padding: 60px 0; }
 
 .more {
   display: block;
-  width: calc(100% - 36px);
-  margin: var(--gap) 0 0 36px;
+  width: 100%;
+  margin: var(--gap) 0 0;
   padding: 10px;
   background: transparent;
   border: 1px dashed var(--border);
@@ -189,15 +175,10 @@ main {
 
 .card {
   position: relative;
-  margin-left: 36px;
   background: var(--panel);
   border: 1px solid var(--repo-color, var(--border));
   border-radius: 0;
-  /* Clipped rather than hidden, with room left over on every side for the node
-     out on the rail: the node is the card's own mark and sits outside its left
-     edge, and plain `hidden` cut it off. */
-  overflow: clip;
-  overflow-clip-margin: 24px;
+  overflow: hidden;
   box-shadow: none;
 }
 /* On the timeline the card in the middle of the reading area is the one you are
@@ -227,24 +208,6 @@ main {
   .timeline.solo .card { transition: none; }
 }
 
-.card::before {
-  content: "";
-  position: absolute;
-  /* Centred on the rail. The card's own offset from the rail is the same on
-     both layouts, so this one figure holds for both. */
-  left: -22px;
-  top: 22px;
-  width: 10px;
-  height: 10px;
-  background: var(--bg);
-  border: 2px solid var(--rail);
-  border-radius: 0;
-}
-/* The node carries one thing — unread fills it, read leaves it hollow. Which
-   agent it came from is on the badge a few pixels to the right. */
-.card[data-unread="timeline"]::before { background: var(--accent); border-color: var(--accent); }
-.card[data-unread="archive"]::before { border-color: var(--accent); }
-
 .card-head {
   display: flex;
   flex-wrap: wrap;
@@ -264,11 +227,6 @@ main {
 }
 .badge.cursor { background: var(--brand-cursor); border-color: var(--brand-cursor); color: var(--on-accent); }
 .badge.claude { background: var(--brand-claude); border-color: var(--brand-claude); color: var(--on-accent); }
-/* Outlined rather than filled — most of a live feed is unread, and a screenful
-   of solid red would drown out the one card that actually needs you. A card
-   you have read carries nothing: the word is only worth the space while it is
-   true. */
-.badge.unread { border-color: var(--accent); color: var(--accent); }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
@@ -610,11 +568,4 @@ a.file-ref:hover {
 }
 @keyframes card-leave-right {
   to { opacity: 0; transform: translateX(24px); }
-}
-
-@media (max-width: 720px) {
-  /* The bar is a title and two glyphs now, which fits any phone on one line;
-     only a filter has to give way, and it wraps inside its own column. */
-  .rail { left: 19px; }
-  .card { margin-left: 16px; }
 }

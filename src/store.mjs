@@ -57,12 +57,8 @@ export function init() {
   try {
     const raw = JSON.parse(fs.readFileSync(paths.entries, 'utf8'));
     const cutoff = Date.now() - config.retentionDays * 86_400_000;
-    const bootedAt = new Date().toISOString();
     for (const entry of raw.entries ?? []) {
       if (Date.parse(entry.createdAt) < cutoff) continue;
-      // Entries written before there was such a thing as unread. Starting them
-      // unread would open the badge on a backlog nobody skipped.
-      if (entry.readAt === undefined) entry.readAt = bootedAt;
       // A `waiting` entry cannot survive a restart: its hook process is gone,
       // so the agent has already stopped and no reply can reach it anymore.
       if (entry.status === 'waiting') {
@@ -147,26 +143,6 @@ export function update(id, patch) {
 
 export function list() {
   return [...entries.values()];
-}
-
-/**
- * Mark entries as seen. Already-read ids are dropped rather than restamped, so
- * a client that keeps reporting the same cards costs nothing. Returns the ids
- * that actually changed.
- */
-export function markRead(ids) {
-  const at = new Date().toISOString();
-  const changed = [];
-  for (const id of ids) {
-    const entry = entries.get(id);
-    if (!entry || entry.readAt) continue;
-    entry.readAt = at;
-    changed.push(entry);
-  }
-  if (!changed.length) return [];
-  persist();
-  for (const entry of changed) emit('updated', entry);
-  return changed.map((entry) => entry.id);
 }
 
 export async function storeImage(sourcePath, { mime, ext }) {

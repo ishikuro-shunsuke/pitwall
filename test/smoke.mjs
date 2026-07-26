@@ -365,37 +365,6 @@ async function main() {
       else fail('notify filters uninteresting types', skipped.data);
     }
 
-    // read state
-    {
-      const created = await json('POST', '/api/hooks/wait', {
-        agent: 'claude',
-        sessionId: 'sess-read',
-        last_assistant_message: 'nobody has looked at this yet',
-        repo: { root: DATA, name: 'smoke-repo' },
-        host: { cwd: DATA },
-      });
-      const id = created.data.id;
-
-      const fresh = await json('GET', `/api/entries/${id}`);
-      if (fresh.data.entry?.readAt === null) ok('a new entry starts unread');
-      else fail('a new entry starts unread', fresh.data.entry?.readAt);
-
-      const marked = await json('POST', '/api/entries/read', { ids: [id, 'e_nope'] });
-      const after = await json('GET', `/api/entries/${id}`);
-      if (marked.data.marked?.length === 1 && after.data.entry?.readAt) ok('mark read');
-      else fail('mark read', { marked: marked.data.marked, readAt: after.data.entry?.readAt });
-
-      const again = await json('POST', '/api/entries/read', { ids: [id] });
-      if (again.data.marked?.length === 0) ok('re-marking an entry is a no-op');
-      else fail('re-marking an entry is a no-op', again.data);
-
-      const empty = await json('POST', '/api/entries/read', {});
-      if (empty.status === 400) ok('mark read needs ids');
-      else fail('mark read needs ids', empty.status);
-
-      await json('POST', `/api/entries/${id}/dismiss`);
-    }
-
     // expired via short hold
     {
       const created = await json('POST', '/api/hooks/wait', {

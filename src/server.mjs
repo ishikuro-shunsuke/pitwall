@@ -386,13 +386,6 @@ async function handleList(req, res, url) {
   });
 }
 
-async function handleMarkRead(req, res) {
-  const body = await readBody(req);
-  const ids = Array.isArray(body.ids) ? body.ids.map(String) : [];
-  if (!ids.length) return sendJson(res, 400, { error: 'ids required' });
-  sendJson(res, 200, { ok: true, marked: store.markRead(ids) });
-}
-
 async function handleGetEntry(_req, res, params) {
   const entry = store.get(params.id);
   if (!entry) return sendJson(res, 404, { error: 'not found' });
@@ -571,8 +564,6 @@ async function router(req, res) {
 
     if (method === 'GET' && pathname === '/api/events') return handleSse(req, res);
     if (method === 'GET' && pathname === '/api/entries') return handleList(req, res, url);
-    // Before /api/entries/:id, which would otherwise swallow it.
-    if (method === 'POST' && pathname === '/api/entries/read') return handleMarkRead(req, res);
 
     let params = match(pathname, '/api/entries/:id');
     if (method === 'GET' && params) return handleGetEntry(req, res, params);
