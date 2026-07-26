@@ -184,6 +184,14 @@ main {
   filter: none;
   opacity: 1;
 }
+/* Nothing is blurred on the archive, so the card you are on says so with a ring
+   instead — B and the arrow keys need somewhere visible to be pointing. Grey,
+   and outside the edge, so it is not read as the repo's colour or as anything
+   about the entry itself. */
+.timeline:not(.solo) .card.focused {
+  outline: 1px solid var(--muted);
+  outline-offset: 2px;
+}
 /* A repaint rebuilds the cards, and rebuilding is not a change to animate. */
 .timeline.instant .card { transition: none; }
 @media (prefers-reduced-motion: reduce) {
