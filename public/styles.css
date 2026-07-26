@@ -179,7 +179,11 @@ main {
   background: var(--panel);
   border: 1px solid var(--repo-color, var(--border));
   border-radius: 0;
-  overflow: hidden;
+  /* Clipped rather than hidden, with room left over on every side for the node
+     out on the rail: the node is the card's own mark and sits outside its left
+     edge, and plain `hidden` cut it off. */
+  overflow: clip;
+  overflow-clip-margin: 24px;
   box-shadow: none;
 }
 /* On the timeline the card in the middle of the reading area is the one you are
@@ -212,7 +216,9 @@ main {
 .card::before {
   content: "";
   position: absolute;
-  left: -29px;
+  /* Centred on the rail. The card's own offset from the rail is the same on
+     both layouts, so this one figure holds for both. */
+  left: -22px;
   top: 22px;
   width: 10px;
   height: 10px;
@@ -606,5 +612,4 @@ a.file-ref:hover {
   .filters { justify-content: flex-start; }
   .rail { left: 19px; }
   .card { margin-left: 16px; }
-  .card::before { left: -19px; }
 }
