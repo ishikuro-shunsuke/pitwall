@@ -544,8 +544,20 @@ function cardHtml(entry) {
 
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let painted = null;
+let animating = false;
+let queued = null;
 
 function render({ grew = false } = {}) {
+  // The browser snapshots the cards a frame after a transition starts and holds
+  // that picture until it ends, so a repaint landing in between takes the
+  // departing card away before it has been drawn leaving. Replying repaints
+  // twice — the server's own event, then the refresh behind it — and either one
+  // can be the one that lands there, so the second waits its turn.
+  if (animating) {
+    queued = { grew: grew || queued?.grew || false };
+    return;
+  }
+
   const selected = selectedEntries();
   const items = selected.slice(0, state.limit);
   const ids = items.map((e) => e.id);
@@ -562,7 +574,14 @@ function render({ grew = false } = {}) {
     paint(items);
     return;
   }
-  document.startViewTransition(() => paint(items));
+  animating = true;
+  const done = () => {
+    animating = false;
+    const next = queued;
+    queued = null;
+    if (next) render(next);
+  };
+  document.startViewTransition(() => paint(items)).finished.then(done, done);
 }
 
 /**
