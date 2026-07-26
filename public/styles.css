@@ -159,7 +159,6 @@ main {
   margin-left: 36px;
   background: var(--panel);
   border: 1px solid var(--repo-color, var(--border));
-  border-left-width: 3px;
   border-radius: 0;
   overflow: hidden;
   box-shadow: none;
@@ -222,7 +221,8 @@ main {
 .chip.hold.low { border-color: var(--warn); color: var(--warn); }
 .chip.hold.critical { border-color: var(--danger); color: var(--danger); }
 
-.card-body { padding: 14px; }
+/* Alpha, so it lands over the card's own panel rather than replacing it. */
+.card-body { padding: 14px; background: var(--repo-wash, transparent); }
 .card-title {
   font-size: 14px;
   font-weight: 600;

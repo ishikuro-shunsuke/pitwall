@@ -206,9 +206,9 @@ function nowMs() {
 }
 
 /**
- * The hue carries the repo, so the border and the bands that frame the card
- * are the same colour at two strengths — full for a line, washed out behind
- * text that still has to be readable.
+ * The hue carries the repo, so the whole card is one colour at three
+ * strengths: full for a line, and two washes faint enough to keep text
+ * readable — the heavier one on the bands, so they still read as bands.
  */
 function repoTones(key) {
   if (!key) return null;
@@ -220,6 +220,7 @@ function repoTones(key) {
   return {
     color: `hsl(${hue}deg 65% var(--repo-l))`,
     tint: `hsl(${hue}deg 65% var(--repo-l) / 0.12)`,
+    wash: `hsl(${hue}deg 65% var(--repo-l) / 0.05)`,
   };
 }
 
@@ -519,7 +520,7 @@ function cardHtml(entry) {
   const dirty = repo.dirty ? ' • dirty' : '';
   const tones = repoTones(repo.key || repo.name);
   const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
-  if (tones) decl.push(`--repo-color: ${tones.color}`, `--repo-tint: ${tones.tint}`);
+  if (tones) decl.push(`--repo-color: ${tones.color}`, `--repo-tint: ${tones.tint}`, `--repo-wash: ${tones.wash}`);
   const style = ` style="${decl.join('; ')}"`;
   const unread = state.marked.has(entry.id) ? ` data-unread="${esc(entry.bucket)}"` : '';
   return `
