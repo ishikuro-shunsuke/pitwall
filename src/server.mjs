@@ -372,22 +372,11 @@ async function handleResolve(req, res, params) {
 
 async function handleList(req, res, url) {
   const view = url.searchParams.get('view') || 'timeline';
-  const repo = url.searchParams.getAll('repo');
-  const agent = url.searchParams.getAll('agent');
 
   let items = store.list().map(publicEntry);
 
   if (view !== 'all') items = items.filter((e) => e.bucket === view);
   if (url.searchParams.get('unanswered') === '1') items = items.filter((e) => e.unanswered);
-
-  if (repo.length) {
-    const set = new Set(repo);
-    items = items.filter((e) => set.has(e.repo?.key));
-  }
-  if (agent.length) {
-    const set = new Set(agent);
-    items = items.filter((e) => set.has(e.agent));
-  }
 
   items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 

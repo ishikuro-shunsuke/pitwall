@@ -17,31 +17,13 @@
     <div class="brand">
       <span class="brand-mark"></span>
       <h1>pitwall</h1>
-      <span id="status-dot" class="status-dot" title="connecting"></span>
+      <span id="conn" class="conn" role="status" hidden>offline</span>
     </div>
-    <nav class="tabs" role="tablist">
-      <button type="button" class="tab active" data-view="timeline">Timeline<span
-        class="tab-badge" data-badge="timeline" title="mark these read" hidden></span></button>
-      <button type="button" class="tab" data-view="archive">Archive<span
-        class="tab-badge" data-badge="archive" title="mark these read" hidden></span></button>
-    </nav>
     <div class="filters">
       <div class="filter" id="filter-answer" hidden>
         <span>show</span>
         <div class="filter-group">
           <button type="button" class="filter-chip" id="filter-unanswered" aria-pressed="false">unanswered only</button>
-        </div>
-      </div>
-      <label class="filter">
-        <span>repo</span>
-        <input type="search" id="filter-repo" placeholder="name or path"
-               autocomplete="off" spellcheck="false">
-      </label>
-      <div class="filter">
-        <span>agent</span>
-        <div class="filter-group" id="filter-agent">
-          <button type="button" class="filter-chip" data-value="cursor" aria-pressed="false">cursor</button>
-          <button type="button" class="filter-chip" data-value="claude" aria-pressed="false">claude</button>
         </div>
       </div>
       <div class="filter">

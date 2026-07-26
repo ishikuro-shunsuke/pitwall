@@ -5,8 +5,6 @@ const PAGE = 20;
 
 const state = {
   view: 'timeline',
-  repoQuery: '',
-  agents: new Set(),
   unansweredOnly: false,
   limit: PAGE,
   entries: new Map(),
@@ -16,7 +14,7 @@ const state = {
   serverSkew: 0,
   // Cards on screen are marked read within the second, so the mark on the card
   // has to outlive the flag: these are the ids that were still unread when this
-  // tab last showed them, and they keep their mark until you leave the tab.
+  // screen last showed them, and they keep their mark until you leave it.
   marked: new Set(),
   readPending: new Set(),
 };
@@ -25,11 +23,11 @@ const el = {
   topbar: document.querySelector('.topbar'),
   timeline: document.getElementById('timeline'),
   empty: document.getElementById('empty'),
-  status: document.getElementById('status-dot'),
-  filterRepo: document.getElementById('filter-repo'),
-  filterAgent: document.getElementById('filter-agent'),
+  conn: document.getElementById('conn'),
   filterAnswer: document.getElementById('filter-answer'),
   filterUnanswered: document.getElementById('filter-unanswered'),
+  history: document.getElementById('history'),
+  menuBadge: document.getElementById('menu-badge'),
   more: document.getElementById('more'),
   lightbox: document.getElementById('lightbox'),
   lightboxStage: document.getElementById('lightbox-stage'),
@@ -65,26 +63,33 @@ el.themeToggle.addEventListener('click', () => {
 systemTheme.addEventListener('change', paintThemeToggle);
 paintThemeToggle();
 
-document.querySelectorAll('.tab').forEach((btn) => {
-  btn.addEventListener('click', (event) => {
-    // Clicking the count takes it as read. Scrolling every card past the
-    // topbar is the honest way to clear it, but a tab you were never looking
-    // at can collect a backlog you have no intention of reading through, and
-    // the number has to be able to reach zero. The tab you are already on
-    // does the same, so this is reachable from the keyboard too.
-    if (event.target.closest('.tab-badge') || state.view === btn.dataset.view) {
-      markViewRead(btn.dataset.view);
-      return;
-    }
-    document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    settleMarks();
-    state.view = btn.dataset.view;
-    // Nothing in the timeline has finished, so there is nothing to narrow.
-    el.filterAnswer.hidden = state.view !== 'archive';
-    resetPaging();
-    refresh();
-  });
+/** The screen the History button leads to, which is the one you are not on. */
+function otherView() {
+  return state.view === 'timeline' ? 'archive' : 'timeline';
+}
+
+function setView(view) {
+  if (state.view === view) return;
+  settleMarks();
+  state.view = view;
+  el.history.setAttribute('aria-pressed', String(view === 'archive'));
+  el.history.title = view === 'archive' ? 'back to the timeline' : 'past entries';
+  // Nothing in the timeline has finished, so there is nothing to narrow.
+  el.filterAnswer.hidden = view !== 'archive';
+  resetPaging();
+  refresh();
+}
+
+el.history.addEventListener('click', (event) => {
+  // Clicking the count takes it as read. Scrolling every card past the topbar
+  // is the honest way to clear it, but the screen you are not on can collect a
+  // backlog you have no intention of reading through, and the number has to be
+  // able to reach zero.
+  if (event.target.closest('.menu-badge')) {
+    markViewRead(otherView());
+    return;
+  }
+  setView(otherView());
 });
 
 el.filterUnanswered.addEventListener('click', () => {
@@ -92,28 +97,6 @@ el.filterUnanswered.addEventListener('click', () => {
   el.filterUnanswered.setAttribute('aria-pressed', String(state.unansweredOnly));
   resetPaging();
   render();
-});
-
-function toggleChip(group, set, value) {
-  if (set.has(value)) set.delete(value);
-  else set.add(value);
-  for (const chip of group.querySelectorAll('.filter-chip')) {
-    chip.setAttribute('aria-pressed', String(set.has(chip.dataset.value)));
-  }
-  resetPaging();
-  render();
-}
-
-el.filterRepo.addEventListener('input', () => {
-  state.repoQuery = el.filterRepo.value.trim().toLowerCase();
-  resetPaging();
-  render();
-});
-
-el.filterAgent.addEventListener('click', (e) => {
-  const chip = e.target.closest('.filter-chip');
-  if (!chip) return;
-  toggleChip(el.filterAgent, state.agents, chip.dataset.value);
 });
 
 const lightbox = { items: [], index: 0 };
@@ -126,7 +109,12 @@ el.lightboxImg.addEventListener('click', toggleZoom);
 el.lightboxImg.addEventListener('load', paintLightboxCap);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
-    closeLightbox();
+    if (!el.lightbox.classList.contains('hidden')) {
+      closeLightbox();
+      return;
+    }
+    // The × on the button is the way back, and this is the same door.
+    if (state.view === 'archive' && !typingInto(e.target)) setView('timeline');
     return;
   }
   if (el.lightbox.classList.contains('hidden')) return;
@@ -254,16 +242,8 @@ function repoTones(key) {
   };
 }
 
-/** What the repo filter matches on: the name you see, plus the path and branch. */
-function repoHaystack(entry) {
-  const repo = entry.repo || {};
-  return [repo.name, repo.root, repo.key, repo.branch].filter(Boolean).join(' ').toLowerCase();
-}
-
 function passesFilters(entry) {
   if (entry.bucket === 'archive' && state.unansweredOnly && !entry.unanswered) return false;
-  if (state.repoQuery && !repoHaystack(entry).includes(state.repoQuery)) return false;
-  if (state.agents.size && !state.agents.has(entry.agent)) return false;
   return true;
 }
 
@@ -275,21 +255,20 @@ function selectedEntries() {
 }
 
 /**
- * The badge counts what the filters would show, so whatever it points at is
- * always one tab away — a count you cannot reach by switching tabs would just
- * sit there.
+ * The button carries the count for the screen it leads to — the cards on this
+ * one say for themselves whether they have been read. It counts what the
+ * filters would show, so whatever it points at is always one press away: a
+ * count you cannot reach by pressing it would just sit there.
  */
-function paintBadges() {
-  const counts = { timeline: 0, archive: 0 };
+function paintBadge() {
+  const view = otherView();
+  let n = 0;
   for (const entry of state.entries.values()) {
-    if (entry.readAt || !passesFilters(entry)) continue;
-    if (entry.bucket in counts) counts[entry.bucket] += 1;
+    if (entry.readAt || entry.bucket !== view || !passesFilters(entry)) continue;
+    n += 1;
   }
-  for (const badge of document.querySelectorAll('[data-badge]')) {
-    const n = counts[badge.dataset.badge];
-    badge.hidden = n === 0;
-    badge.textContent = n > 99 ? '99+' : String(n);
-  }
+  el.menuBadge.hidden = n === 0;
+  el.menuBadge.textContent = n > 99 ? '99+' : String(n);
 }
 
 function modelChips(entry) {
@@ -602,12 +581,14 @@ function cardHtml(entry) {
     );
   }
   const style = ` style="${decl.join('; ')}"`;
-  const unread = state.marked.has(entry.id) ? ` data-unread="${esc(entry.bucket)}"` : '';
+  const unread = state.marked.has(entry.id);
+  const mark = unread ? ` data-unread="${esc(entry.bucket)}"` : '';
   return `
-    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${unread}${style}>
+    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${mark}${style}>
       <div class="card-head">
         <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
         <span class="badge status-${esc(entry.status)}">${esc(entry.status)}</span>
+        ${unread ? '<span class="badge unread">unread</span>' : ''}
         <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
         <span class="meta" title="${esc(entry.createdAt)}">${fmtAge(entry.createdAt, nowMs())}</span>
         <div class="chips">${holdChip(entry)}${modelChips(entry)}</div>
@@ -665,7 +646,7 @@ function render() {
   applyExits(new Set(ids));
   painted = ids;
   paintMore(selected.length - items.length);
-  paintBadges();
+  paintBadge();
 
   // Only arrivals, departures and reorders are worth animating. A card whose
   // text changed under you while you were typing in it should not move at all,
@@ -760,6 +741,13 @@ function restoreAnchors(anchors) {
 let picked = null;
 
 /**
+ * The card a keyboard shortcut lands on. Two cards can be sharp at once — the
+ * one you are reading and the one you are typing in — and only the first of
+ * those is the one you mean when your hands are off the text.
+ */
+let sharpId = null;
+
+/**
  * One card at a time is in focus: the one you picked, or failing that the one
  * the middle of the reading area falls on, plus whichever card you are typing
  * in. Everything else is blurred back.
@@ -768,7 +756,10 @@ function paintFocus() {
   cancelAnimationFrame(focusFrame);
   focusFrame = null;
   const cards = el.timeline.children;
-  if (!cards.length) return;
+  if (!cards.length) {
+    sharpId = null;
+    return;
+  }
   const top = readingTop();
   const line = top + (window.innerHeight - top) / 2;
   const active = document.activeElement;
@@ -801,6 +792,7 @@ function paintFocus() {
   picked = pick?.dataset.id ?? null;
 
   const sharp = pick || centred || closest;
+  sharpId = sharp?.dataset.id ?? null;
   for (const card of cards) {
     card.classList.toggle('focused', card === sharp || card === typing);
   }
@@ -885,7 +877,7 @@ function upsert(entry) {
   if (entry.status !== 'waiting') release(entry.id);
 }
 
-/** Leaving a tab clears the marks you have had the chance to look at. */
+/** Leaving a screen clears the marks you have had the chance to look at. */
 function settleMarks() {
   for (const id of state.marked) {
     if (state.entries.get(id)?.readAt !== null) state.marked.delete(id);
@@ -939,9 +931,8 @@ function markRead(id) {
 }
 
 /**
- * Everything the badge is counting for this tab, taken as read in one go.
- * Same set the badge counts, filters and all, so the number it clears is the
- * number you clicked.
+ * Everything the badge is counting, taken as read in one go. Same set the badge
+ * counts, filters and all, so the number it clears is the number you clicked.
  */
 function markViewRead(view) {
   for (const entry of state.entries.values()) {
@@ -992,8 +983,8 @@ function release(id) {
 }
 
 async function refresh() {
-  // Fetch every tab's entries; the client filters by tab so an SSE update that
-  // moves a card between tabs still lands somewhere.
+  // Fetch both screens' entries; the client picks between them, so an SSE
+  // update that moves a card from one to the other still lands somewhere.
   const data = await fetch('/api/entries?view=all').then((r) => r.json());
   if (data.serverTime) state.serverSkew = data.serverTime - Date.now();
   state.entries.clear();
@@ -1162,6 +1153,31 @@ el.timeline.addEventListener('keydown', (e) => {
   sendReply(id).catch((err) => alert(err.message || String(err)));
 });
 
+/** Anywhere a keystroke is a letter you meant to type rather than a command. */
+function typingInto(node) {
+  const tag = node?.tagName;
+  return tag === 'TEXTAREA' || tag === 'INPUT' || node?.isContentEditable === true;
+}
+
+/**
+ * B boxes the card you are on. Off while the caret is in a field, where the
+ * Ctrl/Cmd+Enter above is the only key that means anything, and off while the
+ * viewer is up, where the card behind it is not what you are looking at.
+ */
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'b' && e.key !== 'B') return;
+  if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+  if (typingInto(e.target)) return;
+  if (!el.lightbox.classList.contains('hidden')) return;
+  if (!sharpId) return;
+  // The button is the whole rule for whether a card can be boxed, so ask it
+  // rather than repeating the statuses it is drawn for.
+  const btn = el.timeline.querySelector(`[data-act="dismiss"][data-id="${CSS.escape(sharpId)}"]`);
+  if (!btn || firing.has(`${sharpId}:dismiss`)) return;
+  e.preventDefault();
+  dismissEntry(sharpId).catch((err) => alert(err.message || String(err)));
+});
+
 /**
  * Opens `url` in the viewer. Arrow keys walk every image on screen, not just
  * the card that was clicked, so `from` says which thumbnail was the way in —
@@ -1240,6 +1256,11 @@ setInterval(() => {
   }
 }, 1000);
 
+function setConn(ok) {
+  el.conn.hidden = ok;
+  el.conn.title = ok ? '' : 'the live feed dropped — retrying';
+}
+
 function connectSse() {
   const es = new EventSource('/api/events');
   es.addEventListener('hello', (ev) => {
@@ -1247,9 +1268,7 @@ function connectSse() {
       const data = JSON.parse(ev.data);
       if (data.serverTime) state.serverSkew = data.serverTime - Date.now();
     } catch { /* ignore */ }
-    el.status.classList.add('ok');
-    el.status.classList.remove('bad');
-    el.status.title = 'connected';
+    setConn(true);
   });
   // Marking a screenful read updates a screenful of entries, so the repaint
   // waits for the whole burst instead of running once per event.
@@ -1269,15 +1288,11 @@ function connectSse() {
   };
   es.addEventListener('created', onEntry);
   es.addEventListener('updated', onEntry);
-  es.onerror = () => {
-    el.status.classList.remove('ok');
-    el.status.classList.add('bad');
-    el.status.title = 'disconnected — retrying';
-  };
+  es.onerror = () => setConn(false);
 }
 
 refresh().catch((err) => {
-  el.status.classList.add('bad');
+  setConn(false);
   el.empty.textContent = `Failed to load: ${err.message}`;
   el.empty.classList.remove('hidden');
 });

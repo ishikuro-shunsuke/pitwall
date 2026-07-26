@@ -73,29 +73,45 @@ a { color: var(--accent); }
   background: var(--accent);
   border: 1px solid var(--border);
 }
-.status-dot {
-  width: 8px; height: 8px; border-radius: 50%;
-  background: var(--muted);
+/* A live feed is not news. Connected is the whole point of the page, so it
+   says nothing; the word only appears when the feed has stopped, and it says
+   which state it is in rather than asking you to remember a colour. The pulse
+   is the retrying. */
+.conn {
+  padding: 1px 7px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 16px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  animation: conn-retry 1.6s ease-in-out infinite;
 }
-/* A live feed is not news, so the dot only takes the colour when it breaks. */
-.status-dot.ok { background: var(--text); }
-.status-dot.bad { background: var(--accent); }
+@keyframes conn-retry { 50% { opacity: 0.35; } }
+@media (prefers-reduced-motion: reduce) {
+  .conn { animation: none; }
+}
 
-.tabs { display: flex; gap: 4px; justify-content: center; }
-.tab {
+.menu { display: flex; gap: 4px; justify-content: center; }
+.menu-btn {
   background: transparent;
   border: 1px solid transparent;
   padding: 6px 14px;
   cursor: pointer;
   color: var(--muted);
 }
-.tab.active {
+.menu-btn:hover { color: var(--text); }
+/* Held down while the past is on screen, and the × in it is the way out. */
+.menu-btn[aria-pressed="true"] {
   border-color: var(--border);
   background: var(--panel);
   color: var(--text);
 }
+.menu-x { display: none; }
+.menu-btn[aria-pressed="true"] .menu-x { display: inline; margin-right: 8px; }
 /* A badge counts cards that are waiting, and wears what waiting wears. */
-.tab-badge {
+.menu-badge {
   display: inline-block;
   margin-left: 8px;
   min-width: 18px;
@@ -108,29 +124,15 @@ a { color: var(--accent); }
   border: 1px solid var(--accent);
   color: var(--on-accent);
 }
-/* The archive is a step further from you, so its count sits a step back. */
-.tab[data-view="archive"] .tab-badge { background: transparent; color: var(--accent); }
+/* On the way in the count is the archive's, and the archive is a step further
+   from you, so it sits a step back. On the way out it is the timeline's. */
+.menu-btn[aria-pressed="false"] .menu-badge { background: transparent; color: var(--accent); }
 /* The count is clickable — it takes what it counts as read. */
-.tab-badge:hover { opacity: 0.65; }
+.menu-badge:hover { opacity: 0.65; }
 
 .filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .filter[hidden] { display: none; }
-.filter input {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  min-width: 120px;
-  padding: 4px 6px;
-  border-radius: 0;
-}
-.filter input {
-  font: inherit;
-  color: var(--text);
-  text-transform: none;
-  letter-spacing: normal;
-}
-.filter input::placeholder { color: var(--muted); }
-.filter input:focus { outline: none; border-color: var(--accent); }
 .filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
 .filter-chip {
   font: inherit;
@@ -252,6 +254,11 @@ main {
 .badge.status-dismissed,
 .badge.status-expired,
 .badge.status-detached { color: var(--muted); }
+/* The node out on the rail says this from across the page; the badge says it in
+   the row you are reading. Filled and hollow the same way round, and a card you
+   have read carries nothing — the word is only worth the space while it is true. */
+.badge.unread { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.card[data-unread="archive"] .badge.unread { background: transparent; color: var(--accent); }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
@@ -562,7 +569,7 @@ a.file-ref:hover {
 
    Sideways is the answer to a button, and script stamps the direction on the
    card it is answering. A card that leaves for any other reason — a filter, a
-   tab, a wait that ran out — fades where it stands, so a card sliding off is
+   screen, a wait that ran out — fades where it stands, so a card sliding off is
    always something you did. */
 ::view-transition-group(.card) {
   animation-duration: 260ms;

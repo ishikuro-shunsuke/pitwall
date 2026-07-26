@@ -17,8 +17,8 @@ export const ACTIVE_STATUSES = new Set(['waiting', 'notice']);
 const UNANSWERED_STATUSES = new Set(['dismissed', 'expired', 'detached']);
 
 /**
- * Which tab an entry belongs to: 'timeline' while it is still live, then
- * 'archive' once it is over, however it ended.
+ * Which screen an entry belongs to: 'timeline' while it is still live, then
+ * 'archive' — behind the History button — once it is over, however it ended.
  */
 export function bucketOf(entry) {
   return ACTIVE_STATUSES.has(entry.status) ? 'timeline' : 'archive';
