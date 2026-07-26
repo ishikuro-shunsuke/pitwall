@@ -27,11 +27,25 @@ function normalizeRepo(raw = {}) {
   };
 }
 
+/**
+ * The server's own environment describes the server's machine. Falling back to
+ * it for a payload that came out of a container labels a container path as one
+ * the editor could open, and the link silently points at nothing. Once the
+ * container has told us where its workspace sits on the host, the rewritten
+ * path really is on this machine, so this machine's distro is the right one.
+ */
 function normalizeHost(raw = {}) {
+  const container = Boolean(raw.container);
+  const containerRoot = (container && raw.containerRoot) || null;
+  const hostRoot = (container && raw.hostRoot) || null;
+  const serverDistro = process.env.WSL_DISTRO_NAME || null;
   return {
-    platform: raw.platform || process.platform,
-    wslDistro: raw.wslDistro || process.env.WSL_DISTRO_NAME || null,
+    platform: container && hostRoot ? process.platform : raw.platform || process.platform,
+    wslDistro: container ? (hostRoot ? serverDistro : null) : raw.wslDistro || serverDistro,
     cwd: raw.cwd || null,
+    container,
+    containerRoot,
+    hostRoot,
   };
 }
 

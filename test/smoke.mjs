@@ -200,6 +200,42 @@ async function main() {
       else fail('wsl deeplink', entry?.links);
     }
 
+    // paths from inside a container: the editor runs outside it, so the link
+    // has to leave /workspaces behind or say that it cannot
+    {
+      const container = {
+        platform: 'linux',
+        cwd: '/workspaces/proj/sub',
+        container: true,
+        containerRoot: '/workspaces/proj',
+        hostRoot: '/home/me/src/proj',
+      };
+      const mapped = await json('POST', '/api/hooks/wait', {
+        agent: 'cursor',
+        status: 'completed',
+        conversationId: 'smoke-container-mapped',
+        repo: { root: '/workspaces/proj', name: 'proj' },
+        host: container,
+      });
+      const blind = await json('POST', '/api/hooks/wait', {
+        agent: 'cursor',
+        status: 'completed',
+        conversationId: 'smoke-container-blind',
+        repo: { root: '/workspaces/proj', name: 'proj' },
+        host: { ...container, containerRoot: null, hostRoot: null },
+      });
+
+      const live = await json('GET', '/api/entries');
+      const byId = (id) => live.data.entries?.find((e) => e.id === id);
+      const link = byId(mapped.data?.id)?.links?.openWorkspace;
+      if (link?.endsWith('/home/me/src/proj') && !link.includes('workspaces')) ok('container path mapped to host');
+      else fail('container path mapped to host', link);
+
+      const none = byId(blind.data?.id)?.links?.openWorkspace;
+      if (none === null || none === undefined) ok('unmapped container gets no link');
+      else fail('unmapped container gets no link', none);
+    }
+
     // an absolute path in the message text, with no upload to fall back on
     {
       const conv = 'smoke-cursor-abs';

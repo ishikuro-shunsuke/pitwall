@@ -19,6 +19,7 @@ import path from 'node:path';
 import os from 'node:os';
 import dns from 'node:dns/promises';
 import { fileURLToPath } from 'node:url';
+import { inContainer } from '../hooks/lib.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HOOK_SRC = path.join(ROOT, 'hooks');
@@ -74,16 +75,19 @@ function hookFields(value) {
   return { command, meta };
 }
 
-function inContainer() {
-  if (process.env.REMOTE_CONTAINERS || process.env.DEVCONTAINER || process.env.CODESPACES) {
-    return true;
-  }
-  if (fs.existsSync('/.dockerenv')) return true;
-  try {
-    return /docker|containerd|kubepods/.test(fs.readFileSync('/proc/1/cgroup', 'utf8'));
-  } catch {
-    return false;
-  }
+/**
+ * `Open in Cursor` hands the editor a path, and every path this container can
+ * see is one the editor cannot. The mount is described in devcontainer.json and
+ * nowhere else, so the two roots have to be read out of there.
+ */
+function checkWorkspaceMapping() {
+  if (!inContainer()) return;
+  if (process.env.PITWALL_HOST_ROOT || process.env.LOCAL_WORKSPACE_FOLDER) return;
+  console.log(`\n${yellow('!')} カードの ${bold('Open in Cursor')} はまだ出ない。devcontainer.json に足して作り直す:`);
+  console.log(`    ${cyan('"remoteEnv": {')}`);
+  console.log(`    ${cyan('  "PITWALL_HOST_ROOT": "${localWorkspaceFolder}",')}`);
+  console.log(`    ${cyan('  "PITWALL_CONTAINER_ROOT": "${containerWorkspaceFolder}"')}`);
+  console.log(`    ${cyan('}')}`);
 }
 
 /**
@@ -315,6 +319,7 @@ try {
       console.log(`\n${dim('DevContainer で使うなら:')} ${cyan('npm run install-hooks:devcontainer')}`);
     }
     await checkHookUrl();
+    checkWorkspaceMapping();
   }
 } catch (error) {
   console.error(error.message || error);

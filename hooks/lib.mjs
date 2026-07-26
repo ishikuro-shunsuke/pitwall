@@ -262,11 +262,33 @@ export function detectRepo(cwdCandidates = []) {
   };
 }
 
+export function inContainer() {
+  if (process.env.REMOTE_CONTAINERS || process.env.DEVCONTAINER || process.env.CODESPACES) {
+    return true;
+  }
+  if (fs.existsSync('/.dockerenv')) return true;
+  try {
+    return /docker|containerd|kubepods/.test(fs.readFileSync('/proc/1/cgroup', 'utf8'));
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * A container reports the paths it can see, which is not the filesystem the
+ * editor opens. Only the devcontainer knows both ends of its own mount, so the
+ * two roots are passed in through `remoteEnv`; without them the card has no
+ * place to point and says so by carrying no link.
+ */
 export function detectHost(cwd) {
+  const container = inContainer();
   return {
     platform: process.platform,
     wslDistro: process.env.WSL_DISTRO_NAME || null,
     cwd: cwd || process.cwd(),
+    container,
+    containerRoot: (container && process.env.PITWALL_CONTAINER_ROOT) || null,
+    hostRoot: (container && (process.env.PITWALL_HOST_ROOT || process.env.LOCAL_WORKSPACE_FOLDER)) || null,
   };
 }
 

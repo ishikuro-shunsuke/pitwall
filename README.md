@@ -38,6 +38,15 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/inst
 
 The container reaches the host through `host.docker.internal`. Where that does not resolve, the installer prints the setting to add.
 
+`/workspaces/…` means nothing to an editor running outside the container, so **Open in Cursor** stays off a card until `devcontainer.json` names both ends of the mount:
+
+```json
+"remoteEnv": {
+  "PITWALL_HOST_ROOT": "${localWorkspaceFolder}",
+  "PITWALL_CONTAINER_ROOT": "${containerWorkspaceFolder}"
+}
+```
+
 ### Somewhere else on the network
 
 ```bash

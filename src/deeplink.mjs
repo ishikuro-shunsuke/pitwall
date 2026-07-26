@@ -9,13 +9,28 @@ function encodePath(absolutePath) {
 }
 
 /**
+ * A path read inside a container names a filesystem the editor cannot reach:
+ * /workspaces/x exists nowhere else. Both ends of the mount come from the
+ * devcontainer itself, and without them the click has nowhere to land.
+ */
+function hostSidePath(normalized, { container, containerRoot, hostRoot } = {}) {
+  if (!container) return normalized;
+  if (!containerRoot || !hostRoot) return null;
+  const from = containerRoot.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (normalized !== from && !normalized.startsWith(`${from}/`)) return null;
+  return `${hostRoot.replace(/\\/g, '/').replace(/\/+$/, '')}${normalized.slice(from.length)}`;
+}
+
+/**
  * WSL matters here. `cursor://file//home/me/x` is resolved against the Windows
  * filesystem, so a path that lives inside a distro has to be addressed through
  * the remote authority instead.
  */
-export function fileLink(absolutePath, { wslDistro } = {}) {
+export function fileLink(absolutePath, host = {}) {
   if (!absolutePath) return null;
-  const normalized = absolutePath.replace(/\\/g, '/');
+  const normalized = hostSidePath(absolutePath.replace(/\\/g, '/'), host);
+  if (!normalized) return null;
+  const { wslDistro } = host;
 
   if (wslDistro) {
     const withoutLeadingSlash = normalized.replace(/^\/+/, '');
