@@ -727,6 +727,7 @@ function restoreAnchors(anchors) {
  * on, plus whichever card you are typing in. Everything else is blurred back.
  */
 function paintFocus() {
+  cancelAnimationFrame(focusFrame);
   focusFrame = null;
   const cards = el.timeline.children;
   if (!cards.length) return;

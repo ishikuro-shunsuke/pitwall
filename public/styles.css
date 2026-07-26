@@ -177,6 +177,8 @@ main {
   filter: none;
   opacity: 1;
 }
+/* A repaint rebuilds the cards, and rebuilding is not a change to animate. */
+.timeline.instant .card { transition: none; }
 @media (prefers-reduced-motion: reduce) {
   .timeline.solo .card { transition: none; }
 }
