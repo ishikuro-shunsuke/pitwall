@@ -775,6 +775,25 @@ el.timeline.addEventListener('pointerdown', (e) => {
   paintFocus();
 });
 
+/**
+ * The card you were on is leaving, so the one next to it takes over. Left to
+ * the middle of the reading area, a run of short cards puts the focus several
+ * entries from the one you just boxed — near the middle of the screen, but
+ * nowhere near where you were working.
+ */
+function handOff(staying) {
+  if (!sharpId || staying.has(sharpId)) return;
+  const cards = [...el.timeline.children];
+  const at = cards.findIndex((card) => card.dataset.id === sharpId);
+  if (at < 0) return;
+  // Down first: that is the card moving up into the space the one you closed
+  // leaves. Off the end of the feed there is only the one above.
+  const below = cards.slice(at + 1).find((card) => staying.has(card.dataset.id));
+  const above = cards.slice(0, at).reverse().find((card) => staying.has(card.dataset.id));
+  const next = below || above;
+  if (next) picked = next.dataset.id;
+}
+
 let focusFrame = null;
 
 function scheduleFocus() {
@@ -788,6 +807,9 @@ window.addEventListener('resize', scheduleFocus);
 let swapping = false;
 
 function paint(items) {
+  // While the old cards are still up, so the one you were on still has sides.
+  handOff(new Set(items.map((entry) => entry.id)));
+
   const anchors = captureAnchors();
   // The cards are rebuilt from scratch, so every one of them starts blurred and
   // is sharpened again a few lines below. Held here, that round trip is not a
