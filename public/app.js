@@ -531,15 +531,22 @@ function holdChip(entry) {
   return `<span class="chip ${cls}" data-hold="${esc(entry.id)}">hold ${fmtRemain(remain)}</span>`;
 }
 
+/**
+ * `id:act` for every button that has fired and is still waiting on the server.
+ * Held here rather than on the element so a re-render mid-flight repaints it lit.
+ */
+const firing = new Set();
+
 function actionsHtml(entry) {
   const links = entry.links || {};
   const parts = [];
+  const lit = (act) => (firing.has(`${entry.id}:${act}`) ? ' firing' : '');
 
   if (entry.status === 'waiting') {
-    parts.push(`<button type="button" class="btn primary" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
-    parts.push(`<button type="button" class="btn danger" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
+    parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
+    parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   } else if (entry.status === 'notice') {
-    parts.push(`<button type="button" class="btn" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
+    parts.push(`<button type="button" class="btn${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   }
 
   if (links.openWorkspace) {
@@ -715,8 +722,58 @@ function restoreAnchors(anchors) {
   }
 }
 
+/**
+ * One card at a time is in focus: the one the middle of the reading area falls
+ * on, plus whichever card you are typing in. Everything else is blurred back.
+ */
+function paintFocus() {
+  focusFrame = null;
+  const cards = el.timeline.children;
+  if (!cards.length) return;
+  const top = readingTop();
+  const line = top + (window.innerHeight - top) / 2;
+  const active = document.activeElement;
+  const typing = el.timeline.contains(active) ? active.closest('.card') : null;
+
+  let centred = null;
+  let nearest = Infinity;
+  for (const card of cards) {
+    const rect = card.getBoundingClientRect();
+    // A card taller than the reading area holds focus for its whole length.
+    if (rect.top <= line && rect.bottom >= line) {
+      centred = card;
+      break;
+    }
+    // Scrolled past the ends of the feed the line falls on no card at all, so
+    // the first or last one keeps it rather than the page going flat.
+    const gap = rect.top > line ? rect.top - line : line - rect.bottom;
+    if (gap < nearest) {
+      nearest = gap;
+      centred = card;
+    }
+  }
+
+  for (const card of cards) {
+    card.classList.toggle('focused', card === centred || card === typing);
+  }
+  el.timeline.classList.add('solo');
+}
+
+let focusFrame = null;
+
+function scheduleFocus() {
+  focusFrame ??= requestAnimationFrame(paintFocus);
+}
+
+window.addEventListener('scroll', scheduleFocus, { passive: true });
+window.addEventListener('resize', scheduleFocus);
+
 function paint(items) {
   const anchors = captureAnchors();
+  // The cards are rebuilt from scratch, so every one of them starts blurred and
+  // is sharpened again a few lines below. Held here, that round trip is not a
+  // fade the card in front of you has to sit through on every update.
+  el.timeline.classList.add('instant');
 
   // A card can be replaced mid-sentence by an SSE update, so carry the caret
   // across the swap along with the draft text.
@@ -743,6 +800,11 @@ function paint(items) {
 
   // Last, so that refocusing the reply box cannot scroll out from under you.
   restoreAnchors(anchors);
+
+  // In this tick, so the replacement cards are already sharp when they first
+  // render and the blur has nothing to fade in from.
+  paintFocus();
+  requestAnimationFrame(() => el.timeline.classList.remove('instant'));
 }
 
 function upsert(entry) {
@@ -853,6 +915,8 @@ async function flushRead() {
 function release(id) {
   state.drafts.delete(id);
   state.engaged.delete(id);
+  firing.delete(`${id}:send`);
+  firing.delete(`${id}:dismiss`);
   stopHoldHeartbeat(id);
 }
 
@@ -911,6 +975,10 @@ function stopHoldHeartbeat(id) {
   state.holdTimers.delete(id);
 }
 
+// Whatever you click into keeps its card sharp, wherever it sits on the page.
+el.timeline.addEventListener('focusin', scheduleFocus);
+el.timeline.addEventListener('focusout', scheduleFocus);
+
 // The form is on screen for every waiting entry, but only the one you touch
 // gets to hold its agent open.
 el.timeline.addEventListener('focusin', (e) => {
@@ -934,6 +1002,20 @@ el.timeline.addEventListener('input', (e) => {
   state.drafts.set(id, e.target.value);
 });
 
+/**
+ * Fills in the button an action came from. Lit from here rather than from the
+ * click, so the keyboard shortcut lights the same button a mouse would.
+ */
+function light(id, act) {
+  firing.add(`${id}:${act}`);
+  el.timeline.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`)?.classList.add('firing');
+}
+
+function unlight(id, act) {
+  firing.delete(`${id}:${act}`);
+  el.timeline.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`)?.classList.remove('firing');
+}
+
 /** Reply and slide the card left — same path for the button and Ctrl/Cmd+Enter. */
 async function sendReply(id) {
   const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(id)}"]`);
@@ -945,24 +1027,28 @@ async function sendReply(id) {
   // Leave the field before the transition, so keyboard send matches a click
   // (focus is already on the button then) and paint does not try to restore it.
   input?.blur();
+  light(id, 'send');
   exits.set(id, 'left');
   try {
     await api(`/api/entries/${id}/reply`, { message });
     release(id);
     await refresh();
   } catch (err) {
+    unlight(id, 'send');
     exits.delete(id);
     throw err;
   }
 }
 
 async function dismissEntry(id) {
+  light(id, 'dismiss');
   exits.set(id, 'right');
   try {
     await api(`/api/entries/${id}/dismiss`);
     release(id);
     await refresh();
   } catch (err) {
+    unlight(id, 'dismiss');
     exits.delete(id);
     throw err;
   }
