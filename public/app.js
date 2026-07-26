@@ -12,6 +12,11 @@ const state = {
   engaged: new Set(),
   holdTimers: new Map(),
   serverSkew: 0,
+  // Cards on screen are marked read within the second, so the mark on the card
+  // has to outlive the flag: these are the ids that were still unread when this
+  // tab last showed them, and they keep their mark until you leave the tab.
+  marked: new Set(),
+  readPending: new Set(),
 };
 
 const el = {
@@ -60,8 +65,10 @@ paintThemeToggle();
 
 document.querySelectorAll('.tab').forEach((btn) => {
   btn.addEventListener('click', () => {
+    if (state.view === btn.dataset.view) return;
     document.querySelectorAll('.tab').forEach((b) => b.classList.remove('active'));
     btn.classList.add('active');
+    settleMarks();
     state.view = btn.dataset.view;
     // Nothing in the timeline has finished, so there is nothing to narrow.
     el.filterAnswer.hidden = state.view !== 'archive';
@@ -222,13 +229,36 @@ function repoHaystack(entry) {
   return [repo.name, repo.root, repo.key, repo.branch].filter(Boolean).join(' ').toLowerCase();
 }
 
+function passesFilters(entry) {
+  if (entry.bucket === 'archive' && state.unansweredOnly && !entry.unanswered) return false;
+  if (state.repoQuery && !repoHaystack(entry).includes(state.repoQuery)) return false;
+  if (state.agents.size && !state.agents.has(entry.agent)) return false;
+  return true;
+}
+
 function selectedEntries() {
-  let items = [...state.entries.values()].filter((e) => e.bucket === state.view);
-  if (state.view === 'archive' && state.unansweredOnly) items = items.filter((e) => e.unanswered);
-  if (state.repoQuery) items = items.filter((e) => repoHaystack(e).includes(state.repoQuery));
-  if (state.agents.size) items = items.filter((e) => state.agents.has(e.agent));
+  const items = [...state.entries.values()]
+    .filter((e) => e.bucket === state.view && passesFilters(e));
   items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
   return items;
+}
+
+/**
+ * The badge counts what the filters would show, so whatever it points at is
+ * always one tab away — a count you cannot reach by switching tabs would just
+ * sit there.
+ */
+function paintBadges() {
+  const counts = { timeline: 0, archive: 0 };
+  for (const entry of state.entries.values()) {
+    if (entry.readAt || !passesFilters(entry)) continue;
+    if (entry.bucket in counts) counts[entry.bucket] += 1;
+  }
+  for (const badge of document.querySelectorAll('[data-badge]')) {
+    const n = counts[badge.dataset.badge];
+    badge.hidden = n === 0;
+    badge.textContent = n > 99 ? '99+' : String(n);
+  }
 }
 
 function modelChips(entry) {
@@ -491,8 +521,9 @@ function cardHtml(entry) {
   const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
   if (tones) decl.push(`--repo-color: ${tones.color}`, `--repo-tint: ${tones.tint}`);
   const style = ` style="${decl.join('; ')}"`;
+  const unread = state.marked.has(entry.id) ? ` data-unread="${esc(entry.bucket)}"` : '';
   return `
-    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
+    <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${unread}${style}>
       <div class="card-head">
         <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
         <span class="badge status-${esc(entry.status)}">${esc(entry.status)}</span>
@@ -521,6 +552,7 @@ function render({ grew = false } = {}) {
   const first = painted === null;
   painted = ids;
   paintMore(selected.length - items.length);
+  paintBadges();
 
   // Only arrivals, departures and reorders are worth animating. A card whose
   // text changed under you while you were typing in it should not move at all,
@@ -615,6 +647,7 @@ function paint(items) {
 
   el.timeline.innerHTML = items.map(cardHtml).join('');
   el.empty.classList.toggle('hidden', items.length > 0);
+  observeUnread();
 
   if (focused) {
     const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(focused.id)}"]`);
@@ -630,8 +663,63 @@ function paint(items) {
 
 function upsert(entry) {
   if (!entry?.id) return;
+  if (!entry.readAt) state.marked.add(entry.id);
   state.entries.set(entry.id, entry);
   if (entry.status !== 'waiting') release(entry.id);
+}
+
+/** Leaving a tab clears the marks you have had the chance to look at. */
+function settleMarks() {
+  for (const id of state.marked) {
+    if (state.entries.get(id)?.readAt !== null) state.marked.delete(id);
+  }
+}
+
+/**
+ * A card counts as read once it has been on screen — no clicking through a
+ * feed you are already reading. The cards are replaced wholesale on every
+ * paint, so the observer is pointed at the new ones each time.
+ */
+const seenObserver = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (entry.isIntersecting) markRead(entry.target.dataset.id);
+  }
+  // The topbar covers the head of the feed, so a card only counts once it is
+  // clear of it.
+}, { rootMargin: '-56px 0px' });
+
+function observeUnread() {
+  seenObserver.disconnect();
+  // Nothing is on screen in a browser tab you are not looking at; observing
+  // there would mark the whole feed read behind your back.
+  if (document.visibilityState !== 'visible') return;
+  for (const card of el.timeline.children) {
+    if (state.entries.get(card.dataset.id)?.readAt) continue;
+    seenObserver.observe(card);
+  }
+}
+
+document.addEventListener('visibilitychange', observeUnread);
+
+let readTimer = null;
+
+function markRead(id) {
+  const entry = state.entries.get(id);
+  if (!entry || entry.readAt || state.readPending.has(id)) return;
+  state.readPending.add(id);
+  // A batch, so scrolling past a screenful is one request rather than twenty.
+  if (readTimer) return;
+  readTimer = setTimeout(flushRead, 500);
+}
+
+async function flushRead() {
+  readTimer = null;
+  const ids = [...state.readPending];
+  state.readPending.clear();
+  if (!ids.length) return;
+  try {
+    await api('/api/entries/read', { ids });
+  } catch { /* the next paint puts these cards back in front of the observer */ }
 }
 
 /** The entry can no longer take a reply — drop the draft and stop holding it. */
@@ -826,12 +914,21 @@ function connectSse() {
     el.status.classList.remove('bad');
     el.status.title = 'connected';
   });
+  // Marking a screenful read updates a screenful of entries, so the repaint
+  // waits for the whole burst instead of running once per event.
+  let queued = false;
   const onEntry = (ev) => {
     try {
-      const entry = JSON.parse(ev.data);
-      upsert(entry);
+      upsert(JSON.parse(ev.data));
+    } catch {
+      return;
+    }
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
       render();
-    } catch { /* ignore */ }
+    });
   };
   es.addEventListener('created', onEntry);
   es.addEventListener('updated', onEntry);

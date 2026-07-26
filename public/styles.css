@@ -70,6 +70,20 @@ a { color: var(--accent-cursor); }
   background: var(--panel);
   color: var(--text);
 }
+/* Each tab's badge is the colour its unread cards carry on the rail. */
+.tab-badge {
+  display: inline-block;
+  margin-left: 8px;
+  min-width: 18px;
+  padding: 0 5px;
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--on-accent);
+}
+.tab[data-view="timeline"] .tab-badge { background: var(--ok); }
+.tab[data-view="archive"] .tab-badge { background: var(--warn); }
 
 .filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
@@ -163,6 +177,9 @@ main {
 }
 .card[data-agent="cursor"]::before { border-color: var(--accent-cursor); }
 .card[data-agent="claude"]::before { border-color: var(--accent-claude); }
+/* Unread fills the node on the rail; read leaves it hollow. */
+.card[data-unread="timeline"]::before { background: var(--ok); border-color: var(--ok); }
+.card[data-unread="archive"]::before { background: var(--warn); border-color: var(--warn); }
 
 .card-head {
   display: flex;

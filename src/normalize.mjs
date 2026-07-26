@@ -80,6 +80,7 @@ export function buildEntry({
     resolvedAt: null,
     resolution: null,
     reply: null,
+    readAt: null,
 
     title: payload.title || null,
     sessionId: payload.sessionId || payload.session_id || null,
