@@ -184,6 +184,28 @@ function fmtAge(iso, now = Date.now()) {
   return `${Math.floor(h / 24)}d ago`;
 }
 
+/**
+ * The clock time the message came in. "12m ago" answers how stale a card is,
+ * which is what the feed is for, but not what you were doing when it fired —
+ * so the wall clock sits next to the age rather than replacing it. The date
+ * only shows up once "today" stops being enough to place it.
+ */
+function fmtClock(iso, now = Date.now()) {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
+  const today = new Date(now);
+  const sameDay = at.getFullYear() === today.getFullYear()
+    && at.getMonth() === today.getMonth()
+    && at.getDate() === today.getDate();
+  return sameDay ? hhmm : `${at.getMonth() + 1}/${at.getDate()} ${hhmm}`;
+}
+
+function fmtStamp(iso, now = Date.now()) {
+  const clock = fmtClock(iso, now);
+  return clock ? `${clock} · ${fmtAge(iso, now)}` : fmtAge(iso, now);
+}
+
 function fmtRemain(ms) {
   const s = Math.max(0, Math.ceil(ms / 1000));
   const m = Math.floor(s / 60);
@@ -555,7 +577,7 @@ function cardHtml(entry) {
       <div class="card-head">
         <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
         <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
-        <span class="meta" title="${esc(entry.createdAt)}">${fmtAge(entry.createdAt, nowMs())}</span>
+        <span class="meta" data-stamp title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt, nowMs())}</span>
         <div class="chips">${holdChip(entry)}${modelChips(entry)}</div>
       </div>
       <div class="card-body">
@@ -1148,8 +1170,8 @@ setInterval(() => {
   for (const card of el.timeline.querySelectorAll('.card')) {
     const entry = state.entries.get(card.dataset.id);
     if (!entry) continue;
-    const metas = card.querySelectorAll('.card-head > .meta');
-    if (metas[1]) metas[1].textContent = fmtAge(entry.createdAt, nowMs());
+    const stamp = card.querySelector('.card-head > [data-stamp]');
+    if (stamp) stamp.textContent = fmtStamp(entry.createdAt, nowMs());
   }
 }, 1000);
 
