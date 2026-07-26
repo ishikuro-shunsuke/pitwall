@@ -106,9 +106,20 @@ a { color: var(--accent); }
   border-radius: 0;
   cursor: pointer;
 }
-/* An emoji has no letterforms to match, so it gets its own size and no
-   uppercasing ladder to sit on. */
-.theme-toggle, .history-glyph { font-size: 13px; line-height: 1; }
+/* Lucide's 24px geometry, drawn at text size and inked with the colour of the
+   chip it sits in, so hover and pressed reach the icon too. */
+.icon {
+  display: block;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* No letterforms to line up with, so the box tightens around the glyph. */
+.icon-chip { padding: 5px 7px; }
 .theme-toggle:hover { border-color: var(--muted); color: var(--text); }
 .filter-chip[aria-pressed="true"] {
   background: var(--panel-2);
@@ -117,11 +128,11 @@ a { color: var(--accent); }
 }
 
 /* Somewhere you go now and then, so it sits with the controls rather than in
-   the middle of the bar, and the × only appears once you are there. */
-.history-chip { display: flex; align-items: center; gap: 8px; }
+   the middle of the bar, and the close mark only appears once you are there. */
+.history-chip { display: flex; align-items: center; gap: 6px; }
 .history-chip:hover { border-color: var(--muted); color: var(--text); }
 .history-x { display: none; }
-.history-chip[aria-pressed="true"] .history-x { display: inline; }
+.history-chip[aria-pressed="true"] .history-x { display: block; }
 /* What is behind the button and unread: the archive's count on the way in, the
    timeline's on the way out. Bare — a box inside a chip is one box too many —
    and red, because unread is the only thing it has to say. Clicking it takes
