@@ -905,12 +905,46 @@ el.timeline.addEventListener('input', (e) => {
   state.drafts.set(id, e.target.value);
 });
 
+/** Reply and slide the card left — same path for the button and Ctrl/Cmd+Enter. */
+async function sendReply(id) {
+  const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(id)}"]`);
+  const message = input?.value?.trim();
+  if (!message) {
+    input?.focus();
+    return;
+  }
+  // Leave the field before the transition, so keyboard send matches a click
+  // (focus is already on the button then) and paint does not try to restore it.
+  input?.blur();
+  exits.set(id, 'left');
+  try {
+    await api(`/api/entries/${id}/reply`, { message });
+    release(id);
+    await refresh();
+  } catch (err) {
+    exits.delete(id);
+    throw err;
+  }
+}
+
+async function dismissEntry(id) {
+  exits.set(id, 'right');
+  try {
+    await api(`/api/entries/${id}/dismiss`);
+    release(id);
+    await refresh();
+  } catch (err) {
+    exits.delete(id);
+    throw err;
+  }
+}
+
 el.timeline.addEventListener('keydown', (e) => {
   const id = e.target.getAttribute?.('data-reply-input');
   if (!id) return;
   if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey)) return;
   e.preventDefault();
-  el.timeline.querySelector(`[data-act="send"][data-id="${CSS.escape(id)}"]`)?.click();
+  sendReply(id).catch((err) => alert(err.message || String(err)));
 });
 
 /**
@@ -952,23 +986,11 @@ el.timeline.addEventListener('click', async (e) => {
 
   try {
     if (act === 'send') {
-      const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(id)}"]`);
-      const message = input?.value?.trim();
-      if (!message) {
-        input?.focus();
-        return;
-      }
-      exits.set(id, 'left');
-      await api(`/api/entries/${id}/reply`, { message });
-      release(id);
-      await refresh();
+      await sendReply(id);
       return;
     }
     if (act === 'dismiss') {
-      exits.set(id, 'right');
-      await api(`/api/entries/${id}/dismiss`);
-      release(id);
-      await refresh();
+      await dismissEntry(id);
       return;
     }
     if (act === 'copy') {
@@ -977,7 +999,6 @@ el.timeline.addEventListener('click', async (e) => {
       setTimeout(() => { btn.textContent = 'Copy resume cmd'; }, 1200);
     }
   } catch (err) {
-    if (id) exits.delete(id);
     alert(err.message || String(err));
   }
 });
