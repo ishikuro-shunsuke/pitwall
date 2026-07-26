@@ -93,7 +93,9 @@ a { color: var(--accent); }
   .conn { animation: none; }
 }
 
-.filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: flex-end; }
+/* Pulled out by the padding the buttons hold for the pointer, so the strokes
+   end on the same edge as the cards below rather than short of it. */
+.filters { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; margin-right: -4px; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .filter[hidden] { display: none; }
 .filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -106,37 +108,46 @@ a { color: var(--accent); }
   border-radius: 0;
   cursor: pointer;
 }
-/* Lucide's 24px geometry, drawn at text size and inked with the colour of the
-   chip it sits in, so hover and pressed reach the icon too. */
+/* Lucide's 24px geometry, drawn the size of the title it sits beside. */
 .icon {
   display: block;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
-/* No letterforms to line up with, so the box tightens around the glyph. */
-.icon-chip { padding: 5px 7px; }
-.theme-toggle:hover { border-color: var(--muted); color: var(--text); }
+/* No box: a panel and a border around a glyph draws the button rather than
+   what it does. The stroke carries the states on its own, grey at rest and the
+   text colour once it is under the pointer or held down. Red is left to the
+   count, which is the only thing here that has news. */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  background: none;
+  border: 0;
+  color: var(--muted);
+  cursor: pointer;
+}
+.icon-btn:hover, .icon-btn[aria-pressed="true"] { color: var(--text); }
 .filter-chip[aria-pressed="true"] {
   background: var(--panel-2);
   border-color: var(--accent);
   color: var(--text);
 }
 
-/* Somewhere you go now and then, so it sits with the controls rather than in
-   the middle of the bar, and the close mark only appears once you are there. */
-.history-chip { display: flex; align-items: center; gap: 6px; }
-.history-chip:hover { border-color: var(--muted); color: var(--text); }
+/* Somewhere you go now and then, so it sits at the end of the title's line
+   rather than in the middle of the bar, and the close mark only appears once
+   you are there. */
 .history-x { display: none; }
-.history-chip[aria-pressed="true"] .history-x { display: block; }
+.history-btn[aria-pressed="true"] .history-x { display: block; }
 /* What is behind the button and unread: the archive's count on the way in, the
-   timeline's on the way out. Bare — a box inside a chip is one box too many —
-   and red, because unread is the only thing it has to say. Clicking it takes
-   what it counts as read. */
+   timeline's on the way out. Bare, and red, because unread is the only thing
+   it has to say. Clicking it takes what it counts as read. */
 .history-count { font-family: var(--mono); font-size: 10px; color: var(--accent); }
 .history-count:hover { opacity: 0.65; }
 
