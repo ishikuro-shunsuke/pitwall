@@ -487,6 +487,56 @@ async function main() {
       const notice = notices.data.entries?.find((e) => e.notificationType === 'idle_prompt');
       if (notify.code === 0 && notice) ok('claude-notification.mjs created notice');
       else fail('claude-notification.mjs created notice', { notify, notice });
+
+      // The question card is the question: a notice saying only that one was
+      // asked is what this hook exists to replace.
+      const asked = await runHook(process.execPath, [
+        path.join(ROOT, 'hooks', 'claude-ask-question.mjs'),
+      ], {
+        session_id: 'sess-hook-ask',
+        cwd: fixtures,
+        hook_event_name: 'PreToolUse',
+        tool_name: 'AskUserQuestion',
+        tool_input: {
+          questions: [{
+            question: 'Which library should we use?',
+            header: 'Library',
+            multiSelect: false,
+            options: [
+              { label: 'date-fns', description: 'Tree-shakeable' },
+              { label: 'Day.js', description: '2KB' },
+            ],
+          }],
+        },
+      });
+      await new Promise((r) => setTimeout(r, 200));
+      const asks = await json('GET', '/api/entries?view=timeline');
+      const card = asks.data.entries?.find((e) => e.notificationType === 'ask_user_question');
+      const carries = card?.body?.includes('Which library should we use?')
+        && card.body.includes('**date-fns** — Tree-shakeable')
+        && card.body.includes('**Day.js**');
+      if (asked.code === 0 && carries) ok('claude-ask-question.mjs carries the question and its options');
+      else fail('claude-ask-question.mjs carries the question and its options', { asked, body: card?.body });
+
+      // Nothing is decided here: an empty stdout would be a decision withheld,
+      // and a non-zero exit would block the question from ever being asked.
+      if (asked.code === 0 && asked.stdout.trim() === '{}') ok('claude-ask-question.mjs decides nothing');
+      else fail('claude-ask-question.mjs decides nothing', asked);
+
+      // Every other tool call runs this hook too if the matcher is ever lost.
+      const other = await runHook(process.execPath, [
+        path.join(ROOT, 'hooks', 'claude-ask-question.mjs'),
+      ], {
+        session_id: 'sess-hook-ask',
+        cwd: fixtures,
+        tool_name: 'Bash',
+        tool_input: { command: 'ls' },
+      });
+      await new Promise((r) => setTimeout(r, 200));
+      const after2 = await json('GET', '/api/entries?view=timeline');
+      const cards = after2.data.entries?.filter((e) => e.notificationType === 'ask_user_question');
+      if (other.code === 0 && cards?.length === 1) ok('claude-ask-question.mjs ignores other tools');
+      else fail('claude-ask-question.mjs ignores other tools', { other, count: cards?.length });
     }
   } catch (error) {
     fail('unexpected', error);

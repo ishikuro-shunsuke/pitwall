@@ -65,6 +65,9 @@ const tilde = (target) =>
 function hookFields(value) {
   const inner = Array.isArray(value.hooks) ? value.hooks[0] : value;
   const { command, type, ...rest } = inner;
+  // The matcher sits on the group, not the hook, and it is half of what a
+  // PreToolUse entry does.
+  if (value.matcher) rest.matcher = value.matcher;
   const meta = Object.entries(rest)
     .map(([key, val]) => `${key} ${val === null ? 'null' : val}`)
     .join(', ');
@@ -189,7 +192,11 @@ function installCursor() {
 
 function installClaude() {
   const configDir = path.join(os.homedir(), '.claude');
-  const scripts = copyScripts(configDir, ['claude-stop.mjs', 'claude-notification.mjs']);
+  const scripts = copyScripts(configDir, [
+    'claude-stop.mjs',
+    'claude-notification.mjs',
+    'claude-ask-question.mjs',
+  ]);
   const file = path.join(configDir, 'settings.json');
   const bak = backup(file);
   const data = readJson(file, {});
@@ -205,8 +212,10 @@ function installClaude() {
   if (uninstall) {
     data.hooks.Stop = stripGroups(data.hooks.Stop);
     data.hooks.Notification = stripGroups(data.hooks.Notification);
+    data.hooks.PreToolUse = stripGroups(data.hooks.PreToolUse);
     if (!data.hooks.Stop?.length) delete data.hooks.Stop;
     if (!data.hooks.Notification?.length) delete data.hooks.Notification;
+    if (!data.hooks.PreToolUse?.length) delete data.hooks.PreToolUse;
     if (!Object.keys(data.hooks).length) delete data.hooks;
   } else {
     // Claude Code does not run hooks from ~/.claude, so use $HOME instead of a
@@ -231,11 +240,24 @@ function installClaude() {
         timeout: 10,
       }],
     };
+    // A question is asked mid-turn, so Stop never runs for it. This one fires
+    // before the dialog opens and only copies it onto the timeline: it decides
+    // nothing, holds nothing, and the answer is still given in the terminal.
+    const askQuestion = {
+      matcher: 'AskUserQuestion',
+      hooks: [{
+        type: 'command',
+        command: `node "$HOME/.claude/hooks/pitwall/claude-ask-question.mjs"${urlArgs}`,
+        timeout: 10,
+      }],
+    };
     data.hooks.Stop = [...stripGroups(data.hooks.Stop), stop];
     data.hooks.Notification = [...stripGroups(data.hooks.Notification), notification];
+    data.hooks.PreToolUse = [...stripGroups(data.hooks.PreToolUse), askQuestion];
     added.push(
       { at: 'hooks.Stop[]', value: stop },
       { at: 'hooks.Notification[]', value: notification },
+      { at: 'hooks.PreToolUse[]', value: askQuestion },
     );
   }
 

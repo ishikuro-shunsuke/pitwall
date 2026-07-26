@@ -50,6 +50,8 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 
 **Claude Code** holds nothing. The session stops the way it always does, so you can keep typing locally, and a reply sent from the card within 30 minutes wakes it up and continues from there. Once the same session stops again, the older card expires. What you typed does not show up in the Claude Code UI — Claude quotes it once at the start of its reply.
 
+A question Claude asks mid-session arrives as a card too, with its options. That one is answered in the terminal; the card is there so you know what is being asked.
+
 ## Configuration
 
 | Variable | Default | |
@@ -67,7 +69,7 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 | --- | --- |
 | `~/.cursor/hooks/pitwall/`, `~/.claude/hooks/pitwall/` | copies of the hook scripts |
 | `~/.cursor/hooks.json` | `stop` and `afterAgentResponse` entries |
-| `~/.claude/settings.json` | `Stop` and `Notification` entries |
+| `~/.claude/settings.json` | `Stop`, `Notification` and `PreToolUse` entries |
 | `<config>.bak.<timestamp>` | a backup of each file before it is edited |
 | `./data` | the timeline itself |
 

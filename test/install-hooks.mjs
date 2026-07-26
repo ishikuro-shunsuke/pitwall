@@ -167,6 +167,7 @@ async function cases(homes) {
       ['cursor.stop', cursor.hooks.stop],
       ['claude.Stop', claude.hooks.Stop],
       ['claude.Notification', claude.hooks.Notification],
+      ['claude.PreToolUse', claude.hooks.PreToolUse],
     ];
     for (const [name, list] of events) {
       const count = (list || []).filter(isPitwall).length;
@@ -174,9 +175,13 @@ async function cases(homes) {
       else fail(`${name}: one pitwall entry`, { count, list });
     }
 
+    // A PreToolUse entry without its matcher fires on every tool call.
+    const askQuestion = (claude.hooks.PreToolUse || []).filter(isPitwall)[0];
+    eq('claude: the question hook is matched to AskUserQuestion', askQuestion?.matcher, 'AskUserQuestion');
+
     // The regression that started this: a command naming a file nobody copied.
     const referenced = referencedScripts(home);
-    if (referenced.length !== 4) {
+    if (referenced.length !== 5) {
       fail('every hook command was parsed', referenced);
     } else if (referenced.every((file) => fs.existsSync(file))) {
       ok('every referenced script exists on disk');
@@ -187,8 +192,8 @@ async function cases(homes) {
     // stdout is the only account of what was written, so every command that
     // landed in a config has to appear in it verbatim.
     const written = pitwallCommands(home);
-    if (written.length !== 4) {
-      fail('four commands written', written);
+    if (written.length !== 5) {
+      fail('five commands written', written);
     } else if (written.every((command) => first.stdout.includes(command))) {
       ok('every written command is shown');
     } else {
@@ -199,7 +204,13 @@ async function cases(homes) {
     }
 
     // Each command has to be shown under the file and key it went into.
-    const keys = ['hooks.afterAgentResponse[]', 'hooks.stop[]', 'hooks.Stop[]', 'hooks.Notification[]'];
+    const keys = [
+      'hooks.afterAgentResponse[]',
+      'hooks.stop[]',
+      'hooks.Stop[]',
+      'hooks.Notification[]',
+      'hooks.PreToolUse[]',
+    ];
     const missingKey = keys.filter((key) => !first.stdout.includes(key));
     if (!missingKey.length) ok('shows the key each entry was appended to');
     else fail('shows the key each entry was appended to', missingKey);
@@ -226,8 +237,9 @@ async function cases(homes) {
       cursor.hooks.afterAgentResponse.filter(isPitwall).length,
       claude.hooks.Stop.filter(isPitwall).length,
       claude.hooks.Notification.filter(isPitwall).length,
+      claude.hooks.PreToolUse.filter(isPitwall).length,
     ];
-    eq('installing twice leaves one entry each', counts, [1, 1, 1, 1]);
+    eq('installing twice leaves one entry each', counts, [1, 1, 1, 1, 1]);
     eq('cursor: foreign hook survives reinstall', cursor.hooks.stop[0], FOREIGN_CURSOR);
   }
 
@@ -247,6 +259,8 @@ async function cases(homes) {
     eq('claude: unrelated settings survive uninstall', claude.model, 'opus');
     if (!cursor.hooks.afterAgentResponse) ok('cursor: emptied event removed');
     else fail('cursor: emptied event removed', cursor.hooks.afterAgentResponse);
+    if (!claude.hooks.PreToolUse) ok('claude: emptied event removed');
+    else fail('claude: emptied event removed', claude.hooks.PreToolUse);
 
     const dirs = [
       path.join(home, '.cursor', 'hooks', 'pitwall'),
@@ -268,7 +282,7 @@ async function cases(homes) {
         .flatMap((g) => (g.hooks || []).map((h) => h.command)),
     ].filter((command) => command.includes('hooks/pitwall/'));
     const baked = commands.filter((c) => c.includes('http://host.docker.internal:4477'));
-    eq('devcontainer: url baked into all four commands', baked.length, 4);
+    eq('devcontainer: url baked into all five commands', baked.length, 5);
     const notify = commands.find((c) => c.includes('claude-notification.mjs'));
     if (notify?.startsWith('PITWALL_URL=')) ok('devcontainer: notification gets the url via env');
     else fail('devcontainer: notification gets the url via env', notify);
@@ -338,6 +352,16 @@ async function cases(homes) {
           home,
           { session_id: 's1', cwd: home, notification_type: 'idle_prompt', message: 'm' },
         ],
+        [
+          command(claudeHooks.PreToolUse.flatMap((g) => g.hooks.map((h) => h.command))),
+          home,
+          {
+            session_id: 's1',
+            cwd: home,
+            tool_name: 'AskUserQuestion',
+            tool_input: { questions: [{ question: 'Which one?', options: [{ label: 'A' }] }] },
+          },
+        ],
       ];
 
       // Not spawnSync: the stub is served by this process, and a blocked event
@@ -361,6 +385,7 @@ async function cases(homes) {
       }
 
       eq('every hook posts to the url it was installed with', hits.sort(), [
+        'POST /api/hooks/notify',
         'POST /api/hooks/notify',
         'POST /api/hooks/response',
         'POST /api/hooks/wait',
