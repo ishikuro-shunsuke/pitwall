@@ -408,23 +408,35 @@ a.file-ref:hover {
   border-top: 1px solid var(--border);
   background: var(--repo-tint, var(--panel-2));
 }
+/* Three weights, and a card only ever shows one of the top two: the reply is
+   filled in ink, boxing it is the red one, and anything that just opens
+   something somewhere else is an outline you have to look for. */
 .btn {
   border: 1px solid var(--border);
-  background: var(--bg);
+  background: transparent;
+  color: var(--muted);
   padding: 6px 12px;
   cursor: pointer;
   border-radius: 0;
   font-size: 13px;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
-/* Boxing a card cannot be taken back, but it is not what you came to the feed
-   to do — so only the reply button stands there in red, and the other one waits
-   for the pointer before it admits to the same colour. */
-.btn.primary { border-color: var(--accent); color: var(--accent); }
-/* Hover washes the button in the colour that a press then fills it with, so the
-   pointer shows where it is and what it is about to do. */
-.btn:hover { border-color: var(--muted); background: var(--panel-2); }
-.btn.primary:hover,
+.btn.primary {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+.btn.danger { border-color: var(--accent); color: var(--accent); }
+
+.btn:hover { border-color: var(--muted); color: var(--text); background: var(--panel-2); }
+/* Hover washes the red button in the colour that a press then fills it with, so
+   the pointer shows where it is and what it is about to do. The filled one is
+   already that colour, so it lifts off the ink instead. */
+.btn.primary:hover {
+  background: color-mix(in oklab, var(--text) 86%, var(--bg));
+  border-color: var(--text);
+  color: var(--bg);
+}
 .btn.danger:hover {
   border-color: var(--accent);
   color: var(--accent);
@@ -435,11 +447,13 @@ a.file-ref:hover {
    the fill survives the pointer still hovering over it. */
 .btn:active,
 .btn.firing { border-color: var(--muted); background: var(--panel-2); }
+/* Ink cannot fill further, so the one already filled sinks to grey to say it is
+   still going. */
 .btn.primary:active,
 .btn.primary.firing {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--on-accent);
+  background: var(--muted);
+  border-color: var(--muted);
+  color: var(--bg);
 }
 .btn.danger:active,
 .btn.danger.firing {
@@ -529,7 +543,12 @@ a.file-ref:hover {
 /* Every card carries its own view-transition-name, so rebuilding the timeline
    tweens each one from the row it was in to the row it ends up in. :only-child
    picks out the cards that exist on just one side of the swap — the arrivals
-   and the departures — and leaves the ones that merely moved to cross-fade. */
+   and the departures — and leaves the ones that merely moved to cross-fade.
+
+   Sideways is the answer to a button, and script stamps the direction on the
+   card it is answering. A card that leaves for any other reason — a filter, a
+   tab, a wait that ran out — fades where it stands, so a card sliding off is
+   always something you did. */
 ::view-transition-group(.card) {
   animation-duration: 260ms;
   animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
@@ -538,7 +557,7 @@ a.file-ref:hover {
   animation: card-arrive 260ms cubic-bezier(0.2, 0, 0, 1);
 }
 ::view-transition-old(.card):only-child {
-  animation: card-leave-left 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
+  animation: card-leave 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
 }
 ::view-transition-old(.leave-left):only-child {
   animation: card-leave-left 180ms cubic-bezier(0.4, 0, 1, 1) forwards;
@@ -550,6 +569,9 @@ a.file-ref:hover {
 
 @keyframes card-arrive {
   from { opacity: 0; transform: translateY(-12px); }
+}
+@keyframes card-leave {
+  to { opacity: 0; }
 }
 @keyframes card-leave-left {
   to { opacity: 0; transform: translateX(-24px); }
