@@ -622,7 +622,7 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let painted = null;
 let animating = false;
 let queued = null;
-/** id → 'left' | 'right' — reply slides left, archive slides right. */
+/** id → 'left' | 'right' — reply slides right, archive slides left. */
 const exits = new Map();
 
 /** Stamp the live card so the old snapshot leaves in the right direction. */
@@ -1054,7 +1054,7 @@ function unlight(id, act) {
   el.timeline.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`)?.classList.remove('firing');
 }
 
-/** Reply and slide the card left — same path for the button and Ctrl/Cmd+Enter. */
+/** Reply and slide the card right — same path for the button and Ctrl/Cmd+Enter. */
 async function sendReply(id) {
   const input = el.timeline.querySelector(`[data-reply-input="${CSS.escape(id)}"]`);
   const message = input?.value?.trim();
@@ -1066,7 +1066,7 @@ async function sendReply(id) {
   // (focus is already on the button then) and paint does not try to restore it.
   input?.blur();
   light(id, 'send');
-  exits.set(id, 'left');
+  exits.set(id, 'right');
   try {
     await api(`/api/entries/${id}/reply`, { message });
     release(id);
@@ -1080,7 +1080,7 @@ async function sendReply(id) {
 
 async function dismissEntry(id) {
   light(id, 'dismiss');
-  exits.set(id, 'right');
+  exits.set(id, 'left');
   try {
     await api(`/api/entries/${id}/dismiss`);
     release(id);
