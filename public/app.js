@@ -752,8 +752,17 @@ function restoreAnchors(anchors) {
 }
 
 /**
- * One card at a time is in focus: the one the middle of the reading area falls
- * on, plus whichever card you are typing in. Everything else is blurred back.
+ * The card you last clicked, until it leaves the screen. A long card holds the
+ * middle of the reading area for its whole length, and a short one below it can
+ * be fully in view the whole time without ever reaching the middle, so pointing
+ * at a card has to be able to say what the scroll position cannot.
+ */
+let picked = null;
+
+/**
+ * One card at a time is in focus: the one you picked, or failing that the one
+ * the middle of the reading area falls on, plus whichever card you are typing
+ * in. Everything else is blurred back.
  */
 function paintFocus() {
   cancelAnimationFrame(focusFrame);
@@ -765,29 +774,47 @@ function paintFocus() {
   const active = document.activeElement;
   const typing = el.timeline.contains(active) ? active.closest('.card') : null;
 
+  let pick = null;
   let centred = null;
+  let closest = null;
   let nearest = Infinity;
   for (const card of cards) {
     const rect = card.getBoundingClientRect();
+    // Scrolled out of the reading area, the card you picked has had its turn.
+    if (card.dataset.id === picked && rect.bottom > top && rect.top < window.innerHeight) {
+      pick = card;
+    }
+    if (centred) continue;
     // A card taller than the reading area holds focus for its whole length.
     if (rect.top <= line && rect.bottom >= line) {
       centred = card;
-      break;
+      continue;
     }
     // Scrolled past the ends of the feed the line falls on no card at all, so
     // the first or last one keeps it rather than the page going flat.
     const gap = rect.top > line ? rect.top - line : line - rect.bottom;
     if (gap < nearest) {
       nearest = gap;
-      centred = card;
+      closest = card;
     }
   }
+  picked = pick?.dataset.id ?? null;
 
+  const sharp = pick || centred || closest;
   for (const card of cards) {
-    card.classList.toggle('focused', card === centred || card === typing);
+    card.classList.toggle('focused', card === sharp || card === typing);
   }
   el.timeline.classList.add('solo');
 }
+
+// Reading is pointing: whatever you click is what you are on, wherever the
+// scroll position happens to have left the middle of the page.
+el.timeline.addEventListener('pointerdown', (e) => {
+  const card = e.target.closest?.('.card');
+  if (!card) return;
+  picked = card.dataset.id;
+  paintFocus();
+});
 
 let focusFrame = null;
 
