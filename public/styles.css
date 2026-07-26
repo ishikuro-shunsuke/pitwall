@@ -1,13 +1,17 @@
 :root {
   color-scheme: light dark;
-  --bg: light-dark(#f3f5f8, #0e1116);
-  --panel: light-dark(#ffffff, #161b22);
-  --panel-2: light-dark(#e9edf3, #1c2330);
-  --border: light-dark(#d0d7e0, #2d3644);
-  --text: light-dark(#1b2430, #e6edf3);
-  --muted: light-dark(#5d6b7f, #8b9bb0);
-  --rail: light-dark(#d0d7e0, #2a3342);
-  --topbar-bg: light-dark(rgba(243, 245, 248, 0.94), rgba(14, 17, 22, 0.94));
+  /* Chroma nought throughout, written so you can see it is nought. A grey with
+     a hue in it is a second colour, and next to the red it read as one — the
+     whole surface was faintly blue and nothing quite agreed with anything. Grey
+     here is a step on a ladder of lightness and nothing else. */
+  --bg: light-dark(oklch(97% 0 0), oklch(15% 0 0));
+  --panel: light-dark(oklch(100% 0 0), oklch(19% 0 0));
+  --panel-2: light-dark(oklch(93% 0 0), oklch(24% 0 0));
+  --border: light-dark(oklch(87% 0 0), oklch(32% 0 0));
+  --text: light-dark(oklch(22% 0 0), oklch(93% 0 0));
+  --muted: light-dark(oklch(53% 0 0), oklch(66% 0 0));
+  --rail: light-dark(oklch(87% 0 0), oklch(30% 0 0));
+  --topbar-bg: light-dark(oklch(97% 0 0 / 0.94), oklch(15% 0 0 / 0.94));
 
   /* Colours that only say which thing this is — the repo hues from script, and
      the two agent badges — share one lightness and one chroma, so hue is the
@@ -30,10 +34,10 @@
      without a second colour on the way. */
   --accent-soft: light-dark(oklch(45% 0.1 27), oklch(66% 0.1 27));
   /* The accent flips from dark to light with the theme, so what sits on top flips too. */
-  --on-accent: light-dark(#ffffff, #0e1116);
+  --on-accent: light-dark(oklch(100% 0 0), oklch(15% 0 0));
   /* The lightbox is dark under either theme, so its text does not follow one. */
-  --overlay-text: #e6edf3;
-  --overlay-muted: #8b9bb0;
+  --overlay-text: oklch(93% 0 0);
+  --overlay-muted: oklch(66% 0 0);
 
   --gap: 18px;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -427,6 +431,12 @@ a.file-ref:hover {
   color: var(--bg);
 }
 .btn.danger { border-color: var(--accent); color: var(--accent); }
+/* Whichever comes first takes the slack in the row, which lands them at the far
+   end whether there are two of them or one. */
+.quiet { margin-left: auto; }
+.quiet ~ .quiet { margin-left: 0; }
+/* Its own line, so it does not ride along to the end with them. */
+.card-actions .replied { width: 100%; margin: 8px 0 0; }
 
 .btn:hover { border-color: var(--muted); color: var(--text); background: var(--panel-2); }
 /* Hover washes the red button in the colour that a press then fills it with, so

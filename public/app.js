@@ -562,11 +562,13 @@ function actionsHtml(entry) {
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   }
 
+  // Neither of these does anything to the card, so they go to the far end of
+  // the row, away from the two that do.
   if (links.openWorkspace) {
-    parts.push(`<a class="btn" href="${esc(links.openWorkspace)}">Open in Cursor</a>`);
+    parts.push(`<a class="btn quiet" href="${esc(links.openWorkspace)}">Open in Cursor</a>`);
   }
   if (links.resumeCommand) {
-    parts.push(`<button type="button" class="btn" data-act="copy" data-copy="${esc(links.resumeCommand)}">Copy resume cmd</button>`);
+    parts.push(`<button type="button" class="btn quiet" data-act="copy" data-copy="${esc(links.resumeCommand)}">Copy resume cmd</button>`);
   }
 
   let composer = '';
@@ -579,7 +581,7 @@ function actionsHtml(entry) {
 
   let trailer = '';
   if (entry.reply) {
-    trailer = `<p class="meta" style="margin:8px 0 0">replied: ${esc(entry.reply)}</p>`;
+    trailer = `<p class="meta replied">replied: ${esc(entry.reply)}</p>`;
   }
 
   return `<div class="card-actions">${composer}${parts.join('')}${trailer}</div>`;
