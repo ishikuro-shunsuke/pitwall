@@ -557,7 +557,9 @@ function actionsHtml(entry) {
     parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   } else if (entry.status === 'notice') {
-    parts.push(`<button type="button" class="btn${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
+    // Same button as the one beside a reply, and it does the same thing to the
+    // card, so it fills with the same colour on the way out.
+    parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   }
 
   if (links.openWorkspace) {
@@ -621,7 +623,7 @@ function cardHtml(entry) {
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)');
 let painted = null;
 let animating = false;
-let queued = null;
+let queued = false;
 /** id → 'left' | 'right' — reply slides right, archive slides left. */
 const exits = new Map();
 
@@ -635,22 +637,29 @@ function applyExits(nextIds) {
   }
 }
 
-function render({ grew = false } = {}) {
+function render() {
   // The browser snapshots the cards a frame after a transition starts and holds
   // that picture until it ends, so a repaint landing in between takes the
   // departing card away before it has been drawn leaving. Replying repaints
   // twice — the server's own event, then the refresh behind it — and either one
   // can be the one that lands there, so the second waits its turn.
   if (animating) {
-    queued = { grew: grew || queued?.grew || false };
+    queued = true;
     return;
   }
 
   const selected = selectedEntries();
   const items = selected.slice(0, state.limit);
   const ids = items.map((e) => e.id);
-  const shuffled = painted && (ids.length !== painted.length || ids.some((id, i) => id !== painted[i]));
   const first = painted === null;
+  const shuffled = !first && (ids.length !== painted.length || ids.some((id, i) => id !== painted[i]));
+  // Read off the list rather than taken from whoever called: paging in the next
+  // screenful leaves the cards above it untouched and adds to the end, and that
+  // is the same list whether the button or the sentinel asked for it. A flag
+  // would have to survive the queue above, where it outlives the paint it was
+  // meant for and flattens the next card that leaves.
+  const appended = shuffled && painted.length > 0 && ids.length > painted.length
+    && painted.every((id, i) => id === ids[i]);
   applyExits(new Set(ids));
   painted = ids;
   paintMore(selected.length - items.length);
@@ -659,7 +668,7 @@ function render({ grew = false } = {}) {
   // Only arrivals, departures and reorders are worth animating. A card whose
   // text changed under you while you were typing in it should not move at all,
   // and a page appended below the fold has nothing to animate either.
-  if (first || grew || !shuffled || reduceMotion.matches || !document.startViewTransition) {
+  if (first || appended || !shuffled || reduceMotion.matches || !document.startViewTransition) {
     paint(items);
     return;
   }
@@ -667,8 +676,8 @@ function render({ grew = false } = {}) {
   const done = () => {
     animating = false;
     const next = queued;
-    queued = null;
-    if (next) render(next);
+    queued = false;
+    if (next) render();
   };
   document.startViewTransition(() => paint(items)).finished.then(done, done);
 }
@@ -685,7 +694,7 @@ function paintMore(held) {
 function showMore() {
   if (el.more.classList.contains('hidden')) return;
   state.limit += PAGE;
-  render({ grew: true });
+  render();
 }
 
 /** A different set of entries is about to be listed, so start from page one. */
@@ -1046,7 +1055,9 @@ el.timeline.addEventListener('input', (e) => {
  */
 function light(id, act) {
   firing.add(`${id}:${act}`);
-  el.timeline.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`)?.classList.add('firing');
+  const btn = el.timeline.querySelector(`[data-act="${act}"][data-id="${CSS.escape(id)}"]`);
+  btn?.classList.add('firing');
+  return btn;
 }
 
 function unlight(id, act) {
@@ -1062,10 +1073,15 @@ async function sendReply(id) {
     input?.focus();
     return;
   }
-  // Leave the field before the transition, so keyboard send matches a click
-  // (focus is already on the button then) and paint does not try to restore it.
-  input?.blur();
-  light(id, 'send');
+  // Leave the field for the button, where a click has already put the focus.
+  // Blurring to nothing would do as much for paint, which then has no caret to
+  // restore, but it also takes the focus off the card — and a card that is not
+  // the one in the middle of the reading area is blurred back the moment it
+  // loses that, so the keyboard would send it out of the feed faded and a click
+  // would not.
+  const btn = light(id, 'send');
+  if (btn) btn.focus({ preventScroll: true });
+  else input?.blur();
   exits.set(id, 'right');
   try {
     await api(`/api/entries/${id}/reply`, { message });
