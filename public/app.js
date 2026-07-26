@@ -173,37 +173,13 @@ function unesc(s) {
     .replaceAll('&amp;', '&');
 }
 
-function fmtAge(iso, now = Date.now()) {
-  const ms = Math.max(0, now - Date.parse(iso));
-  const s = Math.floor(ms / 1000);
-  if (s < 60) return `${s}s ago`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h}h ago`;
-  return `${Math.floor(h / 24)}d ago`;
-}
-
-/**
- * The clock time the message came in. "12m ago" answers how stale a card is,
- * which is what the feed is for, but not what you were doing when it fired —
- * so the wall clock sits next to the age rather than replacing it. The date
- * only shows up once "today" stops being enough to place it.
- */
-function fmtClock(iso, now = Date.now()) {
+/** When the message came in, in local time. Same shape on every card. */
+function fmtStamp(iso) {
   const at = new Date(iso);
   if (Number.isNaN(at.getTime())) return '';
-  const hhmm = `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`;
-  const today = new Date(now);
-  const sameDay = at.getFullYear() === today.getFullYear()
-    && at.getMonth() === today.getMonth()
-    && at.getDate() === today.getDate();
-  return sameDay ? hhmm : `${at.getMonth() + 1}/${at.getDate()} ${hhmm}`;
-}
-
-function fmtStamp(iso, now = Date.now()) {
-  const clock = fmtClock(iso, now);
-  return clock ? `${clock} · ${fmtAge(iso, now)}` : fmtAge(iso, now);
+  const p = (n, w = 2) => String(n).padStart(w, '0');
+  const date = `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}`;
+  return `${date}T${p(at.getHours())}:${p(at.getMinutes())}:${p(at.getSeconds())}`;
 }
 
 function fmtRemain(ms) {
@@ -575,9 +551,11 @@ function cardHtml(entry) {
   return `
     <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
       <div class="card-head">
-        <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
-        <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
-        <span class="meta" data-stamp title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt, nowMs())}</span>
+        <div class="head-line">
+          <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
+          <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
+          <span class="meta" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
+        </div>
         <div class="chips">${holdChip(entry)}${modelChips(entry)}</div>
       </div>
       <div class="card-body">
@@ -1165,13 +1143,6 @@ setInterval(() => {
     else if (remain < 45_000) cls += ' low';
     chip.className = cls;
     chip.textContent = `hold ${fmtRemain(remain)}`;
-  }
-  // Relative ages
-  for (const card of el.timeline.querySelectorAll('.card')) {
-    const entry = state.entries.get(card.dataset.id);
-    if (!entry) continue;
-    const stamp = card.querySelector('.card-head > [data-stamp]');
-    if (stamp) stamp.textContent = fmtStamp(entry.createdAt, nowMs());
   }
 }, 1000);
 

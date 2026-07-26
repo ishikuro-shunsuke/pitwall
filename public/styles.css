@@ -197,13 +197,19 @@ main {
 
 .card-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
+  flex-direction: column;
+  gap: 6px;
   padding: 12px 14px;
   background: var(--repo-tint, var(--panel-2));
   border-bottom: 1px solid var(--border);
 }
+.head-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .badge {
   font-family: var(--mono);
   font-size: 11px;
@@ -216,7 +222,8 @@ main {
 .badge.claude { background: var(--brand-claude); border-color: var(--brand-claude); color: var(--on-accent); }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips:empty { display: none; }
 .chip {
   font-family: var(--mono);
   font-size: 11px;
