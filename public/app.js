@@ -231,15 +231,14 @@ function selectedEntries() {
 }
 
 /**
- * What the turn was run with, as one slug: model, then whatever the agent set
- * on top of it. A box around `auto` adds nothing the word does not already
- * say, and four boxes in a row read as four separate facts when they are one.
- * Which part is which is in the tooltip, spelled out.
+ * What the turn was run with. No card is picked or skipped over its model, so
+ * it stays off the head and hangs on the badge that already names the agent —
+ * one labelled line per setting, for when you do go looking.
  */
-function modelChips(entry) {
+function modelTitle(entry) {
   const m = entry.model || {};
-  const parts = [];
-  const add = (name, value) => value && parts.push({ name, value: String(value) });
+  const lines = [];
+  const add = (name, value) => value && lines.push(`${name}: ${value}`);
 
   add('model', m.label || m.id);
   add('effort', m.effort);
@@ -248,18 +247,14 @@ function modelChips(entry) {
   for (const p of m.params || []) {
     if (!p.id) continue;
     if (p.id === 'effort' && m.effort) continue;
-    add(p.id, `${p.id}:${p.value}`);
+    add(p.id, p.value);
   }
+  return lines.join('\n');
+}
 
-  const chips = [];
-  if (parts.length) {
-    const title = parts.map((p) => `${p.name}: ${p.value}`).join('\n');
-    chips.push(`<span class="chip" title="${esc(title)}">${esc(parts.map((p) => p.value).join('/'))}</span>`);
-  }
-  if (entry.backgroundTaskCount > 0) {
-    chips.push(`<span class="chip tasks">bg:${entry.backgroundTaskCount}</span>`);
-  }
-  return chips.join('');
+function taskChip(entry) {
+  if (!(entry.backgroundTaskCount > 0)) return '';
+  return `<span class="chip tasks">bg:${entry.backgroundTaskCount}</span>`;
 }
 
 function imagesHtml(entry) {
@@ -566,11 +561,11 @@ function cardHtml(entry) {
     <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
       <div class="card-head">
         <div class="head-line">
-          <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
+          <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
         </div>
-        <div class="chips">${modelChips(entry)}${holdChip(entry)}</div>
+        <div class="chips">${taskChip(entry)}${holdChip(entry)}</div>
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
