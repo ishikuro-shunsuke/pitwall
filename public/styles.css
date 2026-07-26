@@ -9,22 +9,27 @@
   --rail: light-dark(#d0d7e0, #2a3342);
   --topbar-bg: light-dark(rgba(243, 245, 248, 0.94), rgba(14, 17, 22, 0.94));
 
-  /* Every colour in the app is this one tone at a different hue — the repo hues
-     from script included. Hue says which thing it is; nothing says it louder
-     than its neighbour. Set per theme rather than through light-dark(), which
-     browsers only reliably take for whole colours. */
+  /* Colours that only say which thing this is — the repo hues from script, and
+     the two agent badges — share one lightness and one chroma, so hue is the
+     only thing that changes between them and no project's card outweighs
+     another's. Set per theme rather than through light-dark(), which browsers
+     only reliably take for whole colours. */
   --tone-l: 45%;
   --tone-c: 0.12;
-  /* Anything you can act on, and anything waiting to be acted on. */
-  --accent: oklch(var(--tone-l) var(--tone-c) 162);
-  --danger: oklch(var(--tone-l) var(--tone-c) 25);
-  /* Half the chroma at the same hue, so a countdown can escalate towards red
-     without a second hue on the way. */
-  --danger-soft: oklch(var(--tone-l) calc(var(--tone-c) * 0.5) 25);
   /* Worn by the agent badges alone. */
   --brand-cursor: oklch(var(--tone-l) var(--tone-c) 280);
   --brand-claude: oklch(var(--tone-l) var(--tone-c) 65);
-  /* The tone flips from dark to light with the theme, so what sits on top flips too. */
+
+  /* Red is the only colour in here that means anything: something is waiting,
+     something is running out, or you are on the button that acts. It carries
+     more chroma than the identity tone because it is the one that has to be
+     seen from across the room, and the repo hues stay off its end of the
+     wheel. Everything not red and not a repo is grey. */
+  --accent: light-dark(oklch(45% 0.19 27), oklch(66% 0.19 27));
+  /* Half the chroma at the same hue, so a countdown can build towards red
+     without a second colour on the way. */
+  --accent-soft: light-dark(oklch(45% 0.1 27), oklch(66% 0.1 27));
+  /* The accent flips from dark to light with the theme, so what sits on top flips too. */
   --on-accent: light-dark(#ffffff, #0e1116);
   /* The lightbox is dark under either theme, so its text does not follow one. */
   --overlay-text: #e6edf3;
@@ -68,8 +73,9 @@ a { color: var(--accent); }
   width: 8px; height: 8px; border-radius: 50%;
   background: var(--muted);
 }
-.status-dot.ok { background: var(--accent); }
-.status-dot.bad { background: var(--danger); }
+/* A live feed is not news, so the dot only takes the colour when it breaks. */
+.status-dot.ok { background: var(--text); }
+.status-dot.bad { background: var(--accent); }
 
 .tabs { display: flex; gap: 4px; justify-content: center; }
 .tab {
@@ -254,11 +260,11 @@ main {
   color: var(--text);
 }
 .chip.tasks { border-color: var(--muted); }
-/* The countdown runs from the colour of something you can still answer to the
-   colour of the button that throws it away. */
-.chip.hold { border-color: var(--accent); color: var(--accent); }
-.chip.hold.low { border-color: var(--danger-soft); color: var(--danger-soft); }
-.chip.hold.critical { border-color: var(--danger); color: var(--danger); }
+/* A countdown with time left on it is just a number, and reddens as it runs
+   out. */
+.chip.hold { color: var(--muted); }
+.chip.hold.low { border-color: var(--accent-soft); color: var(--accent-soft); }
+.chip.hold.critical { border-color: var(--accent); color: var(--accent); }
 
 /* Alpha, so it lands over the card's own panel rather than replacing it. */
 .card-body { padding: 14px; background: var(--repo-wash, transparent); }
@@ -411,13 +417,19 @@ a.file-ref:hover {
   font-size: 13px;
   transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
+/* Boxing a card cannot be taken back, but it is not what you came to the feed
+   to do — so only the reply button stands there in red, and the other one waits
+   for the pointer before it admits to the same colour. */
 .btn.primary { border-color: var(--accent); color: var(--accent); }
-.btn.danger { border-color: var(--danger); color: var(--danger); }
 /* Hover washes the button in the colour that a press then fills it with, so the
    pointer shows where it is and what it is about to do. */
 .btn:hover { border-color: var(--muted); background: var(--panel-2); }
-.btn.primary:hover { background: color-mix(in oklab, var(--accent) 16%, var(--bg)); }
-.btn.danger:hover { background: color-mix(in oklab, var(--danger) 16%, var(--bg)); }
+.btn.primary:hover,
+.btn.danger:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in oklab, var(--accent) 16%, var(--bg));
+}
 /* A press fills the button the rest of the way, and `firing` holds that fill
    while the action is in flight — the keyboard has no press to show. Last, so
    the fill survives the pointer still hovering over it. */
@@ -431,22 +443,30 @@ a.file-ref:hover {
 }
 .btn.danger:active,
 .btn.danger.firing {
-  background: var(--danger);
-  border-color: var(--danger);
+  background: var(--accent);
+  border-color: var(--accent);
   color: var(--on-accent);
 }
 .btn a { color: inherit; text-decoration: none; }
 
 .composer { width: 100%; }
+/* The box you type in belongs to the card around it, so it is drawn in the
+   card's own colour — held back until you are in it, then the full line, which
+   is the same weight as the card's edge. */
 .composer textarea {
   display: block;
   width: 100%;
   min-height: 90px;
   resize: vertical;
   background: var(--bg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--repo-line, var(--border));
   padding: 10px;
   border-radius: 0;
+  transition: border-color 120ms ease;
+}
+.composer textarea:focus {
+  outline: none;
+  border-color: var(--repo-color, var(--accent));
 }
 
 .lightbox {

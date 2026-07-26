@@ -225,13 +225,18 @@ function nowMs() {
 }
 
 /**
- * The hue carries the repo, so the whole card is one colour at three
- * strengths: full for a line, and two washes faint enough to keep text
- * readable — the heavier one on the bands, so they still read as bands.
+ * The hue carries the repo, so everything the card outlines is one colour at
+ * four strengths: full for its own edge, half for the edge of a box you can
+ * type in, and two washes faint enough to keep text readable — the heavier one
+ * on the bands, so they still read as bands.
  *
  * oklch off the app's own tone, so every repo lands at the same weight as
  * every other and as the rest of the interface. The same hues in hsl would
  * hand the yellow repos a glaring card and the blue ones a sunk one.
+ *
+ * The wheel starts past red and stops short of it: red is the one colour that
+ * means something here, and a repo that happened to hash into it would be
+ * telling you its card is urgent.
  */
 function repoTones(key) {
   if (!key) return null;
@@ -239,10 +244,11 @@ function repoTones(key) {
   for (let i = 0; i < key.length; i++) {
     hash = (hash * 31 + key.charCodeAt(i)) | 0;
   }
-  const hue = Math.abs(hash) % 360;
+  const hue = 55 + (Math.abs(hash) % 290);
   const tone = `var(--tone-l) var(--tone-c) ${hue}`;
   return {
     color: `oklch(${tone})`,
+    line: `oklch(${tone} / 0.5)`,
     tint: `oklch(${tone} / 0.12)`,
     wash: `oklch(${tone} / 0.05)`,
   };
@@ -583,7 +589,14 @@ function cardHtml(entry) {
   const dirty = repo.dirty ? ' • dirty' : '';
   const tones = repoTones(repo.key || repo.name);
   const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
-  if (tones) decl.push(`--repo-color: ${tones.color}`, `--repo-tint: ${tones.tint}`, `--repo-wash: ${tones.wash}`);
+  if (tones) {
+    decl.push(
+      `--repo-color: ${tones.color}`,
+      `--repo-line: ${tones.line}`,
+      `--repo-tint: ${tones.tint}`,
+      `--repo-wash: ${tones.wash}`,
+    );
+  }
   const style = ` style="${decl.join('; ')}"`;
   const unread = state.marked.has(entry.id) ? ` data-unread="${esc(entry.bucket)}"` : '';
   return `
