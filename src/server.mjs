@@ -437,15 +437,19 @@ async function handleDismiss(req, res, params) {
     }
     return sendJson(res, 200, { ok: true });
   }
-  if (entry.status === 'notice') {
+  // A notice was never a question, and a card whose window has closed can no
+  // longer take an answer — boxing either one only takes it off the feed. How
+  // its agent ended stays on `resolvedAt` and `resolution`, so the archived
+  // card still says whether anyone was there to hear it.
+  if (store.bucketOf(entry) === 'timeline') {
     store.update(params.id, {
       status: 'dismissed',
-      resolvedAt: new Date().toISOString(),
-      resolution: 'dismiss',
+      resolvedAt: entry.resolvedAt ?? new Date().toISOString(),
+      resolution: entry.resolution ?? 'dismiss',
     });
     return sendJson(res, 200, { ok: true });
   }
-  sendJson(res, 409, { error: 'not dismissable', status: entry.status });
+  sendJson(res, 409, { error: 'already boxed', status: entry.status });
 }
 
 async function handleHold(req, res, params) {

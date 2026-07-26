@@ -8,20 +8,24 @@ import { config, paths } from './config.mjs';
  * Entry statuses:
  *   waiting   - an agent is blocked right now, hook is holding the turn open
  *   answered  - you replied, the reply was handed back to the agent
- *   dismissed - you closed it without replying, the agent stopped normally
+ *   dismissed - you boxed it, whatever its agent had already done
  *   expired   - nobody answered within the wait window, the agent stopped on its own
  *   detached  - hook connection dropped (user interrupted the agent)
  *   notice    - informational only (permission prompt, turn error); never blocking
  */
-export const ACTIVE_STATUSES = new Set(['waiting', 'notice']);
+const CLEARED_STATUSES = new Set(['answered', 'dismissed']);
 const UNANSWERED_STATUSES = new Set(['dismissed', 'expired', 'detached']);
 
 /**
- * Which screen an entry belongs to: 'timeline' while it is still live, then
- * 'archive' — behind the History button — once it is over, however it ended.
+ * Which screen an entry belongs to: 'timeline' until you are done with it, then
+ * 'archive' — behind the History button. What ends a card is you replying or
+ * boxing it, not its agent giving up: a window that closed while you were
+ * looking elsewhere is still the last thing that happened in that session, and
+ * filing it away by itself would take it off the feed unread. It stays, without
+ * the reply box.
  */
 export function bucketOf(entry) {
-  return ACTIVE_STATUSES.has(entry.status) ? 'timeline' : 'archive';
+  return CLEARED_STATUSES.has(entry.status) ? 'archive' : 'timeline';
 }
 
 /**

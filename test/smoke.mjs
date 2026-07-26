@@ -336,10 +336,24 @@ async function main() {
       await new Promise((r) => setTimeout(r, 4200));
       const after = await json('GET', `/api/entries/${id}`);
       const entry = after.data.entry;
-      if (entry?.status === 'expired' && entry.bucket === 'archive' && entry.unanswered) {
-        ok('an unpolled entry expires on its own');
+      if (entry?.status === 'expired' && entry.bucket === 'timeline' && entry.unanswered) {
+        ok('an expired entry stays on the timeline');
       } else {
-        fail('an unpolled entry expires on its own', { status: entry?.status, bucket: entry?.bucket, unanswered: entry?.unanswered });
+        fail('an expired entry stays on the timeline', { status: entry?.status, bucket: entry?.bucket, unanswered: entry?.unanswered });
+      }
+
+      // The reply box is gone from the card, and the endpoint behind it says the
+      // same thing. Boxing is then the only way it leaves.
+      const late = await json('POST', `/api/entries/${id}/reply`, { message: 'too late' });
+      if (late.status === 409) ok('an expired entry takes no reply');
+      else fail('an expired entry takes no reply', late.status);
+
+      await json('POST', `/api/entries/${id}/dismiss`);
+      const boxed = (await json('GET', `/api/entries/${id}`)).data.entry;
+      if (boxed?.bucket === 'archive' && boxed.unanswered && boxed.resolution === 'expired') {
+        ok('boxing an expired entry files it unanswered');
+      } else {
+        fail('boxing an expired entry files it unanswered', { bucket: boxed?.bucket, unanswered: boxed?.unanswered, resolution: boxed?.resolution });
       }
     }
 

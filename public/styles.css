@@ -239,6 +239,9 @@ main {
 .chip.hold { color: var(--muted); }
 .chip.hold.low { border-color: var(--accent-soft); color: var(--accent-soft); }
 .chip.hold.critical { border-color: var(--accent); color: var(--accent); }
+/* The clock is not running any more, and the dashes are how the rest of the page
+   draws something that is no longer live. */
+.chip.closed { border-style: dashed; color: var(--muted); }
 
 /* Alpha, so it lands over the card's own panel rather than replacing it. */
 .card-body { padding: 14px; background: var(--repo-wash, transparent); }

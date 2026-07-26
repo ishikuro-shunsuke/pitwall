@@ -491,12 +491,18 @@ function renderMarkdown(raw, entry) {
 }
 
 function holdChip(entry) {
-  if (entry.status !== 'waiting') return '';
-  const remain = Math.max(0, (entry.holdUntil || 0) - nowMs());
-  let cls = 'hold';
-  if (remain < 20_000) cls += ' critical';
-  else if (remain < 45_000) cls += ' low';
-  return `<span class="chip ${cls}" data-hold="${esc(entry.id)}">hold ${fmtRemain(remain)}</span>`;
+  if (entry.status === 'waiting') {
+    const remain = Math.max(0, (entry.holdUntil || 0) - nowMs());
+    let cls = 'hold';
+    if (remain < 20_000) cls += ' critical';
+    else if (remain < 45_000) cls += ' low';
+    return `<span class="chip ${cls}" data-hold="${esc(entry.id)}">hold ${fmtRemain(remain)}</span>`;
+  }
+  // The card is still on the feed with nobody left at the other end, so the
+  // chip that was counting down says so. Otherwise the missing reply box is the
+  // only sign, and a missing box reads as the page having failed to draw it.
+  if (entry.bucket !== 'timeline' || entry.status === 'notice') return '';
+  return `<span class="chip closed">${entry.status === 'detached' ? 'interrupted' : 'no radio'}</span>`;
 }
 
 /**
@@ -513,9 +519,11 @@ function actionsHtml(entry) {
   if (entry.status === 'waiting') {
     parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
-  } else if (entry.status === 'notice') {
-    // Same button as the one beside a reply, and it does the same thing to the
-    // card, so it fills with the same colour on the way out.
+  } else if (entry.bucket === 'timeline') {
+    // A notice and a closed card both sit here with nothing to answer, so the
+    // one button is the whole card. Same button as the one beside a reply, and
+    // it does the same thing to the card, so it fills with the same colour on
+    // the way out.
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   }
 
