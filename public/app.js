@@ -769,6 +769,9 @@ function scheduleFocus() {
 window.addEventListener('scroll', scheduleFocus, { passive: true });
 window.addEventListener('resize', scheduleFocus);
 
+/** Set while the cards are being swapped out, so the focus that moves is ours. */
+let swapping = false;
+
 function paint(items) {
   const anchors = captureAnchors();
   // The cards are rebuilt from scratch, so every one of them starts blurred and
@@ -787,6 +790,7 @@ function paint(items) {
     }
     : null;
 
+  swapping = true;
   el.timeline.innerHTML = items.map(cardHtml).join('');
   el.empty.classList.toggle('hidden', items.length > 0);
   observeUnread();
@@ -796,8 +800,13 @@ function paint(items) {
     if (input) {
       input.focus();
       input.setSelectionRange(focused.start, focused.end);
+    } else {
+      // The card is no longer painted, so the field is not coming back and the
+      // agent has nobody typing at it.
+      disengage(focused.id);
     }
   }
+  swapping = false;
 
   // Last, so that refocusing the reply box cannot scroll out from under you.
   restoreAnchors(anchors);
@@ -976,6 +985,13 @@ function stopHoldHeartbeat(id) {
   state.holdTimers.delete(id);
 }
 
+/** Nobody is typing at this entry any more, so stop holding its agent open. */
+function disengage(id) {
+  if (state.drafts.get(id)) return; // keep holding while a draft is standing
+  state.engaged.delete(id);
+  stopHoldHeartbeat(id);
+}
+
 // Whatever you click into keeps its card sharp, wherever it sits on the page.
 el.timeline.addEventListener('focusin', scheduleFocus);
 el.timeline.addEventListener('focusout', scheduleFocus);
@@ -991,10 +1007,13 @@ el.timeline.addEventListener('focusin', (e) => {
 
 el.timeline.addEventListener('focusout', (e) => {
   const id = e.target.getAttribute?.('data-reply-input');
-  if (!id || !e.target.isConnected) return; // a re-render swapped the field out
-  if (state.drafts.get(id)) return; // keep holding while a draft is standing
-  state.engaged.delete(id);
-  stopHoldHeartbeat(id);
+  // A repaint takes the field out from under the caret and puts it straight
+  // back, and that round trip is not you walking away from the entry. Left to
+  // count, it stops the heartbeat and starts it again, and the beat it fires on
+  // the way back is itself an update — the feed then repaints as fast as the
+  // server can answer.
+  if (!id || swapping) return;
+  disengage(id);
 });
 
 el.timeline.addEventListener('input', (e) => {
