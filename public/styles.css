@@ -58,7 +58,7 @@ a { color: var(--accent); }
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: auto 1fr auto;
   gap: 16px;
   align-items: center;
   padding: 12px 20px;
@@ -93,9 +93,12 @@ a { color: var(--accent); }
   .conn { animation: none; }
 }
 
-/* Pulled out by the padding the buttons hold for the pointer, so the strokes
-   end on the same edge as the cards below rather than short of it. */
-.filters { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; margin-right: -4px; }
+/* The end of the title's line, at every width — a column of their own, so a
+   filter appearing beside them cannot push them onto a second row. Pulled out
+   by the padding the buttons hold for the pointer, so the strokes end on the
+   same edge as the cards below rather than short of it. */
+.actions { display: flex; align-items: center; gap: 12px; margin-right: -4px; }
+.filters { display: flex; gap: 12px; flex-wrap: wrap; justify-content: flex-end; align-items: center; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .filter[hidden] { display: none; }
 .filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -261,19 +264,10 @@ main {
 }
 .badge.cursor { background: var(--brand-cursor); border-color: var(--brand-cursor); color: var(--on-accent); }
 .badge.claude { background: var(--brand-claude); border-color: var(--brand-claude); color: var(--on-accent); }
-/* The word is already in the badge, so the colour only says how far up your
-   list it is: waiting on you, still open, or done with. */
-.badge.status-waiting { color: var(--accent); }
-.badge.status-notice { color: var(--text); }
-.badge.status-answered,
-.badge.status-dismissed,
-.badge.status-expired,
-.badge.status-detached { color: var(--muted); }
-/* The node out on the rail says this from across the page; the badge says it in
-   the row you are reading. Outlined rather than filled — most of a live feed is
-   unread, and a screenful of solid red would drown out the one card that is
-   actually waiting. A card you have read carries nothing: the word is only
-   worth the space while it is true. */
+/* Outlined rather than filled — most of a live feed is unread, and a screenful
+   of solid red would drown out the one card that actually needs you. A card
+   you have read carries nothing: the word is only worth the space while it is
+   true. */
 .badge.unread { border-color: var(--accent); color: var(--accent); }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
@@ -619,8 +613,8 @@ a.file-ref:hover {
 }
 
 @media (max-width: 720px) {
-  .topbar { grid-template-columns: 1fr; }
-  .filters { justify-content: flex-start; }
+  /* The bar is a title and two glyphs now, which fits any phone on one line;
+     only a filter has to give way, and it wraps inside its own column. */
   .rail { left: 19px; }
   .card { margin-left: 16px; }
 }

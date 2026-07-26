@@ -599,7 +599,6 @@ function cardHtml(entry) {
     <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${mark}${style}>
       <div class="card-head">
         <span class="badge ${esc(entry.agent)}">${esc(entry.agent)}</span>
-        <span class="badge status-${esc(entry.status)}">${esc(entry.status)}</span>
         ${unread ? '<span class="badge unread">unread</span>' : ''}
         <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
         <span class="meta" title="${esc(entry.createdAt)}">${fmtAge(entry.createdAt, nowMs())}</span>
