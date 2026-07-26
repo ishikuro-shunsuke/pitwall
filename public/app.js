@@ -573,8 +573,9 @@ function cardHtml(entry) {
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
+          ${holdChip(entry)}
         </div>
-        <div class="chips">${questionChip(entry)}${taskChip(entry)}${holdChip(entry)}</div>
+        <div class="chips">${questionChip(entry)}${taskChip(entry)}</div>
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
