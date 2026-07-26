@@ -27,7 +27,7 @@ const el = {
   filterAnswer: document.getElementById('filter-answer'),
   filterUnanswered: document.getElementById('filter-unanswered'),
   history: document.getElementById('history'),
-  menuBadge: document.getElementById('menu-badge'),
+  historyCount: document.getElementById('history-count'),
   more: document.getElementById('more'),
   lightbox: document.getElementById('lightbox'),
   lightboxStage: document.getElementById('lightbox-stage'),
@@ -85,7 +85,7 @@ el.history.addEventListener('click', (event) => {
   // is the honest way to clear it, but the screen you are not on can collect a
   // backlog you have no intention of reading through, and the number has to be
   // able to reach zero.
-  if (event.target.closest('.menu-badge')) {
+  if (event.target.closest('.history-count')) {
     markViewRead(otherView());
     return;
   }
@@ -256,19 +256,19 @@ function selectedEntries() {
 
 /**
  * The button carries the count for the screen it leads to — the cards on this
- * one say for themselves whether they have been read. It counts what the
- * filters would show, so whatever it points at is always one press away: a
- * count you cannot reach by pressing it would just sit there.
+ * one say for themselves whether they have been read. It counts what the filter
+ * would show, so whatever it points at is always one press away: a count you
+ * cannot reach by pressing it would just sit there.
  */
-function paintBadge() {
+function paintHistoryCount() {
   const view = otherView();
   let n = 0;
   for (const entry of state.entries.values()) {
     if (entry.readAt || entry.bucket !== view || !passesFilters(entry)) continue;
     n += 1;
   }
-  el.menuBadge.hidden = n === 0;
-  el.menuBadge.textContent = n > 99 ? '99+' : String(n);
+  el.historyCount.hidden = n === 0;
+  el.historyCount.textContent = n > 99 ? '99+' : String(n);
 }
 
 function modelChips(entry) {
@@ -646,7 +646,7 @@ function render() {
   applyExits(new Set(ids));
   painted = ids;
   paintMore(selected.length - items.length);
-  paintBadge();
+  paintHistoryCount();
 
   // Only arrivals, departures and reorders are worth animating. A card whose
   // text changed under you while you were typing in it should not move at all,

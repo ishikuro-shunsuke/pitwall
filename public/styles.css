@@ -58,7 +58,7 @@ a { color: var(--accent); }
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   gap: 16px;
   align-items: center;
   padding: 12px 20px;
@@ -93,44 +93,7 @@ a { color: var(--accent); }
   .conn { animation: none; }
 }
 
-.menu { display: flex; gap: 4px; justify-content: center; }
-.menu-btn {
-  background: transparent;
-  border: 1px solid transparent;
-  padding: 6px 14px;
-  cursor: pointer;
-  color: var(--muted);
-}
-.menu-btn:hover { color: var(--text); }
-/* Held down while the past is on screen, and the × in it is the way out. */
-.menu-btn[aria-pressed="true"] {
-  border-color: var(--border);
-  background: var(--panel);
-  color: var(--text);
-}
-.menu-x { display: none; }
-.menu-btn[aria-pressed="true"] .menu-x { display: inline; margin-right: 8px; }
-/* A badge counts cards that are waiting, and wears what waiting wears. */
-.menu-badge {
-  display: inline-block;
-  margin-left: 8px;
-  min-width: 18px;
-  padding: 0 5px;
-  font-family: var(--mono);
-  font-size: 10px;
-  line-height: 16px;
-  text-align: center;
-  background: var(--accent);
-  border: 1px solid var(--accent);
-  color: var(--on-accent);
-}
-/* On the way in the count is the archive's, and the archive is a step further
-   from you, so it sits a step back. On the way out it is the timeline's. */
-.menu-btn[aria-pressed="false"] .menu-badge { background: transparent; color: var(--accent); }
-/* The count is clickable — it takes what it counts as read. */
-.menu-badge:hover { opacity: 0.65; }
-
-.filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.filters { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; align-items: flex-end; }
 .filter { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .filter[hidden] { display: none; }
 .filter-group { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -150,6 +113,19 @@ a { color: var(--accent); }
   border-color: var(--accent);
   color: var(--text);
 }
+
+/* Somewhere you go now and then, so it sits with the controls rather than in
+   the middle of the bar, and the × only appears once you are there. */
+.history-chip { display: flex; align-items: center; gap: 8px; }
+.history-chip:hover { border-color: var(--muted); color: var(--text); }
+.history-x { display: none; }
+.history-chip[aria-pressed="true"] .history-x { display: inline; }
+/* What is behind the button and unread: the archive's count on the way in, the
+   timeline's on the way out. Bare — a box inside a chip is one box too many —
+   and red, because unread is the only thing it has to say. Clicking it takes
+   what it counts as read. */
+.history-count { font-family: var(--mono); font-size: 10px; color: var(--accent); }
+.history-count:hover { opacity: 0.65; }
 
 main {
   position: relative;
