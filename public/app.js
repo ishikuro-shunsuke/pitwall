@@ -268,6 +268,35 @@ function questionChip(entry) {
   return '<span class="chip closed" title="Answered in the terminal">question</span>';
 }
 
+/** Coarser than a hold: nothing here is decided in the last thirty seconds. */
+function fmtLead(ms) {
+  const m = Math.round(ms / 60_000);
+  if (m < 60) return `in ${m}m`;
+  const h = Math.round(m / 60);
+  return h < 48 ? `in ${h}h` : `in ${Math.round(h / 24)}d`;
+}
+
+function leadClass(ms) {
+  let cls = 'chip hold';
+  if (ms <= 5 * 60_000) cls += ' critical';
+  else if (ms <= 15 * 60_000) cls += ' low';
+  return cls;
+}
+
+/**
+ * A calendar card is worth reading for one thing — how long you have — so the
+ * gap to the event takes the place a countdown already has, and reddens on the
+ * same run in. Once the event has begun there is nothing left to be early for,
+ * and it stops in the dashes the page draws around anything no longer live.
+ */
+function startsChip(entry) {
+  const cal = entry.calendar;
+  if (!cal) return '';
+  const remain = cal.startMs - nowMs();
+  if (remain <= 0) return '<span class="chip closed">started</span>';
+  return `<span class="${leadClass(remain)}" data-starts="${esc(entry.id)}">${fmtLead(remain)}</span>`;
+}
+
 function imagesHtml(entry) {
   if (!entry.images?.length) return '';
   const parts = entry.images.map((img) => {
@@ -612,7 +641,7 @@ function cardHtml(entry) {
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
-          ${questionChip(entry)}${holdChip(entry)}
+          ${questionChip(entry)}${startsChip(entry)}${holdChip(entry)}
         </div>
         <div class="chips">${taskChip(entry)}</div>
       </div>
@@ -1191,6 +1220,19 @@ el.timeline.addEventListener('click', async (e) => {
 
 // Countdown tick for hold chips
 setInterval(() => {
+  for (const chip of el.timeline.querySelectorAll('[data-starts]')) {
+    const entry = state.entries.get(chip.getAttribute('data-starts'));
+    if (!entry?.calendar) continue;
+    const remain = entry.calendar.startMs - nowMs();
+    if (remain <= 0) {
+      chip.removeAttribute('data-starts');
+      chip.className = 'chip closed';
+      chip.textContent = 'started';
+      continue;
+    }
+    chip.className = leadClass(remain);
+    chip.textContent = fmtLead(remain);
+  }
   for (const chip of el.timeline.querySelectorAll('[data-hold]')) {
     const id = chip.getAttribute('data-hold');
     const entry = state.entries.get(id);

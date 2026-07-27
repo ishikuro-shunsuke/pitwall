@@ -36,6 +36,34 @@ export const config = {
   maxBodyChars: num(process.env.PITWALL_MAX_BODY_CHARS, 40_000),
   maxImagesPerEntry: num(process.env.PITWALL_MAX_IMAGES, 12),
   maxImageBytes: num(process.env.PITWALL_MAX_IMAGE_BYTES, 32 * 1024 * 1024),
+
+  google: {
+    clientId: process.env.PITWALL_GOOGLE_CLIENT_ID || '',
+    clientSecret: process.env.PITWALL_GOOGLE_CLIENT_SECRET || '',
+    /**
+     * Google accepts any loopback port for a desktop client, so consent takes
+     * whatever is free — unless the browser is on the other side of a container
+     * boundary and the port has to be one that was forwarded.
+     */
+    oauthPort: Number(process.env.PITWALL_OAUTH_PORT) || 0,
+  },
+
+  calendar: {
+    /** Empty means every calendar ticked in Google Calendar's own sidebar. */
+    ids: (process.env.PITWALL_CALENDAR_IDS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    pollSeconds: num(process.env.PITWALL_CALENDAR_POLL_SECONDS, 120),
+    /** How far ahead to keep events loaded. Reminders can sit a day out. */
+    lookaheadMinutes: num(process.env.PITWALL_CALENDAR_LOOKAHEAD_MINUTES, 2880),
+    /**
+     * A reminder whose moment passed while the server was down has nothing left
+     * to warn about, so it is marked seen instead of landing on the feed. Long
+     * enough to survive a laptop lid, short enough that nothing arrives stale.
+     */
+    staleMinutes: num(process.env.PITWALL_CALENDAR_STALE_MINUTES, 20),
+  },
 };
 
 /**
@@ -52,6 +80,9 @@ export const paths = {
   entries: path.join(config.dataDir, 'entries.json'),
   images: path.join(config.dataDir, 'images'),
   responses: path.join(config.dataDir, 'responses'),
+  googleClient: path.join(config.dataDir, 'google-client.json'),
+  googleToken: path.join(config.dataDir, 'google-token.json'),
+  calendarSeen: path.join(config.dataDir, 'calendar-seen.json'),
   public: path.join(ROOT, 'public'),
   deeplink: path.join(ROOT, 'src', 'deeplink.mjs'),
 };

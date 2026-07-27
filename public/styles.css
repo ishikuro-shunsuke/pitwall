@@ -22,6 +22,7 @@
   /* Worn by the agent badges alone. */
   --brand-cursor: oklch(var(--tone-l) var(--tone-c) 280);
   --brand-claude: oklch(var(--tone-l) var(--tone-c) 65);
+  --brand-calendar: oklch(var(--tone-l) var(--tone-c) 155);
 
   /* Red is the only colour in here that means anything: something is waiting,
      something is running out, or you are on the button that acts. It carries
@@ -220,6 +221,7 @@ main {
 }
 .badge.cursor { background: var(--brand-cursor); border-color: var(--brand-cursor); color: var(--on-accent); }
 .badge.claude { background: var(--brand-claude); border-color: var(--brand-claude); color: var(--on-accent); }
+.badge.calendar { background: var(--brand-calendar); border-color: var(--brand-calendar); color: var(--on-accent); }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }

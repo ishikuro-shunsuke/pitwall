@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { config, paths, softHoldSeconds } from './config.mjs';
 import * as store from './store.mjs';
 import * as waiters from './waiters.mjs';
+import * as calendar from './calendar.mjs';
 import { buildEntry, publicEntry } from './normalize.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
@@ -563,6 +564,7 @@ async function router(req, res) {
       return sendJson(res, 200, {
         ok: true,
         waiting: store.list().filter((e) => e.status === 'waiting').length,
+        calendar: calendar.status(),
         time: Date.now(),
       });
     }
@@ -617,11 +619,14 @@ export function startServer() {
     console.log(`[pitwall] http://${config.host}:${config.port}/`);
   });
 
+  calendar.start();
+
   const shutdown = () => {
     console.log('[pitwall] shutting down…');
     for (const id of store.list().filter((e) => e.status === 'waiting').map((e) => e.id)) {
       waiters.drop(id);
     }
+    calendar.stop();
     store.shutdown();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 1500).unref?.();

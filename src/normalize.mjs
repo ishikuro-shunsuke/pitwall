@@ -63,9 +63,11 @@ function normalizeModel(raw = {}) {
   };
 }
 
+const ID_PREFIX = { cursor: 'cu', claude: 'cl', calendar: 'ca' };
+
 /**
  * Build a unified timeline entry from a hook payload.
- * `agent` is 'cursor' | 'claude'.
+ * `agent` is 'cursor' | 'claude' | 'calendar'.
  * `kind` is 'wait' | 'notice'.
  */
 export function buildEntry({
@@ -83,7 +85,7 @@ export function buildEntry({
   const model = normalizeModel(payload.model ?? {});
 
   const entry = {
-    id: newId(agent === 'claude' ? 'cl' : 'cu'),
+    id: newId(ID_PREFIX[agent] ?? 'e'),
     agent,
     kind,
     status: kind === 'notice' ? 'notice' : 'waiting',

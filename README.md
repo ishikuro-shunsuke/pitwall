@@ -2,7 +2,7 @@
 
 One timeline for every coding agent that is waiting on you.
 
-Cursor and Claude Code stop and wait for your input in windows you are not looking at. pitwall collects those moments into a single timeline in your browser, and delivers your reply back into the same chat or session. Everything runs on your machine, with no dependencies beyond Node.js.
+Cursor and Claude Code stop and wait for your input in windows you are not looking at. pitwall collects those moments into a single timeline in your browser, and delivers your reply back into the same chat or session. Link a Google account and your calendar reminders arrive on the same timeline. Everything runs on your machine, with no dependencies beyond Node.js.
 
 https://github.com/user-attachments/assets/942aed4a-8fb7-4f03-b8a2-f58dd02ed616
 
@@ -61,6 +61,24 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 
 A question Claude asks mid-session arrives as a card too, with its options. That one is answered in the terminal; the card is there so you know what is being asked.
 
+## Google Calendar
+
+A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. There is nothing to reply to; **Box** clears it.
+
+First, in [Google Cloud Console](https://console.cloud.google.com/): enable the Google Calendar API, create an OAuth client of type **Desktop app**, and add your own address under **Audience → Test users**. Save the JSON it offers you as `data/google-client.json`, or pass the same pair as `PITWALL_GOOGLE_CLIENT_ID` and `PITWALL_GOOGLE_CLIENT_SECRET`.
+
+Then link the account once:
+
+```bash
+npm run link-google
+```
+
+Approving in the browser writes a refresh token to `data/google-token.json`, and reminders already delivered are tracked in `data/calendar-seen.json`. `npm run link-google -- --unlink` deletes both; revoking pitwall at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) is a separate step. The server picks the link up on its next poll, without a restart.
+
+Consent comes back to a loopback port, which a browser outside the container cannot reach — running the server in a devcontainer, set `PITWALL_OAUTH_PORT` to a port you have forwarded.
+
+Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here. A reminder whose moment passed while the server was down is dropped rather than delivered late.
+
 ## Configuration
 
 | Variable | Default | |
@@ -71,6 +89,10 @@ A question Claude asks mid-session arrives as a card too, with its options. That
 | `PITWALL_HOLD_SECONDS` | `300` | how long Cursor waits with nobody looking |
 | `PITWALL_MAX_HOLD_SECONDS` | `1800` | how long a card stays answerable |
 | `PITWALL_RETENTION_DAYS` | `30` | older entries are dropped at boot |
+| `PITWALL_CALENDAR_IDS` | every ticked calendar | comma-separated ids, or `primary` |
+| `PITWALL_CALENDAR_POLL_SECONDS` | `120` | how often Google is asked what changed |
+| `PITWALL_CALENDAR_STALE_MINUTES` | `20` | how late a missed reminder may still arrive |
+| `PITWALL_OAUTH_PORT` | any free port | where consent comes back |
 
 ## What it puts on your machine
 
@@ -81,6 +103,7 @@ A question Claude asks mid-session arrives as a card too, with its options. That
 | `~/.claude/settings.json` | `Stop`, `Notification` and `PreToolUse` entries |
 | `<config>.bak.<timestamp>` | a backup of each file before it is edited |
 | `./data` | the timeline itself |
+| `./data/google-token.json` | the Google refresh token, readable only by you |
 
 ## Uninstall
 
@@ -98,5 +121,5 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/clea
 
 ```bash
 npm run dev    # --watch
-npm test       # end-to-end smoke test and installer test
+npm test       # end-to-end smoke test, installer test, calendar against a stubbed Google
 ```

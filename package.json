@@ -14,10 +14,11 @@
     "start": "PITWALL_HOST=0.0.0.0 node src/server.mjs",
     "dev": "PITWALL_HOST=0.0.0.0 node --watch src/server.mjs",
     "install-hooks": "node bin/install-hooks.mjs",
+    "link-google": "node bin/link-google.mjs",
     "install-hooks:devcontainer": "node bin/install-hooks.mjs --devcontainer",
     "uninstall-hooks": "node bin/install-hooks.mjs --uninstall",
     "demo": "node demo/feed.mjs",
-    "test": "node test/smoke.mjs && node test/install-hooks.mjs",
+    "test": "node test/smoke.mjs && node test/install-hooks.mjs && node test/calendar.mjs",
     "smoke": "node test/smoke.mjs"
   }
 }
