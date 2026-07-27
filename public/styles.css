@@ -475,6 +475,104 @@ a.file-ref:hover {
   border-color: var(--repo-color, var(--accent));
 }
 
+/* Over the page rather than over an image, so unlike the viewer the panel keeps
+   the page's own colours and the dark is only there to say the feed is out of
+   reach while this is up. */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.6);
+  overflow: auto;
+}
+.modal-panel {
+  width: 100%;
+  max-width: 560px;
+  max-height: 100%;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--border);
+}
+/* Stays put while the commands scroll past it, so the way out is always there. */
+.modal-head {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--panel-2);
+  border-bottom: 1px solid var(--border);
+}
+.modal-head h2 {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.modal-close {
+  margin-left: auto;
+  padding: 0 4px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 16px; font-size: 13px; line-height: 1.6; }
+.modal-body p { margin: 0; }
+/* The place each command is run, said in the same voice as the chips. */
+.modal-body h3 {
+  margin: 20px 0 6px;
+  font-size: 11px;
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--muted);
+}
+.modal-foot { margin-top: 20px; color: var(--muted); }
+
+/* The line you paste, with the button that takes it. Long ones wrap instead of
+   scrolling sideways — a command with its far end off the edge cannot be read
+   back against what you meant to run. */
+.cmd {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.cmd code {
+  flex: 1;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+.cmd-copy {
+  flex: none;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.cmd-copy:hover { border-color: var(--muted); color: var(--text); }
+
 .lightbox {
   position: fixed;
   inset: 0;

@@ -26,6 +26,10 @@ const el = {
   lightboxCap: document.getElementById('lightbox-cap'),
   lightboxRaw: document.getElementById('lightbox-raw'),
   themeToggle: document.getElementById('theme-toggle'),
+  help: document.getElementById('help'),
+  helpModal: document.getElementById('help-modal'),
+  helpClose: document.getElementById('help-close'),
+  helpUrl: document.getElementById('help-url'),
 };
 
 const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
@@ -82,6 +86,54 @@ function setView(view) {
 
 el.history.addEventListener('click', () => setView(otherView()));
 
+/**
+ * An empty feed with the server running looks the same as one whose hooks were
+ * never installed, so the commands that install them are a click away from
+ * every screen.
+ */
+const LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])$/;
+
+// The address this page was reached at is the one an agent on another machine
+// has to send to — except a loopback one, which is nobody's address but yours,
+// and there the example from the README says more than it would.
+el.helpUrl.textContent = `npm run install-hooks -- --url ${
+  LOOPBACK.test(location.hostname) ? 'http://192.168.1.10:4477' : location.origin}`;
+
+function helpOpen() {
+  return !el.helpModal.classList.contains('hidden');
+}
+
+function openHelp() {
+  el.helpModal.classList.remove('hidden');
+  el.helpClose.focus();
+}
+
+function closeHelp() {
+  if (!helpOpen()) return;
+  el.helpModal.classList.add('hidden');
+  el.help.focus();
+}
+
+el.help.addEventListener('click', () => (helpOpen() ? closeHelp() : openHelp()));
+el.helpClose.addEventListener('click', closeHelp);
+
+el.helpModal.addEventListener('click', async (e) => {
+  // Outside the panel is outside the dialog, the same way it is on the viewer.
+  if (e.target === el.helpModal) {
+    closeHelp();
+    return;
+  }
+  const btn = e.target.closest('[data-copy-cmd]');
+  if (!btn) return;
+  try {
+    await navigator.clipboard.writeText(btn.parentElement.querySelector('code').textContent);
+    btn.textContent = 'copied';
+    setTimeout(() => { btn.textContent = 'copy'; }, 1200);
+  } catch (err) {
+    alert(err.message || String(err));
+  }
+});
+
 const lightbox = { items: [], index: 0 };
 
 document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
@@ -92,6 +144,11 @@ el.lightboxImg.addEventListener('click', toggleZoom);
 el.lightboxImg.addEventListener('load', paintLightboxCap);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
+    // Topmost first: whatever is over the page is what Escape is aimed at.
+    if (helpOpen()) {
+      closeHelp();
+      return;
+    }
     if (!el.lightbox.classList.contains('hidden')) {
       closeLightbox();
       return;
@@ -1155,7 +1212,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'b' && e.key !== 'B') return;
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (typingInto(e.target)) return;
-  if (!el.lightbox.classList.contains('hidden')) return;
+  if (!el.lightbox.classList.contains('hidden') || helpOpen()) return;
   if (!sharpId) return;
   // The button is the whole rule for whether a card can be boxed, so ask it
   // rather than repeating the statuses it is drawn for.
