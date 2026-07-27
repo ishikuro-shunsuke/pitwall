@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- The header's flag, dropped into a square and pushed down 2 so it sits on
+       the same 4px grid the tab rasterises to at 16 and 32. The tab strip has
+       no currentColor to inherit, so the two ends of the text ramp are named
+       here; a tab follows the system rather than the page's own toggle. -->
+  <style>
+    path { fill: #1a1a1a; }
+    @media (prefers-color-scheme: dark) { path { fill: #e8e8e8; } }
+  </style>
+  <path d="M0 2h4v4H0zM8 2h4v4H8zM4 6h4v4H4zM12 6h4v4h-4zM0 10h4v4H0zM8 10h4v4H8z" />
+</svg>
