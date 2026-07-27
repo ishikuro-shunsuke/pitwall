@@ -176,8 +176,12 @@ async function cases(homes) {
     }
 
     // A PreToolUse entry without its matcher fires on every tool call.
-    const askQuestion = (claude.hooks.PreToolUse || []).filter(isPitwall)[0];
-    eq('claude: the question hook is matched to AskUserQuestion', askQuestion?.matcher, 'AskUserQuestion');
+    const dialog = (claude.hooks.PreToolUse || []).filter(isPitwall)[0];
+    eq(
+      'claude: the dialog hook is matched to both tools that open one',
+      dialog?.matcher,
+      'AskUserQuestion|ExitPlanMode',
+    );
 
     // The regression that started this: a command naming a file nobody copied.
     const referenced = referencedScripts(home);
@@ -229,7 +233,12 @@ async function cases(homes) {
     const home = await makeHome();
     homes.push(home);
     run(home);
+    // A script from an older version, left where the new config names nothing.
+    const stale = path.join(home, '.claude', 'hooks', 'pitwall', 'claude-ask-question.mjs');
+    fs.writeFileSync(stale, '// from a version ago\n');
     run(home);
+    if (!fs.existsSync(stale)) ok('claude: a script no command names is cleared out');
+    else fail('claude: a script no command names is cleared out', stale);
     const cursor = cursorConfig(home);
     const claude = claudeConfig(home);
     const counts = [

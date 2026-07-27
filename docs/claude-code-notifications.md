@@ -9,7 +9,7 @@ because the answer to "why did nothing show up?" is not in the docs.
 A tool call is not the end of a turn, so `Stop` does not run for one. Anything a
 tool does that leaves you staring at the terminal — a permission prompt, a
 question, a plan approval — is invisible to a Stop hook by construction. That is
-the whole reason [`hooks/claude-ask-question.mjs`](../hooks/claude-ask-question.mjs)
+the whole reason [`hooks/claude-dialog.mjs`](../hooks/claude-dialog.mjs)
 is a `PreToolUse` hook and not something cleverer.
 
 ## The dialog host is what fires Notification
@@ -75,6 +75,20 @@ entries, pitwall had never stored a single notice.
 (the `questions` array, each with `header`, `multiSelect`, and `options` of
 `label` / `description`), `tool_use_id`. It is the only event that sees a
 question before the terminal does.
+
+## And the plan is in there too
+
+`ExitPlanMode` — *"Would you like to proceed?"* — takes no plan as an argument
+any more: the plan is written to a file first (`~/.claude/plans/<slug>.md`,
+unless `plansDirectory` moves it) and the tool reads it back. So the schema says
+the input is empty, and `tool_input` still arrives holding the plan.
+
+Every tool call is normalized as the assistant message is parsed, before any of
+it is dispatched, and the `ExitPlanMode` branch of that pass injects two fields
+from disk: `plan`, the whole markdown, and `planFilePath`, where it came from.
+That happens ahead of `PreToolUse`, so the hook is handed the plan the dialog is
+about to draw. If it ever is not, the path is, and the file is on the machine
+the hook runs on.
 
 ## Why the hook only looks
 

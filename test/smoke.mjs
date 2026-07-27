@@ -527,7 +527,7 @@ async function main() {
       // The question card is the question: a notice saying only that one was
       // asked is what this hook exists to replace.
       const asked = await runHook(process.execPath, [
-        path.join(ROOT, 'hooks', 'claude-ask-question.mjs'),
+        path.join(ROOT, 'hooks', 'claude-dialog.mjs'),
       ], {
         session_id: 'sess-hook-ask',
         cwd: fixtures,
@@ -551,17 +551,59 @@ async function main() {
       const carries = card?.body?.includes('Which library should we use?')
         && card.body.includes('**date-fns** — Tree-shakeable')
         && card.body.includes('**Day.js**');
-      if (asked.code === 0 && carries) ok('claude-ask-question.mjs carries the question and its options');
-      else fail('claude-ask-question.mjs carries the question and its options', { asked, body: card?.body });
+      if (asked.code === 0 && carries) ok('claude-dialog.mjs carries the question and its options');
+      else fail('claude-dialog.mjs carries the question and its options', { asked, body: card?.body });
 
       // Nothing is decided here: an empty stdout would be a decision withheld,
       // and a non-zero exit would block the question from ever being asked.
-      if (asked.code === 0 && asked.stdout.trim() === '{}') ok('claude-ask-question.mjs decides nothing');
-      else fail('claude-ask-question.mjs decides nothing', asked);
+      if (asked.code === 0 && asked.stdout.trim() === '{}') ok('claude-dialog.mjs decides nothing');
+      else fail('claude-dialog.mjs decides nothing', asked);
+
+      // The plan Claude Code reads back into the call before dispatching it.
+      const planned = await runHook(process.execPath, [
+        path.join(ROOT, 'hooks', 'claude-dialog.mjs'),
+      ], {
+        session_id: 'sess-hook-plan',
+        cwd: fixtures,
+        hook_event_name: 'PreToolUse',
+        tool_name: 'ExitPlanMode',
+        tool_input: {
+          plan: '## Context\n\nSwap the date library.',
+          planFilePath: path.join(fixtures, 'plan.md'),
+        },
+      });
+      await new Promise((r) => setTimeout(r, 200));
+      const plans = await json('GET', '/api/entries?view=timeline');
+      const planCard = plans.data.entries?.find((e) => e.notificationType === 'exit_plan_mode');
+      if (planned.code === 0 && planCard?.body?.includes('Swap the date library.')) {
+        ok('claude-dialog.mjs carries the plan awaiting approval');
+      } else {
+        fail('claude-dialog.mjs carries the plan awaiting approval', { planned, body: planCard?.body });
+      }
+
+      // The call itself carries no plan; only the path is its own. Whatever
+      // Claude Code did or did not inject, the file is on this machine.
+      await fsp.writeFile(path.join(fixtures, 'plan.md'), '## Context\n\nRead from the file.');
+      const fromFile = await runHook(process.execPath, [
+        path.join(ROOT, 'hooks', 'claude-dialog.mjs'),
+      ], {
+        session_id: 'sess-hook-plan',
+        cwd: fixtures,
+        hook_event_name: 'PreToolUse',
+        tool_name: 'ExitPlanMode',
+        tool_input: { planFilePath: path.join(fixtures, 'plan.md') },
+      });
+      await new Promise((r) => setTimeout(r, 200));
+      const files = await json('GET', '/api/entries?view=timeline');
+      const fileCard = files.data.entries?.find(
+        (e) => e.notificationType === 'exit_plan_mode' && e.body?.includes('Read from the file.'),
+      );
+      if (fromFile.code === 0 && fileCard) ok('claude-dialog.mjs falls back to the plan file');
+      else fail('claude-dialog.mjs falls back to the plan file', { fromFile, count: files.data.entries?.length });
 
       // Every other tool call runs this hook too if the matcher is ever lost.
       const other = await runHook(process.execPath, [
-        path.join(ROOT, 'hooks', 'claude-ask-question.mjs'),
+        path.join(ROOT, 'hooks', 'claude-dialog.mjs'),
       ], {
         session_id: 'sess-hook-ask',
         cwd: fixtures,
@@ -571,8 +613,8 @@ async function main() {
       await new Promise((r) => setTimeout(r, 200));
       const after2 = await json('GET', '/api/entries?view=timeline');
       const cards = after2.data.entries?.filter((e) => e.notificationType === 'ask_user_question');
-      if (other.code === 0 && cards?.length === 1) ok('claude-ask-question.mjs ignores other tools');
-      else fail('claude-ask-question.mjs ignores other tools', { other, count: cards?.length });
+      if (other.code === 0 && cards?.length === 1) ok('claude-dialog.mjs ignores other tools');
+      else fail('claude-dialog.mjs ignores other tools', { other, count: cards?.length });
     }
   } catch (error) {
     fail('unexpected', error);

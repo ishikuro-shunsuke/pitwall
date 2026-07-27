@@ -147,6 +147,11 @@ function copyScripts(configDir, files) {
     fs.chmodSync(to, 0o755);
     copied.push(name);
   }
+  // The directory is pitwall's own, and a script an earlier version copied here
+  // is referenced by nothing once the config is rewritten.
+  for (const name of fs.readdirSync(target)) {
+    if (!copied.includes(name)) fs.rmSync(path.join(target, name), { recursive: true, force: true });
+  }
   return { dir: target, files: copied };
 }
 
@@ -199,7 +204,7 @@ function installClaude() {
   const scripts = copyScripts(configDir, [
     'claude-stop.mjs',
     'claude-notification.mjs',
-    'claude-ask-question.mjs',
+    'claude-dialog.mjs',
   ]);
   const file = path.join(configDir, 'settings.json');
   const bak = backup(file);
@@ -244,24 +249,25 @@ function installClaude() {
         timeout: 10,
       }],
     };
-    // A question is asked mid-turn, so Stop never runs for it. This one fires
-    // before the dialog opens and only copies it onto the timeline: it decides
-    // nothing, holds nothing, and the answer is still given in the terminal.
-    const askQuestion = {
-      matcher: 'AskUserQuestion',
+    // A question and a plan are both put to you mid-turn, so Stop never runs for
+    // either. This one fires before the dialog opens and only copies it onto the
+    // timeline: it decides nothing, holds nothing, and the answer is still given
+    // in the terminal.
+    const dialog = {
+      matcher: 'AskUserQuestion|ExitPlanMode',
       hooks: [{
         type: 'command',
-        command: `node "$HOME/.claude/hooks/pitwall/claude-ask-question.mjs"${urlArgs}`,
+        command: `node "$HOME/.claude/hooks/pitwall/claude-dialog.mjs"${urlArgs}`,
         timeout: 10,
       }],
     };
     data.hooks.Stop = [...stripGroups(data.hooks.Stop), stop];
     data.hooks.Notification = [...stripGroups(data.hooks.Notification), notification];
-    data.hooks.PreToolUse = [...stripGroups(data.hooks.PreToolUse), askQuestion];
+    data.hooks.PreToolUse = [...stripGroups(data.hooks.PreToolUse), dialog];
     added.push(
       { at: 'hooks.Stop[]', value: stop },
       { at: 'hooks.Notification[]', value: notification },
-      { at: 'hooks.PreToolUse[]', value: askQuestion },
+      { at: 'hooks.PreToolUse[]', value: dialog },
     );
   }
 

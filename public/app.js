@@ -320,14 +320,17 @@ function taskChip(entry) {
 }
 
 /**
- * A question card is a heading and a list of options — the shape any message
- * can have — and it is the one card whose answer is not typed into it. So it
- * says so where the countdown would have been, in the same dashes the page
- * draws every other card there is nothing left to say to.
+ * A question is a heading and a list of options, a plan is prose — the shape
+ * any message can have — and they are the cards whose answer is not typed into
+ * them. So each says which it is where the countdown would have been, in the
+ * same dashes the page draws every other card there is nothing left to say to.
  */
-function questionChip(entry) {
-  if (entry.notificationType !== 'ask_user_question') return '';
-  return '<span class="chip closed" title="Answered in the terminal">question</span>';
+const DIALOG_LABEL = { ask_user_question: 'question', exit_plan_mode: 'plan' };
+
+function dialogChip(entry) {
+  const label = DIALOG_LABEL[entry.notificationType];
+  if (!label) return '';
+  return `<span class="chip closed" title="Answered in the terminal">${label}</span>`;
 }
 
 /** Coarser than a hold: nothing here is decided in the last thirty seconds. */
@@ -706,7 +709,7 @@ function cardHtml(entry) {
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
-          ${questionChip(entry)}${startsChip(entry)}${holdChip(entry)}
+          ${dialogChip(entry)}${startsChip(entry)}${holdChip(entry)}
         </div>
         <div class="chips">${taskChip(entry)}</div>
       </div>
