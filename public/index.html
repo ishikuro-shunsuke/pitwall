@@ -32,7 +32,7 @@
         </svg>
       </button>
       <button type="button" class="icon-btn" id="help"
-              title="install the hooks" aria-label="install the hooks">
+              title="hooks and keys" aria-label="hooks and keys">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
           <circle cx="12" cy="12" r="10" />
           <path d="M9.09 9a3 3 0 0 1 5.82 1c0 2-3 3-3 3" />
@@ -51,33 +51,49 @@
   <div id="help-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
     <div class="modal-panel">
       <div class="modal-head">
-        <h2 id="help-title">Install the hooks</h2>
+        <h2 id="help-title">Help</h2>
         <button type="button" class="modal-close" id="help-close" aria-label="close">×</button>
       </div>
       <div class="modal-body">
+        <h3>Install the hooks</h3>
         <p>Nothing reaches this timeline until the hooks are installed where the agent runs — once in every machine, container and account an agent runs under.</p>
 
-        <h3>Here</h3>
+        <p class="where">Here</p>
         <div class="cmd">
           <code>npm run install-hooks</code>
           <button type="button" class="cmd-copy" data-copy-cmd>copy</button>
         </div>
 
-        <h3>Inside a devcontainer</h3>
+        <p class="where">Inside a devcontainer</p>
         <div class="cmd">
           <code>curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/install.sh | sh -s -- --devcontainer</code>
           <button type="button" class="cmd-copy" data-copy-cmd>copy</button>
         </div>
 
-        <h3>Somewhere else on the network</h3>
+        <p class="where">Somewhere else on the network</p>
         <div class="cmd">
           <code id="help-url"></code>
           <button type="button" class="cmd-copy" data-copy-cmd>copy</button>
         </div>
 
-        <p class="modal-foot">Cursor loads them after a restart, Claude Code from the next session.
+        <p class="note">Cursor loads them after a restart, Claude Code from the next session.
           <a href="https://github.com/ishikuro-shunsuke/pitwall#getting-started"
              target="_blank" rel="noopener noreferrer">README</a></p>
+
+        <h3>Keys</h3>
+        <dl class="keys">
+          <dt><kbd id="key-mod"></kbd> <kbd>Enter</kbd></dt>
+          <dd>Send the reply you are typing</dd>
+
+          <dt><kbd>B</kbd></dt>
+          <dd>Box the card in focus — the sharp one</dd>
+
+          <dt><kbd>Esc</kbd></dt>
+          <dd>Leave this, the image viewer, or the archive</dd>
+
+          <dt><kbd>←</kbd> <kbd>→</kbd></dt>
+          <dd>Walk every image on screen, viewer open</dd>
+        </dl>
       </div>
     </div>
   </div>

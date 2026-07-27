@@ -528,17 +528,49 @@ a.file-ref:hover {
 .modal-close:hover { color: var(--text); }
 .modal-body { padding: 16px; font-size: 13px; line-height: 1.6; }
 .modal-body p { margin: 0; }
-/* The place each command is run, said in the same voice as the chips. */
+/* What the panel holds, in the weight the topbar's own title is set in. A rule
+   under it because the sections are two different things, not two paragraphs. */
 .modal-body h3 {
-  margin: 20px 0 6px;
-  font-size: 11px;
-  font-family: var(--mono);
-  letter-spacing: 0.06em;
+  margin: 26px 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   font-weight: 600;
+}
+.modal-body h3:first-child { margin-top: 0; }
+/* The place a command is run, said in the same voice as the chips. */
+.modal-body .where {
+  margin: 18px 0 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
 }
-.modal-foot { margin-top: 20px; color: var(--muted); }
+.modal-body .note { margin-top: 14px; color: var(--muted); }
+
+/* The key and what it does, in two columns, so the keys read down the left
+   edge as a list rather than as four sentences. */
+.keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 14px;
+  margin: 0;
+  align-items: baseline;
+}
+.keys dt { white-space: nowrap; }
+.keys dd { margin: 0; color: var(--muted); }
+kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 16px;
+}
 
 /* The line you paste, with the button that takes it. Long ones wrap instead of
    scrolling sideways — a command with its far end off the edge cannot be read

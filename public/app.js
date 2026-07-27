@@ -99,6 +99,11 @@ const LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])$/;
 el.helpUrl.textContent = `npm run install-hooks -- --url ${
   LOOPBACK.test(location.hostname) ? 'http://192.168.1.10:4477' : location.origin}`;
 
+// The chord takes either key, so the one listed is the one on the keyboard in
+// front of you rather than both with a slash between them.
+document.getElementById('key-mod').textContent =
+  /mac|iphone|ipad/i.test(navigator.userAgentData?.platform || navigator.platform || '') ? '⌘' : 'Ctrl';
+
 function helpOpen() {
   return !el.helpModal.classList.contains('hidden');
 }
