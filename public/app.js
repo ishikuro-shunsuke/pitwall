@@ -331,7 +331,10 @@ function imageRefs(images) {
  * A url someone pasted rather than wrote a label for. It ends where the
  * sentence around it resumes: punctuation that trails it goes back to the
  * prose, and so does a closing bracket the url never opened, so a link dropped
- * inside parens or 「」 stays a link and the brackets stay brackets.
+ * inside parens or 「」 stays a link and the brackets stay brackets. The `*` and
+ * `_` that close emphasis go back too — a url is what a bolded line points at
+ * often enough that eating the `**` would be the common case, and a url that
+ * really ends in one is not.
  *
  * The text is escaped by the time it gets here, so `&` starts an entity unless
  * it spells one out — that is what keeps a quoted url from eating its quote
@@ -348,7 +351,7 @@ function autolink(s, protect = (html) => html) {
     while (url.length > 'https://'.length) {
       const last = url.slice(-1);
       const closer = last === ')' && count(url, ')') > count(url, '(');
-      if (!closer && !'.,;:!?、。」』）]'.includes(last)) break;
+      if (!closer && !'.,;:!?、。」』）]*_'.includes(last)) break;
       trail = last + trail;
       url = url.slice(0, -1);
     }
