@@ -298,6 +298,37 @@ function imageRefs(images) {
   return byRef;
 }
 
+/**
+ * A url someone pasted rather than wrote a label for. It ends where the
+ * sentence around it resumes: punctuation that trails it goes back to the
+ * prose, and so does a closing bracket the url never opened, so a link dropped
+ * inside parens or 「」 stays a link and the brackets stay brackets.
+ *
+ * The text is escaped by the time it gets here, so `&` starts an entity unless
+ * it spells one out — that is what keeps a quoted url from eating its quote
+ * while a query string keeps its `&`.
+ */
+function autolink(s, protect) {
+  return s.replace(/https?:\/\/(?:&amp;|[^\s&\0])+/g, (m) => {
+    let url = m;
+    let trail = '';
+    while (url.length > 'https://'.length) {
+      const last = url.slice(-1);
+      const closer = last === ')' && count(url, ')') > count(url, '(');
+      if (!closer && !'.,;:!?、。」』）]'.includes(last)) break;
+      trail = last + trail;
+      url = url.slice(0, -1);
+    }
+    return protect(`<a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>`) + trail;
+  });
+}
+
+function count(s, ch) {
+  let n = 0;
+  for (const c of s) if (c === ch) n++;
+  return n;
+}
+
 function inlineMd(s, ctx) {
   const images = ctx.images;
   // Protect code/links before *_/__ emphasis — otherwise filenames like
@@ -338,6 +369,8 @@ function inlineMd(s, ctx) {
     }
     return m;
   });
+
+  out = autolink(out, protect);
 
   out = out
     .replace(/\*\*([^*]+?)\*\*|__([^_]+?)__/g, (_m, a, b) => `<strong>${a ?? b}</strong>`)
