@@ -307,8 +307,12 @@ function imageRefs(images) {
  * The text is escaped by the time it gets here, so `&` starts an entity unless
  * it spells one out — that is what keeps a quoted url from eating its quote
  * while a query string keeps its `&`.
+ *
+ * Code is where these actually turn up — an agent hands back the address it
+ * just served on, in backticks or in the block it printed. So this runs inside
+ * code too, and takes `protect` only where there is emphasis left to hide from.
  */
-function autolink(s, protect) {
+function autolink(s, protect = (html) => html) {
   return s.replace(/https?:\/\/(?:&amp;|[^\s&\0])+/g, (m) => {
     let url = m;
     let trail = '';
@@ -340,7 +344,7 @@ function inlineMd(s, ctx) {
     return `\0${i}\0`;
   };
 
-  let out = s.replace(/`([^`]+?)`/g, (_m, code) => protect(`<code>${code}</code>`));
+  let out = s.replace(/`([^`]+?)`/g, (_m, code) => protect(`<code>${autolink(code)}</code>`));
   out = out.replace(/(!?)\[([^\]]*?)\]\(\s*([^\s)]+?)\s*\)/g, (m, bang, text, target) => {
     // A link to one of this entry's own images opens it in the viewer, so the
     // label stays readable and the path still lands somewhere.
@@ -431,7 +435,7 @@ function renderMarkdown(raw, entry) {
       }
       i++;
       const lang = fence[1] ? ` data-lang="${fence[1]}"` : '';
-      out.push(`<pre class="md-code"><code${lang}>${codeLines.join('\n')}</code></pre>`);
+      out.push(`<pre class="md-code"><code${lang}>${autolink(codeLines.join('\n'))}</code></pre>`);
       continue;
     }
 
