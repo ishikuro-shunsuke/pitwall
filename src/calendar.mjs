@@ -15,6 +15,7 @@ import * as store from './store.mjs';
 import { buildEntry } from './normalize.mjs';
 import { apiGet, isLinked, NeedsLinkError } from './google-auth.mjs';
 import { zonedMidnight } from './zoned.mjs';
+import { plainText } from './html-text.mjs';
 
 const API = 'https://www.googleapis.com/calendar/v3';
 const SEEN_TTL_MS = 7 * 86_400_000;
@@ -97,22 +98,6 @@ function whenLine(startMs, endMs, allDay, timeZone) {
     ? fmt(endMs, timeZone, CLOCK)
     : `${fmt(endMs, timeZone, DAY)} ${fmt(endMs, timeZone, CLOCK)}`;
   return `${head}–${tail}`;
-}
-
-/** Calendar descriptions arrive as HTML often enough to be worth undoing. */
-function plainText(html) {
-  return String(html || '')
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/(p|div|li|tr)>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&amp;/g, '&')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
 }
 
 function attendeeLine(event) {
