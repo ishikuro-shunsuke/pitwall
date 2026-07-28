@@ -62,20 +62,6 @@ export async function saveChatworkToken(token) {
 }
 
 /**
- * Variables that used to be read here and are not any more. Named at boot so a
- * line left in a shell profile is not silently doing nothing.
- */
-const RETIRED = [
-  'PITWALL_CHATWORK_TOKEN',
-  'PITWALL_GOOGLE_CLIENT_ID',
-  'PITWALL_GOOGLE_CLIENT_SECRET',
-];
-
-export function retiredEnv() {
-  return RETIRED.filter((name) => process.env[name]);
-}
-
-/**
  * The OAuth pair, in the file the link already reads. Saved in the shape the
  * Cloud Console's own download uses, so a panel-written file and a downloaded
  * one are the same file.

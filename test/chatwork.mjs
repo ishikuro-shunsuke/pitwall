@@ -535,12 +535,8 @@ is('and the late one has aged a day',
   is('the file is readable by nobody else',
     fs.statSync(SETTINGS).mode & 0o777, 0o600);
 
-  is('the environment has nothing to say about it',
-    settings.retiredEnv().includes('PITWALL_CHATWORK_TOKEN'), false);
-  process.env.PITWALL_CHATWORK_TOKEN = 'not-read-any-more';
-  is('and one left over from before is named rather than obeyed',
-    `${settings.chatworkToken()}|${settings.retiredEnv().join()}`,
-    'from-the-panel|PITWALL_CHATWORK_TOKEN');
+  process.env.PITWALL_CHATWORK_TOKEN = 'not-read';
+  is('and the environment cannot reach it', settings.chatworkToken(), 'from-the-panel');
   delete process.env.PITWALL_CHATWORK_TOKEN;
 
   await settings.saveChatworkToken('');

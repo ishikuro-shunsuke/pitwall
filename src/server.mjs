@@ -862,10 +862,6 @@ export function startServer() {
     console.log(`[pitwall] http://${config.host}:${config.port}/`);
   });
 
-  for (const name of settings.retiredEnv()) {
-    console.log(`[pitwall] ${name} is no longer read — that setting lives in the panel behind the gear`);
-  }
-
   calendar.start();
   todo.start();
   mail.start();
