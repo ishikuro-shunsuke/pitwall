@@ -49,9 +49,16 @@ function renderDetail(name, input) {
   return fence('json', JSON.stringify(input, null, 2));
 }
 
+/**
+ * A question and a plan cannot be settled by a rule, so they arrive here as well
+ * — but claude-dialog.mjs has already drawn them out on the timeline, and this
+ * hook would only lay the same call beside it as json.
+ */
+const DIALOGS = new Set(['AskUserQuestion', 'ExitPlanMode']);
+
 const payload = await readStdin();
 const name = String(payload.tool_name || '').trim();
-if (!name) {
+if (!name || DIALOGS.has(name)) {
   failOpen();
 }
 

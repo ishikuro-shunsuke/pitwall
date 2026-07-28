@@ -618,6 +618,54 @@ async function main() {
       const cards = after2.data.entries?.filter((e) => e.notificationType === 'ask_user_question');
       if (other.code === 0 && cards?.length === 1) ok('claude-dialog.mjs ignores other tools');
       else fail('claude-dialog.mjs ignores other tools', { other, count: cards?.length });
+
+      // The prompt you are being shown, wherever it is being shown: an editor
+      // draws it itself and no Notification is ever fired for it.
+      const allow = await runHook(process.execPath, [
+        path.join(ROOT, 'hooks', 'claude-permission.mjs'),
+      ], {
+        session_id: 'sess-hook-perm',
+        cwd: fixtures,
+        hook_event_name: 'PermissionRequest',
+        tool_name: 'Bash',
+        tool_input: { command: 'rm -rf build', description: 'Clear the build' },
+      });
+      await new Promise((r) => setTimeout(r, 200));
+      const asks2 = await json('GET', '/api/entries?view=timeline');
+      const permCard = asks2.data.entries?.find((e) => e.notificationType === 'permission_request');
+      if (allow.code === 0 && permCard?.body?.includes('rm -rf build')
+        && permCard.body.includes('Clear the build')) {
+        ok('claude-permission.mjs carries the call being asked about');
+      } else {
+        fail('claude-permission.mjs carries the call being asked about', { allow, body: permCard?.body });
+      }
+
+      // Decided here, the prompt would never open, and the answer path that
+      // works today would be gone.
+      if (allow.code === 0 && allow.stdout.trim() === '{}') ok('claude-permission.mjs decides nothing');
+      else fail('claude-permission.mjs decides nothing', allow);
+
+      // A question comes down this path too, and already has a card of its own.
+      const dialogAsk = await runHook(process.execPath, [
+        path.join(ROOT, 'hooks', 'claude-permission.mjs'),
+      ], {
+        session_id: 'sess-hook-perm',
+        cwd: fixtures,
+        hook_event_name: 'PermissionRequest',
+        tool_name: 'AskUserQuestion',
+        tool_input: { questions: [{ question: 'Which library?', options: [] }] },
+      });
+      await new Promise((r) => setTimeout(r, 200));
+      const asks3 = await json('GET', '/api/entries?view=timeline');
+      const perms = asks3.data.entries?.filter((e) => e.notificationType === 'permission_request');
+      if (dialogAsk.code === 0 && perms?.length === 1) {
+        ok('claude-permission.mjs leaves the dialog tools to claude-dialog.mjs');
+      } else {
+        fail('claude-permission.mjs leaves the dialog tools to claude-dialog.mjs', {
+          dialogAsk,
+          count: perms?.length,
+        });
+      }
     }
 
     // --- requests from somebody else's page ---------------------------------
