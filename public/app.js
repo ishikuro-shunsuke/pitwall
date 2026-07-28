@@ -25,6 +25,8 @@ const el = {
   lightboxImg: document.getElementById('lightbox-img'),
   lightboxCap: document.getElementById('lightbox-cap'),
   lightboxRaw: document.getElementById('lightbox-raw'),
+  tally: document.getElementById('tally'),
+  tallyCount: document.getElementById('tally-count'),
   themeToggle: document.getElementById('theme-toggle'),
   help: document.getElementById('help'),
   helpModal: document.getElementById('help-modal'),
@@ -999,7 +1001,63 @@ function applyExits(nextIds) {
   }
 }
 
+/**
+ * What today took out of you: every card you replied to or boxed, which is
+ * every card that reached the archive — both of those were you deciding
+ * something, and only the two of them get there.
+ *
+ * Counted off the entries rather than the cards, because a card that counts is
+ * one that has left the timeline, and even on the archive screen only a
+ * screenful of them is ever painted. The instant comes off the server's clock,
+ * like every other time on the page; the day it falls in is yours.
+ */
+function paintTally() {
+  const today = new Date(nowMs());
+  let cleared = 0;
+  for (const entry of state.entries.values()) {
+    if (entry.bucket !== 'archive') continue;
+    const at = new Date(entry.resolvedAt ?? '');
+    if (Number.isNaN(at.getTime())) continue;
+    if (at.getFullYear() === today.getFullYear()
+      && at.getMonth() === today.getMonth()
+      && at.getDate() === today.getDate()) cleared++;
+  }
+  el.tallyCount.textContent = String(cleared);
+  el.tally.hidden = cleared === 0;
+}
+
+let dayTimer = null;
+
+/**
+ * Midnight sends nothing, so a page left open overnight would still be showing
+ * yesterday's day's work until the next card happened to land. The timer is set
+ * again from the new day rather than repeated every 24 hours, so it keeps
+ * landing on local midnight through a shift on or off summer time. A machine
+ * asleep at midnight wakes to a timer already overdue, which fires and settles
+ * it; a tab left in the background gets there sooner by being looked at.
+ */
+function watchDay() {
+  clearTimeout(dayTimer);
+  const midnight = new Date(nowMs());
+  midnight.setHours(24, 0, 0, 500);
+  dayTimer = setTimeout(() => {
+    paintTally();
+    watchDay();
+  }, midnight.getTime() - nowMs());
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible') return;
+  paintTally();
+  watchDay();
+});
+
 function render() {
+  // Ahead of the transition below, which returns without painting: the count is
+  // one line of text and has nothing to animate, and holding it back would keep
+  // the number a card behind the feed it is counting.
+  paintTally();
+
   // The browser snapshots the cards a frame after a transition starts and holds
   // that picture until it ends, so a repaint landing in between takes the
   // departing card away before it has been drawn leaving. Replying repaints
@@ -1639,3 +1697,4 @@ refresh().catch((err) => {
   el.empty.classList.remove('hidden');
 });
 connectSse();
+watchDay();

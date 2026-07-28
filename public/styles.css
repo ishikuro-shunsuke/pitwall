@@ -67,7 +67,7 @@ a { color: var(--accent); }
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto 1fr;
   gap: 16px;
   align-items: center;
   padding: 12px 20px;
@@ -109,10 +109,33 @@ a { color: var(--accent); }
   .conn { animation: none; }
 }
 
+/* How many cards you saw the end of today, wherever you sent them from. It sits
+   on the middle of the page rather than the middle of the space the two ends
+   leave, which is why the bar is three columns wide and the outer two carry
+   equal weight. Nothing yet is nothing to say: at nought the line is not there
+   at all, and the first card you clear puts it up. */
+.tally {
+  justify-self: center;
+  margin: 0;
+  white-space: nowrap;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* The number is the part you read, so it is set in the figures the rest of the
+   app counts in and at the weight of the title across from it. */
+.tally-count { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
+/* On a phone the wordmark and the buttons take the width between them, and the
+   three of them together will not fit. The figure is the part worth keeping. */
+@media (max-width: 560px) {
+  .tally-unit { display: none; }
+}
+
 /* The end of the title's line, at every width — a column of their own.
    Pulled out by the padding the buttons hold for the pointer, so the strokes
    end on the same edge as the cards below rather than short of it. */
-.actions { display: flex; align-items: center; gap: 12px; margin-right: -4px; }
+.actions { display: flex; justify-self: end; align-items: center; gap: 12px; margin-right: -4px; }
 /* Lucide's 24px geometry, drawn the size of the title it sits beside. */
 .icon {
   display: block;
