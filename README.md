@@ -93,6 +93,12 @@ A message with your name on it arrives as a card you can answer — a mention, a
 
 A task assigned to you arrives on the morning it is due, and again every morning it stays open. **Chequered** ticks it off in Chatwork; **Box** files the card away and leaves the task open.
 
+## Stints
+
+Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight for five and comes back once that bar has filled, but the next stint waits for **Rejoin** however long you leave it.
+
+The clock is kept in the browser you set it in, so a reload picks it up where it left off, and a stint whose 25 minutes ran out while the tab was closed has had its stop without you.
+
 Issue a token from your own account — your name, top right in Chatwork, then **Service Integration → API Token** — and paste it into the gear in the top right of pitwall. It is checked against Chatwork before it is saved, so a token that will not work says so there and then, and cards start arriving on the next poll.
 
 On a business plan, an administrator has to approve API use for the organisation before any token will work.

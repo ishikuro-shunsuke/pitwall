@@ -35,7 +35,7 @@
         </svg>
       </button>
       <button type="button" class="icon-btn" id="settings"
-              title="services" aria-label="services">
+              title="settings" aria-label="settings">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
           <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
           <circle cx="12" cy="12" r="3" />
@@ -50,12 +50,21 @@
         </svg>
       </button>
     </div>
+    <div id="stint" class="stint hidden">
+      <div class="stint-line">
+        <span class="stint-phase" id="stint-phase" aria-live="polite"></span>
+        <span class="stint-clock" id="stint-clock"></span>
+        <button type="button" class="btn primary stint-go hidden" id="stint-go">Rejoin</button>
+      </div>
+      <div class="stint-bar"><span class="stint-fill" id="stint-fill"></span></div>
+    </div>
   </header>
 
   <main>
     <div id="timeline" class="timeline"></div>
     <button type="button" id="more" class="more hidden"></button>
     <p id="empty" class="empty hidden">No entries.</p>
+    <p id="pits" class="pits hidden">The timeline comes back when the stop is done.</p>
   </main>
 
   <div id="help-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="help-title">
@@ -105,10 +114,18 @@
   <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
     <div class="modal-panel">
       <div class="modal-head">
-        <h2 id="settings-title">Services</h2>
+        <h2 id="settings-title">Settings</h2>
         <button type="button" class="modal-close" id="settings-close" aria-label="close">×</button>
       </div>
       <div class="modal-body">
+        <h3>Stint</h3>
+        <label class="check">
+          <input type="checkbox" id="stint-toggle" />
+          <span>Run the stint clock</span>
+        </label>
+        <p class="note">25 minutes on the timeline, then 5 with it out of sight. The pit exit stays shut
+          until you press <strong>Rejoin</strong>, and the clock runs in this browser alone.</p>
+
         <h3>Chatwork</h3>
         <p class="state" id="cw-state">…</p>
         <div class="field">

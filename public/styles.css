@@ -169,6 +169,58 @@ a { color: var(--accent); }
   background: var(--text);
 }
 
+/* The stint, across the head of the page: the one thing here that is about the
+   next 25 minutes rather than about a card. It is the topbar's second row, so it
+   sticks with it and the cards below know to start under it. The margins pull it
+   out of the row gap and the bottom padding, which puts the bar itself on the
+   topbar's own edge and runs it the full width of the window. */
+.stint {
+  grid-column: 1 / -1;
+  /* Held to the foot of the bar rather than centred in the row it made, which
+     is what keeps the pull downwards a whole 12px and lands the bar on the
+     edge instead of 3px short of it. */
+  align-self: end;
+  margin: -6px -20px -12px;
+}
+.stint-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Read like the tally across from it: the words say which phase, the figures
+   say how much of it is left. */
+.stint-clock {
+  margin-left: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+/* The way back onto the timeline, at the weight of the reply on a card — it is
+   the same kind of thing, the one button on the strip that does something. Small
+   enough that the head of the page does not shift when it arrives. */
+.stint-go {
+  margin-left: auto;
+  padding: 2px 10px;
+  font-size: 11px;
+  letter-spacing: inherit;
+  text-transform: inherit;
+}
+.stint-bar { height: 3px; background: var(--border); }
+.stint-fill { display: block; height: 100%; background: var(--muted); }
+/* The same run in to red a hold takes, for the same reason: the clock is
+   running out on you. The stop runs out too and stays grey — nothing is waiting
+   at the end of it except you. */
+.stint.low .stint-fill { background: var(--accent-soft); }
+.stint.low .stint-clock { color: var(--accent-soft); }
+.stint.critical .stint-fill { background: var(--accent); }
+.stint.critical .stint-clock { color: var(--accent); }
+
 main {
   position: relative;
   max-width: 920px;
@@ -177,6 +229,14 @@ main {
 }
 .timeline { display: flex; flex-direction: column; gap: var(--gap); position: relative; }
 .empty { color: var(--muted); text-align: center; padding: 60px 0; }
+/* The stop, and the whole of it: the feed goes off the screen rather than
+   behind a wash, because a card you can still half read is one you are still
+   half working. What is left says the timeline is coming back, so the empty page
+   reads as the break and not as a page that failed to load. */
+body.in-the-pits .timeline,
+body.in-the-pits .more,
+body.in-the-pits .empty { display: none; }
+.pits { color: var(--muted); text-align: center; padding: 60px 0; }
 
 .more {
   display: block;
@@ -680,6 +740,12 @@ kbd {
   color: var(--muted);
 }
 .modal-body .state.on { color: var(--text); }
+
+/* The one setting on the panel that is answered here rather than by a server,
+   so it is the one that can be shown back as it stands. Ink rather than red:
+   ticked is a thing being on, not a thing wanting you. */
+.check { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check input { width: 14px; height: 14px; margin: 0; accent-color: var(--text); }
 
 /* A box and the button that saves it, on one line. */
 .field {

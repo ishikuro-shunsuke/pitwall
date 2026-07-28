@@ -43,6 +43,13 @@ const el = {
   gSecret: document.getElementById('g-secret'),
   gSave: document.getElementById('g-save'),
   gLink: document.getElementById('g-link'),
+  stint: document.getElementById('stint'),
+  stintPhase: document.getElementById('stint-phase'),
+  stintClock: document.getElementById('stint-clock'),
+  stintGo: document.getElementById('stint-go'),
+  stintFill: document.getElementById('stint-fill'),
+  stintToggle: document.getElementById('stint-toggle'),
+  pits: document.getElementById('pits'),
 };
 
 const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
@@ -166,6 +173,9 @@ function settingsOpen() {
 function openSettings() {
   el.settingsModal.classList.remove('hidden');
   el.settingsClose.focus();
+  // The one box on the panel that already knows its own answer — the rest are
+  // waiting on the server, and none of them can be shown what is in them.
+  el.stintToggle.checked = Boolean(stint);
   loadSettings();
 }
 
@@ -303,6 +313,138 @@ function watchLink() {
     }
   }, 2000);
 }
+
+/**
+ * The stint: 25 minutes with the timeline in front of you, then 5 with it out
+ * of sight. A feed of things waiting on you is the wrong thing to have in the
+ * corner of your eye all afternoon, and the stop is only a break if the cards
+ * are actually gone off the screen while it runs.
+ *
+ * The lights go green by hand. A break that ends itself is one you spend
+ * watching the clock, and whatever you got up for is not on a five-minute
+ * schedule.
+ *
+ * This clock is the browser's own — no skew, because there is no other end to
+ * agree with. Nothing on the server knows a stint is running and nothing needs
+ * to; the deadline is written down so a reload lands back where it was, and a
+ * page reopened later works its way forward from it rather than starting the
+ * stop again.
+ */
+const STINT_MS = 25 * 60_000;
+const PIT_MS = 5 * 60_000;
+
+/** What the strip calls each phase, and the whole set of phases there are. */
+const STINT_PHASE = {
+  stint: 'stint',
+  pit: 'in the pits',
+  exit: 'pit exit',
+};
+
+/** `{ phase, until }` while the clock is on, and null while it is off. */
+let stint = readStint();
+
+function readStint() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pitwall.stint') || 'null');
+    if (saved && saved.phase in STINT_PHASE) {
+      return { phase: saved.phase, until: Number(saved.until) || 0 };
+    }
+  } catch { /* ignore */ }
+  return null;
+}
+
+function writeStint() {
+  try {
+    if (stint) localStorage.setItem('pitwall.stint', JSON.stringify(stint));
+    else localStorage.removeItem('pitwall.stint');
+  } catch { /* ignore */ }
+}
+
+/**
+ * Carries the clock past every deadline it has already gone by. Both arms run
+ * on one pass, so a stint that ran out while the tab was shut takes its stop in
+ * your absence and leaves you at the exit rather than five minutes from it.
+ */
+function settleStint() {
+  if (!stint) return;
+  const was = stint.phase;
+  if (stint.phase === 'stint' && Date.now() >= stint.until) {
+    stint = { phase: 'pit', until: stint.until + PIT_MS };
+  }
+  if (stint.phase === 'pit' && Date.now() >= stint.until) {
+    stint = { phase: 'exit', until: 0 };
+  }
+  // Only a phase that turned, so the second hand is not writing to disk.
+  if (stint.phase !== was) writeStint();
+}
+
+/** Green light: back on the timeline for another 25. */
+function goGreen() {
+  stint = { phase: 'stint', until: Date.now() + STINT_MS };
+  writeStint();
+  paintStint();
+}
+
+/** The timeline is off the screen, so anything aimed at a card is aimed at nothing. */
+function inThePits() {
+  return stint?.phase === 'pit';
+}
+
+function paintStint() {
+  settleStint();
+  el.stint.classList.toggle('hidden', !stint);
+  el.pits.classList.toggle('hidden', !inThePits());
+  document.body.classList.toggle('in-the-pits', inThePits());
+  if (!stint) return;
+
+  const { phase } = stint;
+  const remain = Math.max(0, stint.until - Date.now());
+  // Which phase it has reached is worth saying out loud, and worth saying once:
+  // written every second, the same two words are read out every second with it.
+  const said = STINT_PHASE[phase];
+  if (el.stintPhase.textContent !== said) el.stintPhase.textContent = said;
+  el.stintClock.textContent = fmtRemain(remain);
+  el.stintClock.classList.toggle('hidden', phase === 'exit');
+  el.stintGo.classList.toggle('hidden', phase !== 'exit');
+
+  // The stint drains and the stop fills: one is time going, the other time
+  // being served. Stopped at the exit there is nothing running, so the line is
+  // empty and the only thing on the strip is the way back out.
+  const share = phase === 'stint' ? remain / STINT_MS
+    : phase === 'pit' ? 1 - remain / PIT_MS
+      : 0;
+  el.stintFill.style.width = `${Math.min(1, Math.max(0, share)) * 100}%`;
+
+  // Only the stint reddens, on the same run-in as a hold: red here means
+  // something wants you, and a break running down wants nothing.
+  el.stint.classList.toggle('low', phase === 'stint' && remain <= 5 * 60_000);
+  el.stint.classList.toggle('critical', phase === 'stint' && remain <= 60_000);
+}
+
+el.stintGo.addEventListener('click', goGreen);
+
+// Switched on, the clock starts there and then: the first stint is the one you
+// were about to run, not one that needs starting somewhere else as well.
+el.stintToggle.addEventListener('change', () => {
+  if (el.stintToggle.checked) {
+    goGreen();
+    return;
+  }
+  stint = null;
+  writeStint();
+  paintStint();
+});
+
+setInterval(paintStint, 1000);
+
+// A background tab has its timers throttled, so the strip can be a minute stale
+// by the time it is looked at again — and a stop that ended back there should be
+// over the moment you are back rather than a tick later.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') paintStint();
+});
+
+paintStint();
 
 const lightbox = { items: [], index: 0 };
 
@@ -1558,6 +1700,9 @@ document.addEventListener('keydown', (e) => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (typingInto(e.target)) return;
   if (!el.lightbox.classList.contains('hidden') || helpOpen() || settingsOpen()) return;
+  // The feed is off the screen for the stop, so there is no card in front of
+  // you to be boxing.
+  if (inThePits()) return;
   if (!sharpId) return;
   // The button is the whole rule for whether a card can be boxed, so ask it
   // rather than repeating the statuses it is drawn for.
