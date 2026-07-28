@@ -1136,6 +1136,7 @@ function takesReply(entry) {
 const OPEN_IN = [
   ['mail', 'webUrl', 'Open in Gmail'],
   ['calendar', 'htmlLink', 'Open in Calendar'],
+  ['agenda', 'htmlLink', 'Open in Calendar'],
   ['todo', 'webViewLink', 'Open in Tasks'],
   ['chatwork', 'webUrl', 'Open in Chatwork'],
   ['chatworkTask', 'webUrl', 'Open in Chatwork'],

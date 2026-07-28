@@ -8,6 +8,7 @@ import { config, paths, softHoldSeconds } from './config.mjs';
 import * as store from './store.mjs';
 import * as waiters from './waiters.mjs';
 import * as calendar from './calendar.mjs';
+import * as agenda from './agenda.mjs';
 import * as todo from './todo.mjs';
 import * as mail from './mail.mjs';
 import * as chatwork from './chatwork.mjs';
@@ -788,6 +789,7 @@ async function router(req, res) {
         ok: true,
         waiting: store.list().filter((e) => e.status === 'waiting').length,
         calendar: calendar.status(),
+        agenda: agenda.status(),
         todo: todo.status(),
         mail: mail.status(),
         chatwork: chatwork.status(),
@@ -863,6 +865,7 @@ export function startServer() {
   });
 
   calendar.start();
+  agenda.start();
   todo.start();
   mail.start();
   chatwork.start();
@@ -874,6 +877,7 @@ export function startServer() {
       waiters.drop(id);
     }
     calendar.stop();
+    agenda.stop();
     todo.stop();
     mail.stop();
     chatwork.stop();

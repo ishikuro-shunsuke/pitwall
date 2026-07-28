@@ -70,7 +70,8 @@ function markSeen(key) {
   seenDirty = true;
 }
 
-function boundaryMs(edge, timeZone) {
+/** When an event's edge falls, as an instant. Shared with the agenda card. */
+export function boundaryMs(edge, timeZone) {
   if (!edge) return null;
   if (edge.dateTime) return Date.parse(edge.dateTime);
   if (edge.date) return zonedMidnight(edge.date, edge.timeZone || timeZone);
@@ -111,7 +112,7 @@ function attendeeLine(event) {
   return rest > 0 ? `With ${shown} and ${rest} more` : `With ${shown}`;
 }
 
-function meetLink(event) {
+export function meetLink(event) {
   if (event.hangoutLink) return event.hangoutLink;
   for (const point of event.conferenceData?.entryPoints || []) {
     if (point.entryPointType === 'video' && point.uri) return point.uri;
@@ -157,7 +158,7 @@ function reminderMinutes(event, calendar) {
   return [...minutes];
 }
 
-function skip(event) {
+export function skip(event) {
   if (event.status === 'cancelled') return true;
   // "In the office" markers are not appointments and nobody set a reminder on
   // them on purpose; they would still inherit the calendar's default.
@@ -165,7 +166,7 @@ function skip(event) {
   return (event.attendees || []).some((a) => a.self && a.responseStatus === 'declined');
 }
 
-async function fetchCalendars() {
+export async function fetchCalendars() {
   const url = new URL(`${API}/users/me/calendarList`);
   url.searchParams.set('minAccessRole', 'reader');
   url.searchParams.set('maxResults', '250');
@@ -193,7 +194,7 @@ async function fetchCalendars() {
   };
 }
 
-async function fetchEvents(calendar, fromMs, toMs) {
+export async function fetchEvents(calendar, fromMs, toMs) {
   const items = [];
   let pageToken = null;
   do {

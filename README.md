@@ -65,6 +65,8 @@ A question Claude asks mid-session arrives as a card too, with its options, and 
 
 A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. There is nothing to reply to; **Box** clears it.
 
+One card each morning lists the whole day — every event on every calendar being watched, with its hours, its room and its call link. It lands at 07:00 in the account's own time zone rather than the server's, and `PITWALL_AGENDA_HOUR` moves that. A morning that passed with the server down arrives when it comes back up, until the day turns.
+
 A task arrives on the morning it is due, and again every morning after that. **Chequered** ticks it off in Google — the one button on the feed that changes anything outside pitwall. **Box** files the card away and leaves the task open, so it comes round again tomorrow.
 
 Mail arrives as a card you can answer. **Radio in** sends the reply through Gmail, in the same thread, and archives the message; **Box** archives it without answering. Both only take it out of the inbox — nothing is deleted, and nothing is marked read.
@@ -73,7 +75,7 @@ First, in [Google Cloud Console](https://console.cloud.google.com/): enable the 
 
 Then open the gear in the top right, paste the client id and secret it gives you, and press **Link a Google account**. Approving in the tab that opens is the whole of it — the panel says who you linked as once it has gone through. `npm run link-google` does the same from a terminal, and `npm run link-google -- --unlink` is still the way back out.
 
-The pair is saved to `data/google-client.json` and the refresh token to `data/google-token.json`, both readable only by you; what has already been delivered is tracked in `data/calendar-seen.json`, `data/todo-seen.json` and `data/mail-seen.json`. Unlinking deletes four of those five; revoking pitwall at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) is a separate step. The server picks a new link up on its next poll, without a restart.
+The pair is saved to `data/google-client.json` and the refresh token to `data/google-token.json`, both readable only by you; what has already been delivered is tracked in `data/calendar-seen.json`, `data/agenda-seen.json`, `data/todo-seen.json` and `data/mail-seen.json`. Unlinking deletes five of those six; revoking pitwall at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) is a separate step. The server picks a new link up on its next poll, without a restart.
 
 A link made before pitwall asked for a service does not cover it, and the log says which one until `npm run link-google -- --force` replaces the grant.
 

@@ -69,6 +69,20 @@ export const config = {
     staleMinutes: num(process.env.PITWALL_CALENDAR_STALE_MINUTES, 20),
   },
 
+  /**
+   * The day ahead, as one card each morning. Which calendars it reads is
+   * `calendar.ids` above: a calendar worth a reminder is worth a line here.
+   */
+  agenda: {
+    /**
+     * The hour the card lands on. A day has no moment of its own to inherit —
+     * it is the whole of what the card is about — so this is the whole of it.
+     */
+    hour: hourOfDay(process.env.PITWALL_AGENDA_HOUR ?? '', 7),
+    /** Overrides the zone recorded when the account was linked. */
+    timeZone: process.env.PITWALL_AGENDA_TIMEZONE || '',
+  },
+
   /** Google Tasks. Called todo here, so a card's badge is not the word the
    * chips under it already use for an agent's own background work. */
   todo: {
@@ -140,6 +154,7 @@ export const paths = {
   googleClient: path.join(config.dataDir, 'google-client.json'),
   googleToken: path.join(config.dataDir, 'google-token.json'),
   calendarSeen: path.join(config.dataDir, 'calendar-seen.json'),
+  agendaSeen: path.join(config.dataDir, 'agenda-seen.json'),
   todoSeen: path.join(config.dataDir, 'todo-seen.json'),
   mailSeen: path.join(config.dataDir, 'mail-seen.json'),
   chatworkSeen: path.join(config.dataDir, 'chatwork-seen.json'),
