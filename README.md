@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/942aed4a-8fb7-4f03-b8a2-f58dd02ed616
 ## Requirements
 
 - Node.js 20.6+
-- Cursor, Claude Code, or both
+- Cursor, Claude Code or Claude Desktop — any of them, or all three
 
 ## Getting started
 
@@ -61,6 +61,28 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 
 A question Claude asks mid-session arrives as a card too, with its options, and so does a plan waiting to be accepted. Those are answered back in the session; the card is there so you know what is being asked.
 
+## Claude Desktop
+
+Claude Desktop can ask through pitwall instead of stopping to ask in the chat, and your answer goes back into the same conversation. Print the connector for this machine:
+
+```bash
+npm run mcp-config
+```
+
+Paste what it prints into `claude_desktop_config.json`, then quit Claude Desktop and open it again. That file is at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows, and `~/.config/Claude/claude_desktop_config.json` on Linux.
+
+Claude asks only when it decides to, so tell it to. Under **Settings → Profile**, in your personal preferences:
+
+> When you need something from me — a decision between options, a detail you're missing, or the go-ahead before something you can't undo — call pitwall's `ask_user` tool instead of asking in the chat. If it comes back saying I haven't answered, call `wait_for_reply` with the id it gives you and keep waiting. If pitwall isn't reachable, just ask me here.
+
+A card waits 5 minutes with nobody looking at it, and up to 30 with the composer open. Leaving one is not a failure: Claude is told nobody answered and carries on, saying what it assumed instead. **Box** tells it that sooner.
+
+### On Windows, with pitwall in WSL
+
+Run `npm run mcp-config` inside WSL and it prints the `wsl.exe` form. It names your node binary by its full path on purpose — going through a login shell breaks the connector, because whatever your shell profile prints lands in the middle of what Claude Desktop is reading.
+
+Run it from a checkout in WSL rather than one inside a devcontainer: Claude Desktop can start a command in WSL, but not inside the container. The server itself can stay wherever it is, as long as its port is reachable from there.
+
 ## Google Calendar, Tasks and Gmail
 
 A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. There is nothing to reply to; **Box** clears it.
@@ -79,15 +101,15 @@ The pair is saved to `data/google-client.json` and the refresh token to `data/go
 
 A link made before pitwall asked for a service does not cover it, and the log says which one until `npm run link-google -- --force` replaces the grant.
 
-**The link goes stale about weekly.** An OAuth client whose publishing status is **Testing** is issued refresh tokens that expire after seven days, so roughly once a week the log asks you to link again. Moving the client to **In production** removes that, but Gmail's read scope is one Google classes as restricted, and publishing with it means going through verification and a security assessment first.
+**The link goes stale about weekly**, because a client left at publishing status **Testing** is issued refresh tokens that last seven days. Link again when the log asks. Moving the client to **In production** ends that, but Gmail's read scope is one Google classes as restricted, so publishing with it means verification and a security assessment first.
 
 Consent comes back to a loopback port on the machine the server runs on, so link from a browser on that machine. Where the server is in a devcontainer, set `PITWALL_OAUTH_PORT` to a port you have forwarded.
 
-Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here. A reminder whose moment passed while the server was down is dropped rather than delivered late.
+Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here.
 
 Every task list is watched, and consent asks to edit them as well as read them — ticking one off is a write, and Google has no narrower grant for it. A time of day set on a task is not readable through Google's API, so cards land at 09:00 instead — `PITWALL_TODO_DUE_HOUR` moves that. Everything already overdue arrives on the first morning after you link, and a morning that passed with the server down arrives when it comes back up.
 
-`PITWALL_MAIL_QUERY` decides which mail is worth a card, in Gmail's own search syntax — `in:inbox is:unread` by default, or something like `in:inbox is:unread -category:promotions` where the tabs are in use. Consent covers reading, sending and moving, but not deleting. The first poll after linking cards nothing: an inbox that filled up before pitwall existed is a backlog rather than news, so only what arrives afterwards reaches the feed.
+`PITWALL_MAIL_QUERY` decides which mail is worth a card, in Gmail's own search syntax — `in:inbox is:unread` by default, or something like `in:inbox is:unread -category:promotions` where the tabs are in use. Consent covers reading, sending and moving, but not deleting. The first poll after linking cards nothing; only mail that arrives afterwards reaches the feed.
 
 ## Chatwork
 
@@ -95,21 +117,21 @@ A message with your name on it arrives as a card you can answer — a mention, a
 
 A task assigned to you arrives on the morning it is due, and again every morning it stays open. **Chequered** ticks it off in Chatwork; **Box** files the card away and leaves the task open.
 
+Issue a token from your own account — your name, top right in Chatwork, then **Service Integration → API Token** — and paste it into the gear in the top right of pitwall. It is checked against Chatwork before it is saved, so a token that will not work says so there and then, and cards start arriving on the next poll.
+
+On a business plan, an administrator has to approve API use for the organisation before any token will work.
+
+Nothing pitwall reads moves the unread badge; only the buttons on a card do. The first poll after the token arrives cards nothing, and what has been delivered since is tracked in `data/chatwork-seen.json` and `data/chatwork-task-seen.json`.
+
+A deadline is a moment, and which day it falls on depends on where you are. Chatwork's API does not say where the account is, so it is read in this machine's zone unless `PITWALL_CHATWORK_TIMEZONE` says otherwise.
+
 ## Stints
 
 Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight and the page calls you in — two notes, and a desktop notification if you let the browser show them. Only the 25 run themselves: the five-minute stop starts when you press **Pit in**, the feed comes back on **Rejoin**, and while either of those is waiting the clock counts up to say how long it has been.
 
 The calls ask for notifications the first time you tick the box, and reach the desktop from `http://127.0.0.1:4477/` or `http://localhost:4477/`; a browser opening the page by the machine's address on the network is not allowed to show them, and the notes still play. A tab in the background can be up to a minute late calling you.
 
-The clock is kept in the browser you set it in, so a reload picks it up where it left off, and a stint whose 25 minutes ran out while the tab was closed is waiting to be called in rather than half way through a stop nobody took.
-
-Issue a token from your own account — your name, top right in Chatwork, then **Service Integration → API Token** — and paste it into the gear in the top right of pitwall. It is checked against Chatwork before it is saved, so a token that will not work says so there and then, and cards start arriving on the next poll.
-
-On a business plan, an administrator has to approve API use for the organisation before any token will work.
-
-Nothing pitwall reads moves the unread badge; only the buttons on a card do. The first poll after the token arrives cards nothing — whatever is already waiting is a backlog rather than news — and what has been delivered since is tracked in `data/chatwork-seen.json` and `data/chatwork-task-seen.json`.
-
-A deadline is a moment, and which day it falls on depends on where you are. Chatwork's API does not say where the account is, so it is read in this machine's zone unless `PITWALL_CHATWORK_TIMEZONE` says otherwise.
+The clock is kept in the browser you set it in, so a reload picks it up where it left off.
 
 ## Configuration
 
@@ -126,6 +148,8 @@ How the server runs. Which accounts it watches is set in the gear instead, and n
 | `PITWALL_CALENDAR_IDS` | every ticked calendar | comma-separated ids, or `primary` |
 | `PITWALL_CALENDAR_POLL_SECONDS` | `120` | how often Google is asked what changed |
 | `PITWALL_CALENDAR_STALE_MINUTES` | `20` | how late a missed reminder may still arrive |
+| `PITWALL_AGENDA_HOUR` | `7` | the hour the day's card lands on |
+| `PITWALL_AGENDA_TIMEZONE` | your calendar's | which zone that hour is in |
 | `PITWALL_TODO_LISTS` | every list | comma-separated task list ids |
 | `PITWALL_TODO_POLL_SECONDS` | `300` | how often Google is asked what changed |
 | `PITWALL_TODO_DUE_HOUR` | `9` | the hour a due task lands on |
@@ -159,7 +183,7 @@ How the server runs. Which accounts it watches is set in the gear instead, and n
 npm run uninstall-hooks
 ```
 
-This removes the copied scripts and the pitwall entries, and leaves the backups and `./data` alone. In a container with no checkout to run it from:
+This removes the copied scripts and the pitwall entries, and leaves the backups and `./data` alone. The `pitwall` entry in `claude_desktop_config.json` is yours to delete, since nothing here put it there. In a container with no checkout to run it from:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/cleanup.sh | sh
@@ -169,5 +193,5 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/clea
 
 ```bash
 npm run dev    # --watch
-npm test       # end-to-end smoke test, installer test, and calendar, tasks, mail and Chatwork against stubbed services
+npm test       # end-to-end smoke test, installer test, the Claude Desktop connector, and calendar, tasks, mail and Chatwork against stubbed services
 ```
