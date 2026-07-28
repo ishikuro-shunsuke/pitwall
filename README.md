@@ -97,9 +97,11 @@ A task assigned to you arrives on the morning it is due, and again every morning
 
 ## Stints
 
-Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight, and it stays there however long you take: the stop is five minutes at the least, and past that the clock counts up to say how long the feed has been away from you. **Rejoin** brings it back and starts the next 25.
+Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight and the page calls you in — two notes, and a desktop notification if you let the browser show them. Only the 25 run themselves: the five-minute stop starts when you press **Pit in**, the feed comes back on **Rejoin**, and while either of those is waiting the clock counts up to say how long it has been.
 
-The clock is kept in the browser you set it in, so a reload picks it up where it left off, and a stint whose 25 minutes ran out while the tab was closed has had its stop without you.
+The calls ask for notifications the first time you tick the box, and reach the desktop from `http://127.0.0.1:4477/` or `http://localhost:4477/`; a browser opening the page by the machine's address on the network is not allowed to show them, and the notes still play. A tab in the background can be up to a minute late calling you.
+
+The clock is kept in the browser you set it in, so a reload picks it up where it left off, and a stint whose 25 minutes ran out while the tab was closed is waiting to be called in rather than half way through a stop nobody took.
 
 Issue a token from your own account — your name, top right in Chatwork, then **Service Integration → API Token** — and paste it into the gear in the top right of pitwall. It is checked against Chatwork before it is saved, so a token that will not work says so there and then, and cards start arriving on the next poll.
 

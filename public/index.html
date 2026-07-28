@@ -70,6 +70,7 @@
       <div class="stint-line">
         <span class="stint-phase" id="stint-phase" aria-live="polite"></span>
         <span class="stint-clock" id="stint-clock"></span>
+        <button type="button" class="btn primary stint-go hidden" id="stint-in">Pit in</button>
         <button type="button" class="btn primary stint-go hidden" id="stint-go">Rejoin</button>
       </div>
       <div class="stint-bar"><span class="stint-fill" id="stint-fill"></span></div>
@@ -139,9 +140,10 @@
           <input type="checkbox" id="stint-toggle" />
           <span>Run the stint clock</span>
         </label>
-        <p class="note">25 minutes on the timeline, then 5 with it out of sight — and out of sight it stays
-          until you press <strong>Rejoin</strong>, with the clock counting how far past the 5 you are.
-          It runs in this browser alone.</p>
+        <p class="note">25 minutes on the timeline, then it locks and the page calls you in — with a
+          sound, and a notification where the browser allows one. The 5-minute stop starts when you
+          <strong>Pit in</strong> and the feed comes back on <strong>Rejoin</strong>, however long
+          either of them takes. The clock runs in this browser alone.</p>
 
         <h3>Chatwork</h3>
         <p class="state" id="cw-state">…</p>

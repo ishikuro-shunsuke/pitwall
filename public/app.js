@@ -49,6 +49,7 @@ const el = {
   stint: document.getElementById('stint'),
   stintPhase: document.getElementById('stint-phase'),
   stintClock: document.getElementById('stint-clock'),
+  stintIn: document.getElementById('stint-in'),
   stintGo: document.getElementById('stint-go'),
   stintFill: document.getElementById('stint-fill'),
   stintToggle: document.getElementById('stint-toggle'),
@@ -367,11 +368,12 @@ function watchLink() {
  * corner of your eye all afternoon, and the stop is only a break if the cards
  * are actually gone off the screen while it runs.
  *
- * The lights go green by hand, and the feed waits with them. A break that ends
- * itself is one you spend watching the clock, and whatever you got up for is
- * not on a five-minute schedule — so the five is the least the stop takes
- * rather than the whole of it, and what the clock has to say after that is how
- * long the timeline has been away from you.
+ * The clock runs out on its own and nothing else here does. When the 25 are up
+ * the feed locks and the page calls you in, and the five does not start until
+ * you come in for it — a stop that started itself would be five minutes of a
+ * break you were still working through. The lights go green by hand for the
+ * same reason, and whenever the clock is waiting on you it counts up, because
+ * how long it has been is then the only thing left worth saying.
  *
  * This clock is the browser's own — no skew, because there is no other end to
  * agree with. Nothing on the server knows a stint is running and nothing needs
@@ -382,12 +384,117 @@ function watchLink() {
 const STINT_MS = 25 * 60_000;
 const PIT_MS = 5 * 60_000;
 
-/** What the strip calls each phase, and the whole set of phases there are. */
+/**
+ * What the strip calls each phase, and the whole set of phases there are. Two
+ * of them are the clock waiting on you — the call in, and the exit — and they
+ * are the two with a button under them.
+ */
 const STINT_PHASE = {
   stint: 'stint',
+  box: 'box box',
   pit: 'in the pits',
   exit: 'pit exit',
 };
+
+/** The phases the figure counts up from its mark rather than down to it. */
+const STINT_WAITING = new Set(['box', 'exit']);
+
+/**
+ * The call in and the call back out, over the radio and onto the desktop.
+ *
+ * A stint that ends on a page nobody is looking at ends silently, which is the
+ * one thing a clock for working away from the screen cannot afford: the whole
+ * of it is spent not looking at the page. So both turns ring, and both say so
+ * outside the browser where the browser has been given leave to.
+ *
+ * Two notes, made here rather than fetched — nothing in this app is a file it
+ * does not serve, and a pair of notes is not a file. Coming in falls and going
+ * back out rises, so which call it was is audible from the next room.
+ */
+const CALL = {
+  box: {
+    notes: [880, 587],
+    title: 'Box, box',
+    body: 'The 25 are up. Pit in to start the stop.',
+  },
+  exit: {
+    notes: [587, 880],
+    title: 'Pit exit',
+    body: 'The stop is served. Rejoin when you are ready.',
+  },
+};
+
+/** Nothing calls for a turn the page only found out about by being opened. */
+let calling = false;
+
+let sound = null;
+
+/**
+ * A browser starts no sound that a click did not ask for, so the context is
+ * built on one and kept — and woken again on the next, because a machine that
+ * slept between two stints comes back with it suspended.
+ */
+function wakeSound() {
+  try {
+    sound ??= new AudioContext();
+    if (sound.state === 'suspended') sound.resume();
+  } catch { /* a browser with nothing to play through has nothing to wake */ }
+}
+
+function ring(notes) {
+  wakeSound();
+  if (!sound) return;
+  let at = sound.currentTime + 0.02;
+  for (const hz of notes) {
+    const osc = sound.createOscillator();
+    const gain = sound.createGain();
+    osc.type = 'triangle';
+    osc.frequency.value = hz;
+    // Rung rather than switched on and off: a note that starts at full is a
+    // click first and a note second.
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(0.2, at + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+    osc.connect(gain).connect(sound.destination);
+    osc.start(at);
+    osc.stop(at + 0.32);
+    at += 0.34;
+  }
+}
+
+/**
+ * Asked for on the tick that turns the clock on, which is the click a browser
+ * wants to see before it will put the question. Refused, the calls are the
+ * sound alone; the page over a plain address on the network is not allowed to
+ * ask at all, and is the same.
+ */
+function askToBeTold() {
+  try {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  } catch { /* ignore */ }
+}
+
+function call(kind) {
+  if (!calling) return;
+  const said = CALL[kind];
+  ring(said.notes);
+  try {
+    if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    // One tag between them, so a call nobody came back for is replaced by the
+    // next rather than stacking up behind it.
+    const note = new Notification(said.title, {
+      body: said.body,
+      tag: 'pitwall-stint',
+      icon: '/favicon.svg',
+    });
+    note.onclick = () => {
+      window.focus();
+      note.close();
+    };
+  } catch { /* ignore */ }
+}
 
 /** `{ phase, until }` while the clock is on, and null while it is off. */
 let stint = readStint();
@@ -396,10 +503,10 @@ function readStint() {
   try {
     const saved = JSON.parse(localStorage.getItem('pitwall.stint') || 'null');
     if (saved && saved.phase in STINT_PHASE) {
-      // At the exit the mark is when the stop finished, which is what the
-      // overrun is counted from. One written down before there was an overrun
-      // to count has none, and takes the moment it is read.
-      const until = Number(saved.until) || (saved.phase === 'exit' ? Date.now() : 0);
+      // Waiting on you, the mark is the moment it started waiting, which is
+      // what the figure counts up from. One written down before there was
+      // anything to count has none, and takes the moment it is read.
+      const until = Number(saved.until) || (STINT_WAITING.has(saved.phase) ? Date.now() : 0);
       return { phase: saved.phase, until };
     }
   } catch { /* ignore */ }
@@ -414,28 +521,38 @@ function writeStint() {
 }
 
 /**
- * Carries the clock past every deadline it has already gone by. Both arms run
- * on one pass, so a stint that ran out while the tab was shut takes its stop in
- * your absence and leaves you at the exit rather than five minutes from it.
+ * The two turns the clock takes on its own, both of them into a phase that then
+ * waits on you. The mark stays where the run ended rather than being cleared:
+ * standing at the call or at the exit, that is the moment everything after it
+ * is counted from.
  */
 function settleStint() {
   if (!stint) return;
   const was = stint.phase;
   if (stint.phase === 'stint' && Date.now() >= stint.until) {
     countStint(stint.until);
-    stint = { phase: 'pit', until: stint.until + PIT_MS };
+    stint = { phase: 'box', until: stint.until };
+    call('box');
   }
-  // The mark stays where the stop ended rather than being cleared: standing at
-  // the exit, that is the moment everything after it is counted from.
   if (stint.phase === 'pit' && Date.now() >= stint.until) {
     stint = { phase: 'exit', until: stint.until };
+    call('exit');
   }
   // Only a phase that turned, so the second hand is not writing to disk.
   if (stint.phase !== was) writeStint();
 }
 
+/** In for the stop, which is where the five minutes start. */
+function pitIn() {
+  wakeSound();
+  stint = { phase: 'pit', until: Date.now() + PIT_MS };
+  writeStint();
+  paintStint();
+}
+
 /** Green light: back on the timeline for another 25. */
 function goGreen() {
+  wakeSound();
   stint = { phase: 'stint', until: Date.now() + STINT_MS };
   writeStint();
   paintStint();
@@ -512,25 +629,36 @@ function paintStint() {
   if (!stint) return;
 
   const { phase } = stint;
+  const waiting = STINT_WAITING.has(phase);
   const remain = Math.max(0, stint.until - Date.now());
   // Which phase it has reached is worth saying out loud, and worth saying once:
   // written every second, the same two words are read out every second with it.
   const said = STINT_PHASE[phase];
   if (el.stintPhase.textContent !== said) el.stintPhase.textContent = said;
-  // At the exit the clock turns round: the stop is served and the figure is
-  // how long the timeline has been away from you since, which is the one thing
-  // you cannot tell by looking at a page with nothing on it.
-  el.stintClock.textContent = phase === 'exit'
+  // Waiting on you, the clock turns round and says how long it has been. On a
+  // page with the feed off it there is nothing else that could tell you.
+  el.stintClock.textContent = waiting
     ? `+${fmtRemain(Math.max(0, Date.now() - stint.until))}`
     : fmtRemain(remain);
+  el.stintIn.classList.toggle('hidden', phase !== 'box');
   el.stintGo.classList.toggle('hidden', phase !== 'exit');
 
+  // What the empty page is waiting for, which is one of the two buttons up on
+  // the strip. Written only when it changes, so the paragraph is not rebuilt
+  // under a pointer once a second.
+  const asked = phase === 'box'
+    ? 'Pit in to start the stop.'
+    : 'The timeline comes back when you rejoin.';
+  if (el.pits.textContent !== asked) el.pits.textContent = asked;
+
   // The stint drains and the stop fills: one is time going, the other time
-  // being served. The full line stays up at the exit — the stop is done, and
-  // what is left is the button beside it.
+  // being served. Called in, the line is empty and nothing is running; at the
+  // exit it stays full, because the stop is done and what is left is the
+  // button beside it.
   const share = phase === 'stint' ? remain / STINT_MS
     : phase === 'pit' ? 1 - remain / PIT_MS
-      : 1;
+      : phase === 'box' ? 0
+        : 1;
   el.stintFill.style.width = `${Math.min(1, Math.max(0, share)) * 100}%`;
 
   // Only the stint reddens, on the same run-in as a hold: red here means
@@ -539,12 +667,15 @@ function paintStint() {
   el.stint.classList.toggle('critical', phase === 'stint' && remain <= 60_000);
 }
 
+el.stintIn.addEventListener('click', pitIn);
 el.stintGo.addEventListener('click', goGreen);
 
 // Switched on, the clock starts there and then: the first stint is the one you
-// were about to run, not one that needs starting somewhere else as well.
+// were about to run, not one that needs starting somewhere else as well. The
+// tick is also the click the browser wants before it will ask about the calls.
 el.stintToggle.addEventListener('change', () => {
   if (el.stintToggle.checked) {
+    askToBeTold();
     goGreen();
     return;
   }
@@ -562,7 +693,10 @@ document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible') paintStint();
 });
 
+// The first pass carries the clock up to now, which is not a turn anybody was
+// here for. Everything after it is.
 paintStint();
+calling = true;
 
 const lightbox = { items: [], index: 0 };
 
