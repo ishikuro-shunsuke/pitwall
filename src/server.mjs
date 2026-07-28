@@ -163,9 +163,11 @@ const INTERESTING_NOTICES = new Set([
   'idle_prompt',
   'agent_needs_input',
   'elicitation_dialog',
-  // Not Claude Code notification types: the PreToolUse hook names its own.
+  // Not Claude Code notification types: the PreToolUse and PermissionRequest
+  // hooks name their own.
   'ask_user_question',
   'exit_plan_mode',
+  'permission_request',
 ]);
 
 async function handleNotify(req, res) {

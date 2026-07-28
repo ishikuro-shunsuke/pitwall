@@ -34,6 +34,15 @@ fires the notification. Two things happen there that matter:
   literal for every kind it hosts, AskUserQuestion included. A hook matching on
   `notification_type` cannot tell a question from a `chmod` it wants to run.
 
+The third thing that matters is where that host lives. It is a terminal
+component, and a session started from an editor does not draw one: Cursor and
+the VS Code extension spawn `claude --permission-prompt-tool stdio` and get the
+request as a `can_use_tool` control message to draw themselves. Nothing mounts
+the dialog host, so `permission_prompt` is never fired at all — the six-second
+gate is not what is stopping it, and no amount of sitting still will produce one.
+[`hooks/claude-permission.mjs`](../hooks/claude-permission.mjs) is a
+`PermissionRequest` hook for that reason.
+
 `idle_prompt` comes from somewhere else entirely: a timer on the main input,
 message `"Claude is waiting for your input"`, gated on
 `messageIdleNotifThresholdMs`. `agent_needs_input` and `agent_completed` are
@@ -89,6 +98,23 @@ from disk: `plan`, the whole markdown, and `planFilePath`, where it came from.
 That happens ahead of `PreToolUse`, so the hook is handed the plan the dialog is
 about to draw. If it ever is not, the path is, and the file is on the machine
 the hook runs on.
+
+## The permission ask has an event of its own
+
+`PermissionRequest` runs on the ask path — after the rules have failed to settle
+the call and before either dialog is drawn — so it fires in the terminal and in
+the editor alike, with no idle timer in front of it. Its payload is
+`tool_name`, `tool_input` and `permission_suggestions`, plus the usual
+`session_id` / `transcript_path` / `cwd` / `permission_mode` / `agent_id` /
+`agent_type` / `effort`. `PermissionDenied` is its counterpart, and adds the
+`reason`.
+
+It is a deciding hook: return `permissionDecision` and the call is settled
+without asking. It is also *raced* against the prompt —
+`Promise.race([hook, dialog])` — and a hook that returns no decision loses the
+race harmlessly, because the branch that wins on the hook side falls back to
+awaiting the dialog when there is nothing in it. Posting and exiting 0 costs the
+turn nothing.
 
 ## Why the hook only looks
 

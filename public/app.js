@@ -669,6 +669,7 @@ function holdChip(entry) {
 const SESSION_CUE = {
   ask_user_question: 'answer',
   exit_plan_mode: 'approve',
+  permission_request: 'allow',
 };
 
 function cueHtml(entry) {

@@ -205,6 +205,7 @@ function installClaude() {
     'claude-stop.mjs',
     'claude-notification.mjs',
     'claude-dialog.mjs',
+    'claude-permission.mjs',
   ]);
   const file = path.join(configDir, 'settings.json');
   const bak = backup(file);
@@ -222,9 +223,11 @@ function installClaude() {
     data.hooks.Stop = stripGroups(data.hooks.Stop);
     data.hooks.Notification = stripGroups(data.hooks.Notification);
     data.hooks.PreToolUse = stripGroups(data.hooks.PreToolUse);
+    data.hooks.PermissionRequest = stripGroups(data.hooks.PermissionRequest);
     if (!data.hooks.Stop?.length) delete data.hooks.Stop;
     if (!data.hooks.Notification?.length) delete data.hooks.Notification;
     if (!data.hooks.PreToolUse?.length) delete data.hooks.PreToolUse;
+    if (!data.hooks.PermissionRequest?.length) delete data.hooks.PermissionRequest;
     if (!Object.keys(data.hooks).length) delete data.hooks;
   } else {
     // Claude Code does not run hooks from ~/.claude, so use $HOME instead of a
@@ -261,13 +264,26 @@ function installClaude() {
         timeout: 10,
       }],
     };
+    // `permission_prompt` only reaches a Notification hook from the terminal
+    // dialog, so a session run from an editor never sends one. This fires
+    // wherever the decision is made, and loses the race to the dialog it is
+    // reporting rather than deciding anything itself.
+    const permission = {
+      hooks: [{
+        type: 'command',
+        command: `node "$HOME/.claude/hooks/pitwall/claude-permission.mjs"${urlArgs}`,
+        timeout: 10,
+      }],
+    };
     data.hooks.Stop = [...stripGroups(data.hooks.Stop), stop];
     data.hooks.Notification = [...stripGroups(data.hooks.Notification), notification];
     data.hooks.PreToolUse = [...stripGroups(data.hooks.PreToolUse), dialog];
+    data.hooks.PermissionRequest = [...stripGroups(data.hooks.PermissionRequest), permission];
     added.push(
       { at: 'hooks.Stop[]', value: stop },
       { at: 'hooks.Notification[]', value: notification },
       { at: 'hooks.PreToolUse[]', value: dialog },
+      { at: 'hooks.PermissionRequest[]', value: permission },
     );
   }
 

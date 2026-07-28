@@ -168,6 +168,7 @@ async function cases(homes) {
       ['claude.Stop', claude.hooks.Stop],
       ['claude.Notification', claude.hooks.Notification],
       ['claude.PreToolUse', claude.hooks.PreToolUse],
+      ['claude.PermissionRequest', claude.hooks.PermissionRequest],
     ];
     for (const [name, list] of events) {
       const count = (list || []).filter(isPitwall).length;
@@ -185,7 +186,7 @@ async function cases(homes) {
 
     // The regression that started this: a command naming a file nobody copied.
     const referenced = referencedScripts(home);
-    if (referenced.length !== 5) {
+    if (referenced.length !== 6) {
       fail('every hook command was parsed', referenced);
     } else if (referenced.every((file) => fs.existsSync(file))) {
       ok('every referenced script exists on disk');
@@ -196,8 +197,8 @@ async function cases(homes) {
     // stdout is the only account of what was written, so every command that
     // landed in a config has to appear in it verbatim.
     const written = pitwallCommands(home);
-    if (written.length !== 5) {
-      fail('five commands written', written);
+    if (written.length !== 6) {
+      fail('six commands written', written);
     } else if (written.every((command) => first.stdout.includes(command))) {
       ok('every written command is shown');
     } else {
@@ -291,7 +292,7 @@ async function cases(homes) {
         .flatMap((g) => (g.hooks || []).map((h) => h.command)),
     ].filter((command) => command.includes('hooks/pitwall/'));
     const baked = commands.filter((c) => c.includes('http://host.docker.internal:4477'));
-    eq('devcontainer: url baked into all five commands', baked.length, 5);
+    eq('devcontainer: url baked into all six commands', baked.length, 6);
     const notify = commands.find((c) => c.includes('claude-notification.mjs'));
     if (notify?.startsWith('PITWALL_URL=')) ok('devcontainer: notification gets the url via env');
     else fail('devcontainer: notification gets the url via env', notify);

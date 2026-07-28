@@ -119,7 +119,7 @@ Every task list is watched, and consent asks to edit them as well as read them â
 | --- | --- |
 | `~/.cursor/hooks/pitwall/`, `~/.claude/hooks/pitwall/` | copies of the hook scripts |
 | `~/.cursor/hooks.json` | `stop` and `afterAgentResponse` entries |
-| `~/.claude/settings.json` | `Stop`, `Notification` and `PreToolUse` entries |
+| `~/.claude/settings.json` | `Stop`, `Notification`, `PreToolUse` and `PermissionRequest` entries |
 | `<config>.bak.<timestamp>` | a backup of each file before it is edited |
 | `./data` | the timeline itself |
 | `./data/google-token.json` | the Google refresh token, readable only by you |
