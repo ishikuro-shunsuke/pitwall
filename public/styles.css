@@ -172,13 +172,14 @@ a { color: var(--accent); }
 
 /* Narrow enough that a row of four buttons starts taking the width off the
    count, they fold behind one and come down under the bar when it is pressed.
-   The wordmark stays: the buttons were what the middle of the bar was competing
-   with, and they are a single glyph now.
+   The title goes with them: you know which page you have open, and the flag
+   left in the corner says it anyway.
 
    Words appear with the fold. Four icons in a column with nothing naming them
    is a puzzle; in the row across the top they have the bar to themselves and
    the titles say the rest. */
 @media (max-width: 560px) {
+  .brand h1 { display: none; }
   .menu-btn { display: flex; }
   .btn-label { display: inline; }
   .actions {
