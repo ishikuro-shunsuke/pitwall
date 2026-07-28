@@ -314,9 +314,16 @@ function modelTitle(entry) {
   return lines.join('\n');
 }
 
+/**
+ * The count is what the session had running at the moment it stopped, so the
+ * chip says that and not that they are running now — by the time the card is
+ * read they may all have finished, and there is nothing here that would know.
+ */
 function taskChip(entry) {
-  if (!(entry.backgroundTaskCount > 0)) return '';
-  return `<span class="chip tasks">bg:${entry.backgroundTaskCount}</span>`;
+  const n = entry.backgroundTaskCount;
+  if (!(n > 0)) return '';
+  const label = `${n} background task${n === 1 ? '' : 's'}`;
+  return `<span class="chip tasks" title="Running in the session when the turn stopped">${label}</span>`;
 }
 
 /** Coarser than a hold: nothing here is decided in the last thirty seconds. */
