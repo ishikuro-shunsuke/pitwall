@@ -64,19 +64,17 @@ function normalizeModel(raw = {}) {
 
 /**
  * Claude Code hands a Stop hook every background task the session still has
- * open, each with the sentence it was started under. The card wants to say what
- * is still going, not to be read: the head of the first line of each, three of
- * them at most, and the count carries the rest.
+ * open, each with the sentence it was started under. All of them reach the
+ * card, one line each — but a line, not a paragraph: the payload allows a
+ * thousand characters per description and the card is there to be glanced at.
  */
 const TASK_CHARS = 60;
-const TASK_LINES = 3;
 
 function taskLines(raw) {
   if (!Array.isArray(raw)) return [];
   return raw
     .map((t) => String(t?.description || '').split('\n')[0].trim())
     .filter(Boolean)
-    .slice(0, TASK_LINES)
     .map((s) => (s.length > TASK_CHARS ? `${s.slice(0, TASK_CHARS - 1).trimEnd()}…` : s));
 }
 

@@ -325,12 +325,15 @@ function taskChip(entry) {
   const n = entry.backgroundTaskCount;
   if (!(n > 0)) return '';
   const said = entry.backgroundTasks || [];
-  const label = n === 1 ? 'background task' : `${n} background tasks`;
-  // One of them fits on the line above the title; the count covers the others,
-  // and the whole list is under the pointer.
-  const line = said[0] ? `${label}: ${said[0]}${n > 1 ? ` +${n - 1}` : ''}` : label;
-  const title = ['Running in the session when the turn stopped', ...said.map((s) => `• ${s}`)].join('\n');
-  return `<span class="chip tasks" title="${esc(title)}">${esc(line)}</span>`;
+  const title = 'Running in the session when the turn stopped';
+  // One of them is a sentence, and a sentence with a number in front of it reads
+  // as one line. More than one is a list, and a list wants something over it
+  // saying how long it is.
+  if (n === 1) {
+    return `<span class="chip tasks" title="${esc(title)}">${esc(said[0] ? `background task: ${said[0]}` : 'background task')}</span>`;
+  }
+  const head = `<span class="chip tasks" title="${esc(title)}">${n} background tasks</span>`;
+  return head + said.map((s) => `<span class="chip tasks task-line">${esc(s)}</span>`).join('');
 }
 
 /** Coarser than a hold: nothing here is decided in the last thirty seconds. */

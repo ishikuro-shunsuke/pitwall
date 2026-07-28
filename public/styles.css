@@ -236,8 +236,10 @@ main {
 .head-line .repo .branch { font-weight: 400; opacity: 0.8; }
 
 .meta { color: var(--muted); font-size: 12px; font-family: var(--mono); }
-.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+/* A list of what is still running, one to a line, under the count of them. */
+.chips { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
 .chips:empty { display: none; }
+.chip.task-line::before { content: '· '; }
 /* Which project it is stays left; what ran it, when it came in, and how long it
    has left go to the far end, in that order, as one run. */
 .head-line .badge { margin-left: auto; }
