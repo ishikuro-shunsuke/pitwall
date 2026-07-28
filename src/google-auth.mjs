@@ -12,7 +12,11 @@ import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { config, paths } from './config.mjs';
 
-export const SCOPE = 'https://www.googleapis.com/auth/calendar.readonly';
+export const SCOPES = [
+  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/tasks.readonly',
+];
+export const SCOPE = SCOPES.join(' ');
 
 const AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -72,6 +76,25 @@ export function isLinked() {
 
 export function linkedAccount() {
   return readToken()?.account || null;
+}
+
+/**
+ * Whether the saved grant covers something. A link made before a scope was
+ * added keeps working for everything it already had, and the part that is new
+ * would otherwise spend every poll being refused.
+ */
+export function hasScope(scope) {
+  const granted = String(readToken()?.scope || '').split(/\s+/).filter(Boolean);
+  return granted.includes(scope);
+}
+
+/**
+ * The zone the account keeps its calendar in, recorded at link time. A due
+ * date has no clock on it, and the server's own zone is whatever the container
+ * was built with.
+ */
+export function linkedTimeZone() {
+  return readToken()?.timeZone || null;
 }
 
 async function postForm(url, form) {
@@ -272,9 +295,11 @@ export async function authorize({ onUrl = openBrowser } = {}) {
   };
 
   let account = null;
+  let timeZone = null;
   try {
     const me = await apiGet('https://www.googleapis.com/calendar/v3/calendars/primary');
     account = me.id || null;
+    timeZone = me.timeZone || null;
   } catch {
     /* the token works; whose it is, is only for the console line */
   }
@@ -283,6 +308,7 @@ export async function authorize({ onUrl = openBrowser } = {}) {
     refresh_token: data.refresh_token,
     scope: data.scope || SCOPE,
     account,
+    timeZone,
     linkedAt: new Date().toISOString(),
   });
   return { account };

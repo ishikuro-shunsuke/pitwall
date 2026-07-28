@@ -335,7 +335,7 @@ is('what was already said survives a restart', cards().length, 3);
     },
   });
 
-  is('consent asks for calendar, read only', seenUrl.searchParams.get('scope'), auth.SCOPE);
+  is('consent asks for what the pollers read, read only', seenUrl.searchParams.get('scope'), auth.SCOPE);
   is('and asks offline, or the link lasts an hour', seenUrl.searchParams.get('access_type'), 'offline');
   is('the code is bound with PKCE', seenUrl.searchParams.get('code_challenge_method'), 'S256');
   is('the callback is loopback', new URL(seenUrl.searchParams.get('redirect_uri')).hostname, '127.0.0.1');
