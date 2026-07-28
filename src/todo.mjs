@@ -166,8 +166,9 @@ function entryFor(list, task, due, day, timeZone) {
       title: task.title?.trim() || '(no title)',
       notice: 'task-due',
       // The repo slot names the thing a card belongs to, and gives it its
-      // colour. For these that is the list it came off.
-      repo: { key: `gtasks:${list.id}`, name: list.name },
+      // colour. Every card off Google wears its service's colour, and the
+      // slot's name is left to say which list it came off.
+      repo: { key: 'gtasks', name: list.name },
     },
     body: bodyFor(task, due, day, timeZone),
   });

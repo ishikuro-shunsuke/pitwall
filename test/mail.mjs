@@ -179,8 +179,8 @@ is('a message that was not there before is a card', cards().length, 1);
   if (!card) fail('the new mail is on the timeline', 'no card');
   else {
     is('it is a notice', card.status, 'notice');
-    is('it is coloured by whoever wrote', card.repo.key, 'gmail:ren@example.com');
-    is('and named for them', card.repo.name, 'Ren Tanaka');
+    is('every message shares one colour', card.repo.key, 'gmail');
+    is('while the head still names who wrote', card.repo.name, 'Ren Tanaka');
     is('it carries no editor link', card.links.openWorkspace, null);
     is('the card knows the thread', card.mail.threadId, 't-m6');
     const has = (needle) => card.body.includes(needle);

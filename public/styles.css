@@ -22,9 +22,13 @@
   /* Worn by the agent badges alone. */
   --brand-cursor: oklch(var(--tone-l) var(--tone-c) 280);
   --brand-claude: oklch(var(--tone-l) var(--tone-c) 65);
-  --brand-calendar: oklch(var(--tone-l) var(--tone-c) 155);
-  --brand-todo: oklch(var(--tone-l) var(--tone-c) 320);
-  --brand-mail: oklch(var(--tone-l) var(--tone-c) 215);
+  --brand-calendar: oklch(var(--tone-l) var(--tone-c) 260);
+  --brand-todo: oklch(var(--tone-l) var(--tone-c) 148);
+  /* Google's own, so a card says which service it came off before it is read.
+     Gmail's red is the one identity colour at the accent's end of the wheel,
+     and Tasks takes Google's green rather than the blue Google actually gives
+     it, which is Calendar's blue to two degrees. */
+  --brand-mail: oklch(var(--tone-l) var(--tone-c) 29);
 
   /* Red is the only colour in here that means anything: something is waiting,
      something is running out, or you are on the button that acts. It carries

@@ -203,9 +203,10 @@ function entryFor(message, self) {
       title: header(message, 'Subject').trim() || '(no subject)',
       notice: 'mail-arrived',
       // The repo slot names the thing a card belongs to, and gives it its
-      // colour. For these that is whoever wrote, so one correspondent keeps
-      // one colour down the feed.
-      repo: { key: `gmail:${from.email.toLowerCase()}`, name: from.name },
+      // colour. A colour per correspondent would be a colour per card on any
+      // real mailbox, so every message shares Gmail's, and the slot's name is
+      // left to say who wrote.
+      repo: { key: 'gmail', name: from.name },
     },
     body: bodyFor(message, from, receivedMs, self),
   });

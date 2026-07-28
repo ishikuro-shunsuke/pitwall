@@ -267,15 +267,22 @@ function nowMs() {
  *
  * The wheel starts past red and stops short of it: red is the one colour that
  * means something here, and a repo that happened to hash into it would be
- * telling you its card is urgent.
+ * telling you its card is urgent. A service that owns a colour is named onto
+ * one instead of hashing into it — there is no counting on a hash to land
+ * somewhere recognisable.
  */
+const SERVICE_HUE = { gmail: 29, gcal: 260, gtasks: 148 };
+
 function repoTones(key) {
   if (!key) return null;
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  let hue = SERVICE_HUE[key];
+  if (hue === undefined) {
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) {
+      hash = (hash * 31 + key.charCodeAt(i)) | 0;
+    }
+    hue = 55 + (Math.abs(hash) % 290);
   }
-  const hue = 55 + (Math.abs(hash) % 290);
   const tone = `var(--tone-l) var(--tone-c) ${hue}`;
   return {
     color: `oklch(${tone})`,

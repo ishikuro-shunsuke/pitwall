@@ -223,8 +223,9 @@ function entryFor(calendar, event, startMs, endMs, allDay, minutes, displayZone)
       title: event.summary || '(no title)',
       notice: 'calendar-reminder',
       // The repo slot names the thing a card belongs to, and gives it its
-      // colour. For these that is the calendar it came off.
-      repo: { key: `gcal:${calendar.id}`, name: calendar.name },
+      // colour. Every card off Google wears its service's colour, and the
+      // slot's name is left to say which calendar it came off.
+      repo: { key: 'gcal', name: calendar.name },
     },
     body: bodyFor(event, startMs, endMs, allDay, displayZone),
   });

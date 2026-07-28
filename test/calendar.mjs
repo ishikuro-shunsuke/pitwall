@@ -238,7 +238,7 @@ if (card) {
   is('it is a notice', card.status, 'notice');
   is('it says which event', card.title, 'Sprint review');
   is('it takes the calendar\'s name', card.repo.name, 'Work');
-  is('it is coloured by the calendar, not by a repo', card.repo.key, 'gcal:work@example.com');
+  is('it is coloured by the service, not by a repo', card.repo.key, 'gcal');
   is('it carries no editor link', card.links.openWorkspace, null);
   is('the card knows when the event starts', card.calendar.startMs, now + 10 * MIN);
   is('and how much notice it was asked for', card.calendar.leadMinutes, 10);
