@@ -206,6 +206,15 @@ const REPOS = [
   },
 ];
 
+/* Shaped like the entries Claude Code puts in a Stop hook's background_tasks:
+   an id, what kind of work it is, and the sentence it was started under. */
+const BACKGROUND_TASKS = [
+  { id: 'bg_1', type: 'shell', status: 'running', description: 'Run the tyre-model regression suite', command: 'npm run test:tyres' },
+  { id: 'bg_2', type: 'subagent', status: 'running', description: 'Sweep the lap-time parser for off-by-one sector boundaries', agent_type: 'Explore' },
+  { id: 'bg_3', type: 'shell', status: 'pending', description: 'Rebuild the telemetry fixtures from the Silverstone session', command: 'node scripts/fixtures.mjs' },
+  { id: 'bg_4', type: 'workflow', status: 'running', description: 'Review the pit-window branch across four dimensions', name: 'review-changes' },
+];
+
 const CLAUDE_MODELS = [
   { label: 'claude-opus-5[1m]', id: 'claude-opus-5[1m]', effort: 'high', permissionMode: 'acceptEdits' },
   { label: 'claude-sonnet-5', id: 'claude-sonnet-5', effort: 'medium', permissionMode: 'default' },
@@ -619,7 +628,7 @@ async function feedClaude(session, pool) {
     stop_hook_active: false,
     last_assistant_message: inlineImageRefs(body, images),
     images,
-    background_tasks: chance(0.2) ? [{ id: 'bg_1' }, { id: 'bg_2' }] : [],
+    background_tasks: chance(0.2) ? pickSome(BACKGROUND_TASKS, 2) : [],
     agent_type: session.agentType,
     permission_mode: session.model.permissionMode,
     repo: session.repo,

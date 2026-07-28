@@ -62,6 +62,24 @@ function normalizeModel(raw = {}) {
   };
 }
 
+/**
+ * Claude Code hands a Stop hook every background task the session still has
+ * open, each with the sentence it was started under. The card wants to say what
+ * is still going, not to be read: the head of the first line of each, three of
+ * them at most, and the count carries the rest.
+ */
+const TASK_CHARS = 60;
+const TASK_LINES = 3;
+
+function taskLines(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((t) => String(t?.description || '').split('\n')[0].trim())
+    .filter(Boolean)
+    .slice(0, TASK_LINES)
+    .map((s) => (s.length > TASK_CHARS ? `${s.slice(0, TASK_CHARS - 1).trimEnd()}…` : s));
+}
+
 const ID_PREFIX = { cursor: 'cu', claude: 'cl', calendar: 'ca' };
 
 /**
@@ -116,6 +134,7 @@ export function buildEntry({
     backgroundTaskCount: Array.isArray(payload.background_tasks)
       ? payload.background_tasks.length
       : (payload.backgroundTaskCount ?? 0),
+    backgroundTasks: taskLines(payload.background_tasks),
 
     links: null,
   };

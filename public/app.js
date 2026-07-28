@@ -315,15 +315,22 @@ function modelTitle(entry) {
 }
 
 /**
- * The count is what the session had running at the moment it stopped, so the
- * chip says that and not that they are running now — by the time the card is
- * read they may all have finished, and there is nothing here that would know.
+ * What the session had running at the moment it stopped, so the line says that
+ * and not that they are running now — by the time the card is read they may all
+ * have finished, and there is nothing here that would know. Each task says what
+ * it was started to do, which is the part worth showing; the count is only there
+ * to say how many of them the sentences cover.
  */
 function taskChip(entry) {
   const n = entry.backgroundTaskCount;
   if (!(n > 0)) return '';
-  const label = `${n} background task${n === 1 ? '' : 's'}`;
-  return `<span class="chip tasks" title="Running in the session when the turn stopped">${label}</span>`;
+  const said = entry.backgroundTasks || [];
+  const label = n === 1 ? 'background task' : `${n} background tasks`;
+  // One of them fits on the line above the title; the count covers the others,
+  // and the whole list is under the pointer.
+  const line = said[0] ? `${label}: ${said[0]}${n > 1 ? ` +${n - 1}` : ''}` : label;
+  const title = ['Running in the session when the turn stopped', ...said.map((s) => `• ${s}`)].join('\n');
+  return `<span class="chip tasks" title="${esc(title)}">${esc(line)}</span>`;
 }
 
 /** Coarser than a hold: nothing here is decided in the last thirty seconds. */
