@@ -127,10 +127,11 @@ a { color: var(--accent); }
 /* The number is the part you read, so it is set in the figures the rest of the
    app counts in and at the weight of the title across from it. */
 .tally-count { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
-/* On a phone the wordmark and the buttons take the width between them, and the
-   three of them together will not fit. The figure is the part worth keeping. */
+/* Narrow enough that the three of them stop fitting, the wordmark is what goes:
+   you know which page you have open, and a figure with nothing left naming it
+   is not a count of anything. The flag stays, so the corner keeps the app. */
 @media (max-width: 560px) {
-  .tally-unit { display: none; }
+  .brand h1 { display: none; }
 }
 
 /* The end of the title's line, at every width — a column of their own.
