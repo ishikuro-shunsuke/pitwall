@@ -28,13 +28,16 @@ function fail(name, err) {
   console.error(`  FAIL ${name}: ${err?.message || err}`);
 }
 
-async function json(method, pathname, body, { timeoutMs = 5000 } = {}) {
+async function json(method, pathname, body, { timeoutMs = 5000, headers } = {}) {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     const res = await fetch(`${BASE}${pathname}`, {
       method,
-      headers: body ? { 'Content-Type': 'application/json' } : undefined,
+      headers: {
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...headers,
+      },
       body: body ? JSON.stringify(body) : undefined,
       signal: ctrl.signal,
     });
@@ -615,6 +618,45 @@ async function main() {
       const cards = after2.data.entries?.filter((e) => e.notificationType === 'ask_user_question');
       if (other.code === 0 && cards?.length === 1) ok('claude-dialog.mjs ignores other tools');
       else fail('claude-dialog.mjs ignores other tools', { other, count: cards?.length });
+    }
+
+    // --- requests from somebody else's page ---------------------------------
+
+    {
+      const site = (value) => (value === null ? undefined : { 'Sec-Fetch-Site': value });
+      const health = '/api/health';
+
+      const hook = await json('GET', health, null, { headers: site(null) });
+      if (hook.status === 200) ok('a request no browser made is let through');
+      else fail('a request no browser made is let through', hook);
+
+      const own = await json('GET', health, null, { headers: site('same-origin') });
+      if (own.status === 200) ok("and so is pitwall's own screen");
+      else fail("and so is pitwall's own screen", own);
+
+      const typed = await json('GET', health, null, { headers: site('none') });
+      if (typed.status === 200) ok('and so is the address typed in by hand');
+      else fail('and so is the address typed in by hand', typed);
+
+      const other = await json('GET', health, null, { headers: site('cross-site') });
+      if (other.status === 403) ok("but a page on somebody else's site is turned away");
+      else fail("but a page on somebody else's site is turned away", other);
+
+      // Ports do not make a site, so another server on this machine is
+      // same-site to the browser while being nothing to do with pitwall.
+      const neighbour = await json('GET', health, null, { headers: site('same-site') });
+      if (neighbour.status === 403) ok('and so is another port on this machine');
+      else fail('and so is another port on this machine', neighbour);
+
+      // The one that matters: the routes that change something.
+      const posted = await json('POST', '/api/entries/whatever/dismiss', {}, { headers: site('cross-site') });
+      if (posted.status === 403) ok('a cross-site POST never reaches a card');
+      else fail('a cross-site POST never reaches a card', posted);
+
+      // A page is welcome to the app itself; it is the API that is guarded.
+      const page = await fetch(`${BASE}/`, { headers: { 'Sec-Fetch-Site': 'cross-site' } });
+      if (page.status === 200) ok('while the page itself is still served');
+      else fail('while the page itself is still served', { status: page.status });
     }
   } catch (error) {
     fail('unexpected', error);

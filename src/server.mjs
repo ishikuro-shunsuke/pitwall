@@ -583,10 +583,39 @@ async function serveStatic(req, res, pathname) {
   }
 }
 
+/**
+ * A page on some other site can reach this server: it is listening on a port
+ * any browser can name, and nothing about being on 0.0.0.0 or on loopback
+ * changes that. Without this, any site you happened to be reading could box a
+ * card, or tick a task off in Google, on your behalf.
+ *
+ * `Sec-Fetch-Site` is what tells them apart, because the browser sets it and a
+ * page cannot. It says `same-origin` for pitwall's own screen and `cross-site`
+ * for anyone else's, and it is missing entirely from a request no browser
+ * made — which is every hook, since those run on node's `fetch`. So the rule
+ * is to refuse only what a browser has admitted came from elsewhere.
+ *
+ * `none` is a person typing the address in, which nothing on a page can cause.
+ *
+ * This is not a lock. Anything that can open a socket to this port can still
+ * call the API; keeping strangers off it is what the address it binds to, and
+ * the network it binds on, are for.
+ */
+const OWN_FETCH_SITE = new Set(['same-origin', 'none']);
+
+function fromAnotherSite(req) {
+  const site = req.headers['sec-fetch-site'];
+  return typeof site === 'string' && !OWN_FETCH_SITE.has(site);
+}
+
 async function router(req, res) {
   const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`);
   const { pathname } = url;
   const method = req.method || 'GET';
+
+  if (pathname.startsWith('/api/') && fromAnotherSite(req)) {
+    return sendJson(res, 403, { error: 'cross-site request' });
+  }
 
   try {
     if (method === 'GET' && pathname === '/api/health') {
