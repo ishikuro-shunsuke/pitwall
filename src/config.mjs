@@ -92,7 +92,13 @@ export const config = {
   mail: {
     /** Gmail search syntax. Whatever this matches becomes a card, once. */
     query: process.env.PITWALL_MAIL_QUERY || 'in:inbox is:unread',
-    pollSeconds: num(process.env.PITWALL_MAIL_POLL_SECONDS, 120),
+    /**
+     * Shorter than the other two, because here it is the whole of the wait. A
+     * reminder and a due task have a moment of their own to fire at, and the
+     * poll only has to have found them by then; mail lands on the feed when
+     * the poll finds it and not before.
+     */
+    pollSeconds: num(process.env.PITWALL_MAIL_POLL_SECONDS, 30),
     /** A quiet hour that ends in a hundred cards is worse than a missed one. */
     maxPerPoll: num(process.env.PITWALL_MAIL_MAX_PER_POLL, 20),
   },

@@ -31,6 +31,7 @@ let seenDirty = false;
 let primed = false;
 let timer = null;
 let running = false;
+let nextPollAt = 0;
 let complained = null;
 
 function loadSeen() {
@@ -383,6 +384,7 @@ async function cycle() {
   }
   if (!running) return;
   timer = setTimeout(cycle, config.mail.pollSeconds * 1000);
+  nextPollAt = Date.now() + config.mail.pollSeconds * 1000;
   timer.unref?.();
 }
 
@@ -412,6 +414,7 @@ export function status() {
     linked: isLinked() && hasScope(SCOPE),
     primed,
     query: config.mail.query,
+    nextPollAt: running ? nextPollAt : null,
   };
 }
 

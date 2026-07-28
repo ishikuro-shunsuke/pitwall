@@ -109,7 +109,7 @@ Every task list is watched, and consent asks to edit them as well as read them â
 | `PITWALL_TODO_DUE_HOUR` | `9` | the hour a due task lands on |
 | `PITWALL_TODO_TIMEZONE` | your calendar's | which zone that hour is in |
 | `PITWALL_MAIL_QUERY` | `in:inbox is:unread` | Gmail search syntax; what becomes a card |
-| `PITWALL_MAIL_POLL_SECONDS` | `120` | how often Gmail is asked what is new |
+| `PITWALL_MAIL_POLL_SECONDS` | `30` | how often Gmail is asked what is new, which is also how long a new message waits |
 | `PITWALL_MAIL_MAX_PER_POLL` | `20` | most cards one poll may add |
 | `PITWALL_OAUTH_PORT` | any free port | where consent comes back |
 
