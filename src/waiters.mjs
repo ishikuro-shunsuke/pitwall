@@ -40,6 +40,7 @@ export function reserve(entryId, {
     deadlineMs: deadlineFor(createdAtMs, softHoldSeconds),
     resolution: null,
     settle: null,
+    abandon: null,
     onExpire,
     timer: null,
   };
@@ -77,8 +78,13 @@ function armTimer(entryId) {
  *   { action: 'reply', message }
  *   { action: 'dismiss' }
  *   { action: 'release', reason: 'expired' | 'detached' | ... }
+ *   { action: 'pending' }   — only when `pendingAfterMs` is set
+ *
+ * `pendingAfterMs` is for a caller that cannot hold one request open for the
+ * whole wait and will poll again. It gets the poll back with nothing decided,
+ * and the slot stays exactly as it was.
  */
-export function waitFor(entryId) {
+export function waitFor(entryId, { pendingAfterMs = 0 } = {}) {
   const slot = slots.get(entryId);
   if (!slot) return Promise.resolve({ action: 'release', reason: 'missing' });
   if (slot.resolution) {
@@ -88,14 +94,35 @@ export function waitFor(entryId) {
   }
 
   return new Promise((resolvePromise) => {
+    let pendingTimer = null;
     slot.settle = (resolution) => {
+      if (pendingTimer) clearTimeout(pendingTimer);
       if (slot.timer) clearTimeout(slot.timer);
       slot.settle = null;
+      slot.abandon = null;
       slots.delete(entryId);
       resolvePromise(resolution);
     };
+    // Hand the poll back without retiring the slot. The deadline stays armed, so
+    // the entry still expires on its own clock, and a reply that lands before
+    // the next poll is stashed rather than lost.
+    slot.abandon = () => {
+      if (pendingTimer) clearTimeout(pendingTimer);
+      slot.settle = null;
+      slot.abandon = null;
+      resolvePromise({ action: 'pending' });
+    };
+    if (pendingAfterMs > 0) {
+      pendingTimer = setTimeout(() => slot.abandon?.(), pendingAfterMs);
+      pendingTimer.unref?.();
+    }
     armTimer(entryId);
   });
+}
+
+/** The poll went away but is coming back. Opposite of `drop`. */
+export function unwait(entryId) {
+  slots.get(entryId)?.abandon?.();
 }
 
 /**

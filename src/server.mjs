@@ -301,12 +301,20 @@ async function handleWait(req, res) {
   });
 }
 
-async function handleResolve(req, res, params) {
+async function handleResolve(req, res, params, url) {
   const entry = store.get(params.id);
   if (!entry) {
     sendJson(res, 404, { error: 'not found' });
     return;
   }
+
+  // A caller that cannot hold one request open for the whole wait says so with
+  // `?hold=`, and gets the poll back undecided instead. Nothing about the entry
+  // moves: it is still waiting, on the same deadline, for the next poll.
+  const pendingSeconds = Math.min(
+    Math.max(Number(url.searchParams.get('hold')) || 0, 0),
+    config.holdSeconds,
+  );
 
   // The hold outlasts a silent response: node's fetch gives a reply five
   // minutes to start arriving and then drops the socket, which reads here as
@@ -321,8 +329,10 @@ async function handleResolve(req, res, params) {
   const heartbeat = setInterval(() => res.write(' '), 30_000);
   heartbeat.unref?.();
   res.on('close', () => clearInterval(heartbeat));
+  let closed = false;
   const finish = (body) => {
     clearInterval(heartbeat);
+    if (closed) return;
     res.end(JSON.stringify(body));
   };
 
@@ -331,7 +341,13 @@ async function handleResolve(req, res, params) {
   const onClose = () => {
     if (finished) return;
     finished = true;
+    closed = true;
     clearInterval(heartbeat);
+    // A `?hold=` caller that drops mid-poll is between polls, not gone.
+    if (pendingSeconds) {
+      waiters.unwait(entry.id);
+      return;
+    }
     if (entry.status === 'waiting' && waiters.isLive(entry.id)) {
       waiters.drop(entry.id);
       store.update(entry.id, {
@@ -343,9 +359,16 @@ async function handleResolve(req, res, params) {
   };
   req.on('close', onClose);
 
-  const resolution = await waiters.waitFor(entry.id);
+  const resolution = await waiters.waitFor(entry.id, {
+    pendingAfterMs: pendingSeconds * 1000,
+  });
   finished = true;
   req.off('close', onClose);
+
+  if (resolution?.action === 'pending') {
+    finish({ action: 'pending', id: entry.id });
+    return;
+  }
 
   if (!resolution || resolution.action === 'release') {
     const reason = resolution?.reason || 'expired';
@@ -841,7 +864,7 @@ async function router(req, res) {
     if ((method === 'HEAD' || method === 'GET') && params) return handleImageProbe(req, res, params);
 
     params = match(pathname, '/api/hooks/wait/:id/resolve');
-    if (method === 'GET' && params) return handleResolve(req, res, params);
+    if (method === 'GET' && params) return handleResolve(req, res, params, url);
 
     if (method === 'GET') return serveStatic(req, res, pathname);
 
