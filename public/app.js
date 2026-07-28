@@ -623,20 +623,22 @@ function holdChip(entry) {
 /**
  * What a card wants done about it, said in the one place worth looking for it:
  * the top of the action row, directly above the box you would type the answer
- * into. The cards whose answer is a keypress in the terminal have no box, and
- * their line lands in that same place rather than up among the labels.
+ * into. The cards answered back in the session have no box, and their line
+ * lands in that same place rather than up among the labels. Where the session
+ * is showing — a terminal, an editor panel — is not something this page knows,
+ * so the line names the action and leaves the window to you.
  */
-const TERMINAL_CUE = {
-  ask_user_question: 'answer the question',
-  exit_plan_mode: 'accept or reject the plan',
+const SESSION_CUE = {
+  ask_user_question: ['answer', 'the question'],
+  exit_plan_mode: ['approve', 'or reject the plan'],
 };
 
 function cueHtml(entry) {
   const hold = holdChip(entry);
   if (hold) return `<div class="cue">${hold}</div>`;
-  const cue = TERMINAL_CUE[entry.notificationType];
+  const cue = SESSION_CUE[entry.notificationType];
   if (!cue) return '';
-  return `<div class="cue"><span class="chip act">terminal</span><span>${cue}</span></div>`;
+  return `<div class="cue"><span class="chip act">${cue[0]}</span><span>${cue[1]} in the session, not from here</span></div>`;
 }
 
 /**
@@ -688,7 +690,7 @@ function actionsHtml(entry) {
 
 function cardHtml(entry) {
   const repo = entry.repo || {};
-  const branch = repo.branch ? `@${repo.branch}` : '';
+  const branch = repo.branch ? `<span class="branch">@${esc(repo.branch)}</span>` : '';
   const tones = repoTones(repo.key || repo.name);
   const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
   if (tones) {
@@ -704,8 +706,8 @@ function cardHtml(entry) {
     <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
       <div class="card-head">
         <div class="head-line">
+          <span class="repo">${esc(repo.name || 'unknown')}${branch}</span>
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
-          <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
           ${startsChip(entry)}
         </div>
