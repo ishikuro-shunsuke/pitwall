@@ -14,6 +14,7 @@ import { config, paths } from './config.mjs';
 import * as store from './store.mjs';
 import { buildEntry } from './normalize.mjs';
 import { apiGet, isLinked, NeedsLinkError } from './google-auth.mjs';
+import { zonedMidnight } from './zoned.mjs';
 
 const API = 'https://www.googleapis.com/calendar/v3';
 const SEEN_TTL_MS = 7 * 86_400_000;
@@ -66,33 +67,6 @@ async function saveSeen() {
 function markSeen(key) {
   seen.set(key, Date.now());
   seenDirty = true;
-}
-
-/**
- * Midnight on a calendar date, in the calendar's own zone. An all-day event
- * carries no clock time, and its reminders are counted back from the start of
- * that day where the calendar lives — not where this server happens to run.
- */
-function zonedMidnight(dateStr, timeZone) {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  const utcNoon = Date.UTC(y, m - 1, d, 12);
-  const offsetAt = (ms) => {
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone,
-      hour12: false,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).formatToParts(new Date(ms));
-    const p = Object.fromEntries(parts.map((x) => [x.type, Number(x.value)]));
-    return Date.UTC(p.year, p.month - 1, p.day, p.hour % 24, p.minute, p.second) - ms;
-  };
-  const guess = Date.UTC(y, m - 1, d) - offsetAt(utcNoon);
-  // A day that starts inside a DST shift lands an hour out on the first guess.
-  return Date.UTC(y, m - 1, d) - offsetAt(guess);
 }
 
 function boundaryMs(edge, timeZone) {
