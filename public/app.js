@@ -319,20 +319,6 @@ function taskChip(entry) {
   return `<span class="chip tasks">bg:${entry.backgroundTaskCount}</span>`;
 }
 
-/**
- * A question is a heading and a list of options, a plan is prose — the shape
- * any message can have — and they are the cards whose answer is not typed into
- * them. So each says which it is where the countdown would have been, in the
- * same dashes the page draws every other card there is nothing left to say to.
- */
-const DIALOG_LABEL = { ask_user_question: 'question', exit_plan_mode: 'plan' };
-
-function dialogChip(entry) {
-  const label = DIALOG_LABEL[entry.notificationType];
-  if (!label) return '';
-  return `<span class="chip closed" title="Answered in the terminal">${label}</span>`;
-}
-
 /** Coarser than a hold: nothing here is decided in the last thirty seconds. */
 function fmtLead(ms) {
   const m = Math.round(ms / 60_000);
@@ -626,18 +612,12 @@ function renderMarkdown(raw, entry) {
 }
 
 function holdChip(entry) {
-  if (entry.status === 'waiting') {
-    const remain = Math.max(0, (entry.holdUntil || 0) - nowMs());
-    let cls = 'hold';
-    if (remain < 20_000) cls += ' critical';
-    else if (remain < 45_000) cls += ' low';
-    return `<span class="chip ${cls}" data-hold="${esc(entry.id)}">hold ${fmtRemain(remain)}</span>`;
-  }
-  // The card is still on the feed with nobody left at the other end, so the
-  // chip that was counting down says so. Otherwise the missing reply box is the
-  // only sign, and a missing box reads as the page having failed to draw it.
-  if (entry.bucket !== 'timeline' || entry.status === 'notice') return '';
-  return `<span class="chip closed">${entry.status === 'detached' ? 'interrupted' : 'no radio'}</span>`;
+  if (entry.status !== 'waiting') return '';
+  const remain = Math.max(0, (entry.holdUntil || 0) - nowMs());
+  let cls = 'hold';
+  if (remain < 20_000) cls += ' critical';
+  else if (remain < 45_000) cls += ' low';
+  return `<span class="chip ${cls}" data-hold="${esc(entry.id)}">hold ${fmtRemain(remain)}</span>`;
 }
 
 /**
@@ -690,7 +670,6 @@ function actionsHtml(entry) {
 function cardHtml(entry) {
   const repo = entry.repo || {};
   const branch = repo.branch ? `@${repo.branch}` : '';
-  const dirty = repo.dirty ? ' • dirty' : '';
   const tones = repoTones(repo.key || repo.name);
   const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
   if (tones) {
@@ -707,9 +686,9 @@ function cardHtml(entry) {
       <div class="card-head">
         <div class="head-line">
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
-          <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}${esc(dirty)}</span>
+          <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
-          ${dialogChip(entry)}${startsChip(entry)}${holdChip(entry)}
+          ${startsChip(entry)}${holdChip(entry)}
         </div>
         <div class="chips">${taskChip(entry)}</div>
       </div>

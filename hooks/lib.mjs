@@ -241,14 +241,12 @@ export function detectRepo(cwdCandidates = []) {
     if (!root) continue;
     const branch = git(root, ['rev-parse', '--abbrev-ref', 'HEAD']);
     const remote = git(root, ['config', '--get', 'remote.origin.url']);
-    const status = git(root, ['status', '--porcelain']);
     return {
       key: root.replace(/\\/g, '/'),
       name: path.basename(root),
       root,
       branch: branch || null,
       remote: remote || null,
-      dirty: Boolean(status),
     };
   }
   const fallback = cwdCandidates.find(Boolean) || process.cwd();
@@ -258,7 +256,6 @@ export function detectRepo(cwdCandidates = []) {
     root: path.resolve(fallback),
     branch: null,
     remote: null,
-    dirty: false,
   };
 }
 

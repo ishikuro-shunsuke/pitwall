@@ -149,7 +149,7 @@ async function main() {
         status: 'completed',
         conversationId: conv,
         workspace_roots: [DATA],
-        repo: { root: DATA, name: 'smoke-repo', branch: 'main', dirty: false },
+        repo: { root: DATA, name: 'smoke-repo', branch: 'main' },
         host: { platform: 'linux', wslDistro: 'Ubuntu', cwd: DATA },
         model: {
           label: 'claude-opus-test',
@@ -252,7 +252,7 @@ async function main() {
         agent: 'cursor',
         status: 'completed',
         conversationId: conv,
-        repo: { root: DATA, name: 'smoke-repo', branch: 'main', dirty: false },
+        repo: { root: DATA, name: 'smoke-repo', branch: 'main' },
       });
       const id = created.data?.id;
       const resolveP = json('GET', `/api/hooks/wait/${id}/resolve`, null, { timeoutMs: 10_000 });

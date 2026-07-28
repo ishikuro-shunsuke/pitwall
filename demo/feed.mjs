@@ -189,7 +189,6 @@ const REPOS = [
     root: '/home/demo/src/pitwall',
     branch: 'main',
     remote: 'git@github.com:ishikuro-shunsuke/pitwall.git',
-    dirty: true,
   },
   {
     key: '/home/demo/src/telemetry-api',
@@ -197,7 +196,6 @@ const REPOS = [
     root: '/home/demo/src/telemetry-api',
     branch: 'feat/lap-deltas',
     remote: 'git@github.com:demo/telemetry-api.git',
-    dirty: false,
   },
   {
     key: '/workspaces/strategy-ui',
@@ -205,7 +203,6 @@ const REPOS = [
     root: '/workspaces/strategy-ui',
     branch: 'fix/pit-window',
     remote: 'https://github.com/demo/strategy-ui.git',
-    dirty: true,
   },
 ];
 

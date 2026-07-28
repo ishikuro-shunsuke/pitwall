@@ -23,7 +23,6 @@ function normalizeRepo(raw = {}) {
     root: root || null,
     branch: raw.branch || null,
     remote: raw.remote || null,
-    dirty: Boolean(raw.dirty),
   };
 }
 
