@@ -621,6 +621,25 @@ function holdChip(entry) {
 }
 
 /**
+ * What a card wants done about it, said in the one place worth looking for it:
+ * the top of the action row, directly above the box you would type the answer
+ * into. The cards whose answer is a keypress in the terminal have no box, and
+ * their line lands in that same place rather than up among the labels.
+ */
+const TERMINAL_CUE = {
+  ask_user_question: 'answer the question',
+  exit_plan_mode: 'accept or reject the plan',
+};
+
+function cueHtml(entry) {
+  const hold = holdChip(entry);
+  if (hold) return `<div class="cue">${hold}</div>`;
+  const cue = TERMINAL_CUE[entry.notificationType];
+  if (!cue) return '';
+  return `<div class="cue"><span class="chip act">terminal</span><span>${cue}</span></div>`;
+}
+
+/**
  * `id:act` for every button that has fired and is still waiting on the server.
  * Held here rather than on the element so a re-render mid-flight repaints it lit.
  */
@@ -664,7 +683,7 @@ function actionsHtml(entry) {
     trailer = `<p class="meta replied">replied: ${esc(entry.reply)}</p>`;
   }
 
-  return `<div class="card-actions">${composer}${parts.join('')}${trailer}</div>`;
+  return `<div class="card-actions">${cueHtml(entry)}${composer}${parts.join('')}${trailer}</div>`;
 }
 
 function cardHtml(entry) {
@@ -688,7 +707,7 @@ function cardHtml(entry) {
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta">${esc(repo.name || 'unknown')}${esc(branch)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
-          ${startsChip(entry)}${holdChip(entry)}
+          ${startsChip(entry)}
         </div>
         <div class="chips">${taskChip(entry)}</div>
       </div>

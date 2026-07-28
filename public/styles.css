@@ -246,6 +246,9 @@ main {
 /* The clock is not running any more, and the dashes are how the rest of the page
    draws something that is no longer live. */
 .chip.closed { border-style: dashed; color: var(--muted); }
+/* The answer is somewhere this page cannot take you, so the chip that says where
+   carries the colour a countdown reaches when it is nearly out of time. */
+.chip.act { border-color: var(--accent-soft); color: var(--accent-soft); }
 
 /* Alpha, so it lands over the card's own panel rather than replacing it. */
 .card-body { padding: 14px; background: var(--repo-wash, transparent); }
@@ -414,6 +417,17 @@ a.file-ref:hover {
 .quiet ~ .quiet { margin-left: 0; }
 /* Its own line, so it does not ride along to the end with them. */
 .card-actions .replied { width: 100%; margin: 8px 0 0; }
+/* The first line of the row and the width of it, so what the card wants sits
+   over the box you answer it in, or over the buttons when there is no box. */
+.cue {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
 
 .btn:hover { border-color: var(--muted); color: var(--text); background: var(--panel-2); }
 /* Hover washes the red button in the colour that a press then fills it with, so
