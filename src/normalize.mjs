@@ -69,13 +69,23 @@ function normalizeModel(raw = {}) {
  * thousand characters per description and the card is there to be glanced at.
  */
 const TASK_CHARS = 60;
+const CUT = '...';
+
+function taskLine(raw) {
+  const full = String(raw?.description || '').trim();
+  if (!full) return '';
+  const head = full.split('\n')[0].trim();
+  const line = head.length > TASK_CHARS
+    ? head.slice(0, TASK_CHARS - CUT.length).trimEnd()
+    : head;
+  // Anything dropped — the rest of a long line, or the lines under the first —
+  // is dropped where it can be seen to have been.
+  return line === full ? line : line + CUT;
+}
 
 function taskLines(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw
-    .map((t) => String(t?.description || '').split('\n')[0].trim())
-    .filter(Boolean)
-    .map((s) => (s.length > TASK_CHARS ? `${s.slice(0, TASK_CHARS - 1).trimEnd()}…` : s));
+  return raw.map(taskLine).filter(Boolean);
 }
 
 const ID_PREFIX = { cursor: 'cu', claude: 'cl', calendar: 'ca' };
