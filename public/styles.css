@@ -127,17 +127,15 @@ a { color: var(--accent); }
 /* The number is the part you read, so it is set in the figures the rest of the
    app counts in and at the weight of the title across from it. */
 .tally-count { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
-/* Narrow enough that the three of them stop fitting, the wordmark is what goes:
-   you know which page you have open, and a figure with nothing left naming it
-   is not a count of anything. The flag stays, so the corner keeps the app. */
-@media (max-width: 560px) {
-  .brand h1 { display: none; }
-}
-
 /* The end of the title's line, at every width — a column of their own.
    Pulled out by the padding the buttons hold for the pointer, so the strokes
    end on the same edge as the cards below rather than short of it. */
-.actions { display: flex; justify-self: end; align-items: center; gap: 12px; margin-right: -4px; }
+.bar-end { display: flex; justify-self: end; align-items: center; margin-right: -4px; }
+.actions { display: flex; align-items: center; gap: 12px; }
+/* The words each glyph goes by. They are for the menu, where four icons in a
+   column with nothing naming them is a puzzle; in the row across the top the
+   glyphs have the whole bar to themselves and the titles say the rest. */
+.btn-label { display: none; }
 /* Lucide's 24px geometry, drawn the size of the title it sits beside. */
 .icon {
   display: block;
@@ -168,6 +166,37 @@ a { color: var(--accent); }
 .icon-btn[aria-pressed="true"] {
   color: var(--bg);
   background: var(--text);
+}
+/* After the button it is one of, so that display is this rule's to set. */
+.menu-btn { display: none; }
+
+/* Narrow enough that a row of four buttons starts taking the width off the
+   count, they fold behind one and come down under the bar when it is pressed.
+   The wordmark stays: the buttons were what the middle of the bar was competing
+   with, and they are a single glyph now.
+
+   Words appear with the fold. Four icons in a column with nothing naming them
+   is a puzzle; in the row across the top they have the bar to themselves and
+   the titles say the rest. */
+@media (max-width: 560px) {
+  .menu-btn { display: flex; }
+  .btn-label { display: inline; }
+  .actions {
+    position: absolute;
+    top: 100%;
+    right: 16px;
+    z-index: 30;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 4px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+  }
+  .actions:not(.open) { display: none; }
+  /* Wider than the glyph and deep enough for a thumb, so the whole line answers
+     rather than the 16px in the corner of it. */
+  .actions .icon-btn { gap: 10px; padding: 12px; font-size: 13px; }
 }
 
 /* The stint, across the head of the page: the one thing here that is about the

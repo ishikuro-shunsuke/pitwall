@@ -25,6 +25,9 @@ const el = {
   lightboxImg: document.getElementById('lightbox-img'),
   lightboxCap: document.getElementById('lightbox-cap'),
   lightboxRaw: document.getElementById('lightbox-raw'),
+  menu: document.getElementById('menu'),
+  actions: document.getElementById('actions'),
+  historyLabel: document.getElementById('history-label'),
   tally: document.getElementById('tally'),
   tallyCount: document.getElementById('tally-count'),
   themeToggle: document.getElementById('theme-toggle'),
@@ -69,8 +72,11 @@ const ICON = {
 function paintThemeToggle() {
   const theme = currentTheme();
   const label = `switch to ${theme === 'dark' ? 'light' : 'dark'} theme`;
+  // The label is rebuilt with the glyph, so the menu says which way the switch
+  // goes rather than carrying the word the button was drawn with once.
   el.themeToggle.innerHTML =
-    `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${theme === 'dark' ? ICON.moon : ICON.sun}</svg>`;
+    `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true">${theme === 'dark' ? ICON.moon : ICON.sun}</svg>`
+    + `<span class="btn-label">${theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>`;
   el.themeToggle.title = label;
   el.themeToggle.setAttribute('aria-label', label);
 }
@@ -100,11 +106,49 @@ function setView(view) {
   // The icon says neither, so the name has to carry where the button leads.
   el.history.title = view === 'archive' ? 'back to the timeline' : 'past entries';
   el.history.setAttribute('aria-label', el.history.title);
+  el.historyLabel.textContent = view === 'archive' ? 'Back to the timeline' : 'Past entries';
   resetPaging();
   refresh();
 }
 
 el.history.addEventListener('click', () => setView(otherView()));
+
+/**
+ * Narrow enough and the four buttons fold behind one, which drops them under
+ * the bar when it is pressed. Nothing here knows the width: the panel is the
+ * same row of buttons either way, and the class only says whether it is down —
+ * above the breakpoint the row is never hidden and the class means nothing.
+ */
+function menuOpen() {
+  return el.actions.classList.contains('open');
+}
+
+function openMenu() {
+  el.actions.classList.add('open');
+  el.menu.setAttribute('aria-expanded', 'true');
+}
+
+function closeMenu() {
+  if (!menuOpen()) return;
+  el.actions.classList.remove('open');
+  el.menu.setAttribute('aria-expanded', 'false');
+}
+
+el.menu.addEventListener('click', () => (menuOpen() ? closeMenu() : openMenu()));
+
+// Whatever you pressed is what the menu was open for. The theme is no exception:
+// the page behind it changes colour as you watch, so the menu has nothing left
+// to say.
+el.actions.addEventListener('click', closeMenu);
+
+// Anywhere else on the page puts it away, the same as the panels — down rather
+// than up, so a menu cannot swallow the click that was meant for a card.
+document.addEventListener('pointerdown', (e) => {
+  if (menuOpen() && !e.target.closest('.bar-end')) closeMenu();
+});
+
+// Back at a width that carries the row, there is nothing left to be open.
+matchMedia('(max-width: 560px)').addEventListener('change', closeMenu);
 
 /**
  * An empty feed with the server running looks the same as one whose hooks were
@@ -467,6 +511,11 @@ document.addEventListener('keydown', (e) => {
     }
     if (!el.lightbox.classList.contains('hidden')) {
       closeLightbox();
+      return;
+    }
+    if (menuOpen()) {
+      closeMenu();
+      el.menu.focus();
       return;
     }
     // The × on the button is the way back, and this is the same door.
