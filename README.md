@@ -2,7 +2,7 @@
 
 One timeline for every coding agent that is waiting on you.
 
-Cursor and Claude Code stop and wait for your input in windows you are not looking at. pitwall collects those moments into a single timeline in your browser, and delivers your reply back into the same chat or session. Link a Google account and your calendar reminders arrive on the same timeline. Everything runs on your machine, with no dependencies beyond Node.js.
+Cursor and Claude Code stop and wait for your input in windows you are not looking at. pitwall collects those moments into a single timeline in your browser, and delivers your reply back into the same chat or session. Link a Google account and your calendar reminders and due tasks arrive on the same timeline. Everything runs on your machine, with no dependencies beyond Node.js.
 
 https://github.com/user-attachments/assets/942aed4a-8fb7-4f03-b8a2-f58dd02ed616
 
@@ -61,11 +61,11 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 
 A question Claude asks mid-session arrives as a card too, with its options, and so does a plan waiting to be accepted. Those are answered back in the session; the card is there so you know what is being asked.
 
-## Google Calendar
+## Google Calendar and Tasks
 
-A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. There is nothing to reply to; **Box** clears it.
+A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. A task arrives on the morning it is due, and again every morning until it is ticked off in Google. There is nothing to reply to; **Box** clears either.
 
-First, in [Google Cloud Console](https://console.cloud.google.com/): enable the Google Calendar API, create an OAuth client of type **Desktop app**, and add your own address under **Audience → Test users**. Save the JSON it offers you as `data/google-client.json`, or pass the same pair as `PITWALL_GOOGLE_CLIENT_ID` and `PITWALL_GOOGLE_CLIENT_SECRET`.
+First, in [Google Cloud Console](https://console.cloud.google.com/): enable the Google Calendar API and the Google Tasks API, create an OAuth client of type **Desktop app**, and add your own address under **Audience → Test users**. Save the JSON it offers you as `data/google-client.json`, or pass the same pair as `PITWALL_GOOGLE_CLIENT_ID` and `PITWALL_GOOGLE_CLIENT_SECRET`.
 
 Then link the account once:
 
@@ -73,11 +73,15 @@ Then link the account once:
 npm run link-google
 ```
 
-Approving in the browser writes a refresh token to `data/google-token.json`, and reminders already delivered are tracked in `data/calendar-seen.json`. `npm run link-google -- --unlink` deletes both; revoking pitwall at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) is a separate step. The server picks the link up on its next poll, without a restart.
+Approving in the browser writes a refresh token to `data/google-token.json`, and what has already been delivered is tracked in `data/calendar-seen.json` and `data/todo-seen.json`. `npm run link-google -- --unlink` deletes all three; revoking pitwall at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) is a separate step. The server picks the link up on its next poll, without a restart.
+
+A link made before pitwall asked for Tasks covers the calendar only, and the log says so until `npm run link-google -- --force` replaces it.
 
 Consent comes back to a loopback port, which a browser outside the container cannot reach — running the server in a devcontainer, set `PITWALL_OAUTH_PORT` to a port you have forwarded.
 
 Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here. A reminder whose moment passed while the server was down is dropped rather than delivered late.
+
+Every task list is watched. A time of day set on a task is not readable through Google's API, so cards land at 09:00 instead — `PITWALL_TODO_DUE_HOUR` moves that. Everything already overdue arrives on the first morning after you link, and a morning that passed with the server down arrives when it comes back up.
 
 ## Configuration
 
@@ -92,6 +96,10 @@ Every calendar ticked in Google Calendar's own sidebar is watched, and the remin
 | `PITWALL_CALENDAR_IDS` | every ticked calendar | comma-separated ids, or `primary` |
 | `PITWALL_CALENDAR_POLL_SECONDS` | `120` | how often Google is asked what changed |
 | `PITWALL_CALENDAR_STALE_MINUTES` | `20` | how late a missed reminder may still arrive |
+| `PITWALL_TODO_LISTS` | every list | comma-separated task list ids |
+| `PITWALL_TODO_POLL_SECONDS` | `300` | how often Google is asked what changed |
+| `PITWALL_TODO_DUE_HOUR` | `9` | the hour a due task lands on |
+| `PITWALL_TODO_TIMEZONE` | your calendar's | which zone that hour is in |
 | `PITWALL_OAUTH_PORT` | any free port | where consent comes back |
 
 ## What it puts on your machine
@@ -121,5 +129,5 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/clea
 
 ```bash
 npm run dev    # --watch
-npm test       # end-to-end smoke test, installer test, calendar against a stubbed Google
+npm test       # end-to-end smoke test, installer test, calendar and tasks against a stubbed Google
 ```

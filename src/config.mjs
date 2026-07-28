@@ -10,6 +10,12 @@ function num(value, fallback) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
+/** Like `num`, but midnight is a real answer and 24 is not. */
+function hourOfDay(value, fallback) {
+  const parsed = Math.trunc(Number(value));
+  return value !== '' && Number.isFinite(parsed) && parsed >= 0 && parsed <= 23 ? parsed : fallback;
+}
+
 export const config = {
   host: process.env.PITWALL_HOST || '127.0.0.1',
   port: num(process.env.PITWALL_PORT, 4477),
@@ -64,6 +70,24 @@ export const config = {
      */
     staleMinutes: num(process.env.PITWALL_CALENDAR_STALE_MINUTES, 20),
   },
+
+  /** Google Tasks. Called todo here, so a card's badge is not the word the
+   * chips under it already use for an agent's own background work. */
+  todo: {
+    /** Empty means every list in Google Tasks. */
+    listIds: (process.env.PITWALL_TODO_LISTS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    pollSeconds: num(process.env.PITWALL_TODO_POLL_SECONDS, 300),
+    /**
+     * The hour a card lands on. Tasks carries no time of day — the API drops
+     * it — so there is no moment to inherit and this is the whole of it.
+     */
+    dueHour: hourOfDay(process.env.PITWALL_TODO_DUE_HOUR ?? '', 9),
+    /** Overrides the zone recorded when the account was linked. */
+    timeZone: process.env.PITWALL_TODO_TIMEZONE || '',
+  },
 };
 
 /**
@@ -83,6 +107,7 @@ export const paths = {
   googleClient: path.join(config.dataDir, 'google-client.json'),
   googleToken: path.join(config.dataDir, 'google-token.json'),
   calendarSeen: path.join(config.dataDir, 'calendar-seen.json'),
+  todoSeen: path.join(config.dataDir, 'todo-seen.json'),
   public: path.join(ROOT, 'public'),
   deeplink: path.join(ROOT, 'src', 'deeplink.mjs'),
 };

@@ -13,7 +13,7 @@
   --topbar-bg: light-dark(oklch(97% 0 0 / 0.94), oklch(15% 0 0 / 0.94));
 
   /* Colours that only say which thing this is — the repo hues from script, and
-     the two agent badges — share one lightness and one chroma, so hue is the
+     the agent badges — share one lightness and one chroma, so hue is the
      only thing that changes between them and no project's card outweighs
      another's. Set per theme rather than through light-dark(), which browsers
      only reliably take for whole colours. */
@@ -23,6 +23,7 @@
   --brand-cursor: oklch(var(--tone-l) var(--tone-c) 280);
   --brand-claude: oklch(var(--tone-l) var(--tone-c) 65);
   --brand-calendar: oklch(var(--tone-l) var(--tone-c) 155);
+  --brand-todo: oklch(var(--tone-l) var(--tone-c) 320);
 
   /* Red is the only colour in here that means anything: something is waiting,
      something is running out, or you are on the button that acts. It carries
@@ -222,6 +223,7 @@ main {
 .badge.cursor { background: var(--brand-cursor); border-color: var(--brand-cursor); color: var(--on-accent); }
 .badge.claude { background: var(--brand-claude); border-color: var(--brand-claude); color: var(--on-accent); }
 .badge.calendar { background: var(--brand-calendar); border-color: var(--brand-calendar); color: var(--on-accent); }
+.badge.todo { background: var(--brand-todo); border-color: var(--brand-todo); color: var(--on-accent); }
 
 /* Which project a card came out of is how you know whether it is yours to deal
    with, so it opens the card at the size of the title below it and in the

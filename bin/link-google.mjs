@@ -14,6 +14,7 @@ fs.mkdirSync(config.dataDir, { recursive: true });
 if (args.has('--unlink')) {
   fs.rmSync(paths.googleToken, { force: true });
   fs.rmSync(paths.calendarSeen, { force: true });
+  fs.rmSync(paths.todoSeen, { force: true });
   console.log('unlinked. Also revoke pitwall at https://myaccount.google.com/permissions');
   process.exit(0);
 }

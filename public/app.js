@@ -365,6 +365,20 @@ function startsChip(entry) {
   return `<span class="${leadClass(remain)}" data-starts="${esc(entry.id)}">${fmtLead(remain)}</span>`;
 }
 
+/**
+ * A task has a due date and no hour, so there is nothing to count down to. How
+ * far past its date it has got is the one thing worth the space, and it takes
+ * the same reddening run as a meeting closing in.
+ */
+function dueChip(entry) {
+  const todo = entry.todo;
+  if (!todo) return '';
+  const late = todo.overdueDays || 0;
+  if (!late) return '<span class="chip hold">due today</span>';
+  const cls = late >= 7 ? 'chip hold critical' : 'chip hold low';
+  return `<span class="${cls}">${late}d overdue</span>`;
+}
+
 function imagesHtml(entry) {
   if (!entry.images?.length) return '';
   const parts = entry.images.map((img) => {
@@ -726,7 +740,7 @@ function cardHtml(entry) {
           <span class="repo">${esc(repo.name || 'unknown')}${branch}</span>
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
-          ${startsChip(entry)}
+          ${startsChip(entry)}${dueChip(entry)}
         </div>
         <div class="chips">${taskChip(entry)}</div>
       </div>
