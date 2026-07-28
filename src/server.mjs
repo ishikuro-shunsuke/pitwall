@@ -9,6 +9,7 @@ import * as store from './store.mjs';
 import * as waiters from './waiters.mjs';
 import * as calendar from './calendar.mjs';
 import * as todo from './todo.mjs';
+import * as mail from './mail.mjs';
 import { buildEntry, publicEntry } from './normalize.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
@@ -594,6 +595,7 @@ async function router(req, res) {
         waiting: store.list().filter((e) => e.status === 'waiting').length,
         calendar: calendar.status(),
         todo: todo.status(),
+        mail: mail.status(),
         time: Date.now(),
       });
     }
@@ -653,6 +655,7 @@ export function startServer() {
 
   calendar.start();
   todo.start();
+  mail.start();
 
   const shutdown = () => {
     console.log('[pitwall] shutting down…');
@@ -661,6 +664,7 @@ export function startServer() {
     }
     calendar.stop();
     todo.stop();
+    mail.stop();
     store.shutdown();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 1500).unref?.();

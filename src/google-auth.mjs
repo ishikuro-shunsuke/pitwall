@@ -17,6 +17,7 @@ export const SCOPES = [
   // Not the read-only one: a card can tick its task off, and Google has no
   // narrower grant for that than the whole of Tasks.
   'https://www.googleapis.com/auth/tasks',
+  'https://www.googleapis.com/auth/gmail.readonly',
 ];
 export const SCOPE = SCOPES.join(' ');
 

@@ -88,11 +88,11 @@ function taskLines(raw) {
   return raw.map(taskLine).filter(Boolean);
 }
 
-const ID_PREFIX = { cursor: 'cu', claude: 'cl', calendar: 'ca', todo: 'td' };
+const ID_PREFIX = { cursor: 'cu', claude: 'cl', calendar: 'ca', todo: 'td', mail: 'ma' };
 
 /**
  * Build a unified timeline entry from a hook payload.
- * `agent` is 'cursor' | 'claude' | 'calendar' | 'todo'.
+ * `agent` is 'cursor' | 'claude' | 'calendar' | 'todo' | 'mail'.
  * `kind` is 'wait' | 'notice'.
  */
 export function buildEntry({

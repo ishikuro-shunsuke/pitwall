@@ -88,6 +88,14 @@ export const config = {
     /** Overrides the zone recorded when the account was linked. */
     timeZone: process.env.PITWALL_TODO_TIMEZONE || '',
   },
+
+  mail: {
+    /** Gmail search syntax. Whatever this matches becomes a card, once. */
+    query: process.env.PITWALL_MAIL_QUERY || 'in:inbox is:unread',
+    pollSeconds: num(process.env.PITWALL_MAIL_POLL_SECONDS, 120),
+    /** A quiet hour that ends in a hundred cards is worse than a missed one. */
+    maxPerPoll: num(process.env.PITWALL_MAIL_MAX_PER_POLL, 20),
+  },
 };
 
 /**
@@ -108,6 +116,7 @@ export const paths = {
   googleToken: path.join(config.dataDir, 'google-token.json'),
   calendarSeen: path.join(config.dataDir, 'calendar-seen.json'),
   todoSeen: path.join(config.dataDir, 'todo-seen.json'),
+  mailSeen: path.join(config.dataDir, 'mail-seen.json'),
   public: path.join(ROOT, 'public'),
   deeplink: path.join(ROOT, 'src', 'deeplink.mjs'),
 };

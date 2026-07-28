@@ -24,6 +24,7 @@
   --brand-claude: oklch(var(--tone-l) var(--tone-c) 65);
   --brand-calendar: oklch(var(--tone-l) var(--tone-c) 155);
   --brand-todo: oklch(var(--tone-l) var(--tone-c) 320);
+  --brand-mail: oklch(var(--tone-l) var(--tone-c) 215);
 
   /* Red is the only colour in here that means anything: something is waiting,
      something is running out, or you are on the button that acts. It carries
@@ -224,6 +225,7 @@ main {
 .badge.claude { background: var(--brand-claude); border-color: var(--brand-claude); color: var(--on-accent); }
 .badge.calendar { background: var(--brand-calendar); border-color: var(--brand-calendar); color: var(--on-accent); }
 .badge.todo { background: var(--brand-todo); border-color: var(--brand-todo); color: var(--on-accent); }
+.badge.mail { background: var(--brand-mail); border-color: var(--brand-mail); color: var(--on-accent); }
 
 /* Which project a card came out of is how you know whether it is yours to deal
    with, so it opens the card at the size of the title below it and in the
