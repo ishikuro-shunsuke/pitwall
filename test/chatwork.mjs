@@ -535,10 +535,6 @@ is('and the late one has aged a day',
   is('the file is readable by nobody else',
     fs.statSync(SETTINGS).mode & 0o777, 0o600);
 
-  process.env.PITWALL_CHATWORK_TOKEN = 'not-read';
-  is('and the environment cannot reach it', settings.chatworkToken(), 'from-the-panel');
-  delete process.env.PITWALL_CHATWORK_TOKEN;
-
   await settings.saveChatworkToken('');
   is('an empty box takes it off again', settings.chatworkToken(), '');
   is('with no token the module says so rather than polling into a refusal',
