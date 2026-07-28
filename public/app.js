@@ -52,6 +52,9 @@ const el = {
   stintGo: document.getElementById('stint-go'),
   stintFill: document.getElementById('stint-fill'),
   stintToggle: document.getElementById('stint-toggle'),
+  stintTally: document.getElementById('stint-tally'),
+  stintCount: document.getElementById('stint-count'),
+  stintUnit: document.getElementById('stint-unit'),
   pits: document.getElementById('pits'),
 };
 
@@ -419,6 +422,7 @@ function settleStint() {
   if (!stint) return;
   const was = stint.phase;
   if (stint.phase === 'stint' && Date.now() >= stint.until) {
+    countStint(stint.until);
     stint = { phase: 'pit', until: stint.until + PIT_MS };
   }
   // The mark stays where the stop ended rather than being cleared: standing at
@@ -447,8 +451,61 @@ function inThePits() {
   return Boolean(stint) && stint.phase !== 'stint';
 }
 
+/**
+ * Stints run today, up beside the cards you cleared: both are the same day's
+ * work, read off the same line. Only a stint that went the whole 25 minutes is
+ * one of them — the clock switched off halfway through is a stint you did not
+ * run, and there is nothing to be had from a number that says otherwise.
+ *
+ * Kept by the day it belongs to and by the stint it last counted, which is that
+ * stint's own deadline. Two tabs watching one clock both reach the turn and
+ * both go to count it, and they are looking at one stint between them.
+ */
+function dayKey() {
+  const at = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}`;
+}
+
+/** Today's, or nought — yesterday's count is not a day's work you can add to. */
+function readStints() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('pitwall.stints') || 'null');
+    if (saved?.day === dayKey()) {
+      return { count: Number(saved.count) || 0, last: Number(saved.last) || 0 };
+    }
+  } catch { /* ignore */ }
+  return { count: 0, last: 0 };
+}
+
+function countStint(ended) {
+  const done = readStints();
+  if (done.last === ended) return;
+  try {
+    localStorage.setItem('pitwall.stints', JSON.stringify({
+      day: dayKey(), count: done.count + 1, last: ended,
+    }));
+  } catch { /* ignore */ }
+}
+
+/**
+ * Off the file every second rather than off a number held here, so a stint
+ * counted in another tab is on this one's bar a second later.
+ *
+ * It stands at nought while the clock is on, the way the count beside it stands
+ * at nought all morning. With the clock off it is only there while it has
+ * something to say, so a page nobody runs stints on is not told it ran none.
+ */
+function paintStintTally() {
+  const { count } = readStints();
+  el.stintTally.classList.toggle('hidden', !stint && count === 0);
+  el.stintCount.textContent = String(count);
+  el.stintUnit.textContent = count === 1 ? 'stint' : 'stints';
+}
+
 function paintStint() {
   settleStint();
+  paintStintTally();
   el.stint.classList.toggle('hidden', !stint);
   el.pits.classList.toggle('hidden', !inThePits());
   document.body.classList.toggle('in-the-pits', inThePits());

@@ -116,6 +116,9 @@ a { color: var(--accent); }
    off the bar until you have earned it is a tally you cannot start the morning
    reading, and an empty middle looks like the thing has broken. */
 .tally {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
   justify-self: center;
   margin: 0;
   white-space: nowrap;
@@ -124,6 +127,10 @@ a { color: var(--accent); }
   text-transform: uppercase;
   color: var(--muted);
 }
+/* The dot hangs off the count in front of it rather than the one behind, so it
+   leaves the bar with a count that has nothing to say yet instead of standing
+   there leading the one that stayed. */
+.tally-part:not(:last-child)::after { content: '·'; margin-left: 10px; }
 /* The number is the part you read, so it is set in the figures the rest of the
    app counts in and at the weight of the title across from it. */
 .tally-count { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text); }
@@ -180,6 +187,10 @@ a { color: var(--accent); }
    the titles say the rest. */
 @media (max-width: 560px) {
   .brand h1 { display: none; }
+  /* Two counts and a phone: rather than push the bar off the side of the
+     screen, the one in front drops onto a line of its own. Neither of them
+     gives up the words that say what it is counting. */
+  .tally { flex-wrap: wrap; justify-content: center; }
   .menu-btn { display: flex; }
   .btn-label { display: inline; }
   .actions {
