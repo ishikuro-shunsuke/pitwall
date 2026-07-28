@@ -3,6 +3,7 @@
  * Chatwork → timeline entries, against a stubbed Chatwork.
  * Never touches the network, and never reads a real token.
  */
+import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -149,7 +150,11 @@ globalThis.fetch = async (input, init = {}) => {
   if (url.origin !== 'https://api.chatwork.com') {
     return new Response(JSON.stringify({ errors: [`unstubbed ${url.href}`] }), { status: 500 });
   }
-  tokensSeen.add(new Headers(init.headers).get('X-ChatWorkToken'));
+  const token = new Headers(init.headers).get('X-ChatWorkToken');
+  tokensSeen.add(token);
+  if (token === 'nope') {
+    return new Response(JSON.stringify({ errors: ['Invalid API token'] }), { status: 401 });
+  }
   const route = url.pathname.replace(/^\/v2/, '');
 
   if (route === '/me') return reply({ account_id: ME, name: 'You' });
@@ -520,6 +525,42 @@ is('and the late one has aged a day',
     threw = error.name;
   }
   is('a poll made anyway stops at the token', threw, 'NeedsTokenError');
+  config.chatwork.token = 'test-token';
+}
+
+// --- the token the panel writes ----------------------------------------------
+
+{
+  const { config } = await import('../src/config.mjs');
+  const api = await import('../src/chatwork-api.mjs');
+  const settings = await import('../src/settings.mjs');
+
+  const who = await api.verify('test-token');
+  is('a token Chatwork takes says whose it is', who.name, 'You');
+  let refused = null;
+  try {
+    await api.verify('nope');
+  } catch (error) {
+    refused = error.name;
+  }
+  is('and one it will not take says so at once', refused, 'NeedsTokenError');
+
+  config.chatwork.token = '';
+  await settings.saveChatworkToken('from-the-panel');
+  is('a token typed into the panel is the one that is used',
+    settings.chatworkToken(), 'from-the-panel');
+  is('the file is readable by nobody else',
+    fs.statSync(path.join(DATA, 'settings.json')).mode & 0o777, 0o600);
+
+  config.chatwork.token = 'from-the-environment';
+  is('and the environment has the last word over it',
+    settings.chatworkToken(), 'from-the-environment');
+  is('which the panel is told, so it does not offer to change it',
+    settings.chatworkFromEnv(), true);
+
+  config.chatwork.token = '';
+  await settings.saveChatworkToken('');
+  is('an empty box takes it off again', settings.chatworkToken(), '');
   config.chatwork.token = 'test-token';
 }
 

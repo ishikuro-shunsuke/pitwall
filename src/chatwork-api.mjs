@@ -1,17 +1,18 @@
 /**
  * Chatwork, on one API token.
  *
- * There is no consent screen to run and nothing kept on disk: a token issued
- * from the account's own settings page sits in the environment and every call
- * carries it. So it never goes stale by itself — it is either there or it is
- * not, and when Chatwork stops taking it the only fix is a new one.
+ * There is no consent screen to run: a token issued from the account's own
+ * settings page is the whole of it, whether it comes from the environment or
+ * from the settings panel. So it never goes stale by itself — it is either
+ * there or it is not, and when Chatwork stops taking it the only fix is a new
+ * one.
  *
  * Everything is form-encoded, which is what the API takes; JSON bodies are
  * refused. Three hundred calls in five minutes is the whole allowance, shared
  * across everything below, which is why a poll asks `/rooms` what is loud
  * before it asks any room what was said.
  */
-import { config } from './config.mjs';
+import * as settings from './settings.mjs';
 
 const API = 'https://api.chatwork.com/v2';
 
@@ -24,7 +25,7 @@ export class NeedsTokenError extends Error {
 }
 
 export function hasToken() {
-  return Boolean(config.chatwork.token);
+  return Boolean(settings.chatworkToken());
 }
 
 async function failure(res) {
@@ -49,8 +50,8 @@ async function failure(res) {
   return error;
 }
 
-async function call(method, path, { query, form } = {}) {
-  const token = config.chatwork.token;
+async function call(method, path, { query, form, token: given } = {}) {
+  const token = given || settings.chatworkToken();
   if (!token) throw new NeedsTokenError('no Chatwork token');
 
   const url = new URL(API + path);
@@ -85,20 +86,37 @@ export function put(path, form, query) {
   return call('PUT', path, { form, query });
 }
 
-/** Held for the life of the process: the token is fixed, so whose it is, is too. */
+/** Held until the token changes: while it is the same token it is the same account. */
 let self = null;
 
-export async function me() {
-  if (self) return self;
-  const data = await get('/me');
-  self = {
+function account(data) {
+  return {
     accountId: String(data?.account_id ?? ''),
     name: data?.name || 'you',
   };
+}
+
+export async function me() {
+  if (self) return self;
+  self = account(await get('/me'));
   return self;
 }
 
-/** Forget the account, so a test can hand the next call a different one. */
+/** Whose token it is, if that has already been asked. Never asks. */
+export function knownAccount() {
+  return self;
+}
+
+/**
+ * Whether Chatwork will take a token, before anything is saved against it.
+ * A token that is refused is worth saying so at the moment it is pasted rather
+ * than in a log line a minute later.
+ */
+export async function verify(token) {
+  return account(await call('GET', '/me', { token }));
+}
+
+/** Forget the account, so the next call asks again for whoever the token is now. */
 export function reset() {
   self = null;
 }

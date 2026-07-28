@@ -30,6 +30,17 @@ const el = {
   helpModal: document.getElementById('help-modal'),
   helpClose: document.getElementById('help-close'),
   helpUrl: document.getElementById('help-url'),
+  settings: document.getElementById('settings'),
+  settingsModal: document.getElementById('settings-modal'),
+  settingsClose: document.getElementById('settings-close'),
+  cwState: document.getElementById('cw-state'),
+  cwToken: document.getElementById('cw-token'),
+  cwSave: document.getElementById('cw-save'),
+  gState: document.getElementById('g-state'),
+  gId: document.getElementById('g-id'),
+  gSecret: document.getElementById('g-secret'),
+  gSave: document.getElementById('g-save'),
+  gLink: document.getElementById('g-link'),
 };
 
 const systemTheme = window.matchMedia('(prefers-color-scheme: light)');
@@ -139,6 +150,169 @@ el.helpModal.addEventListener('click', async (e) => {
   }
 });
 
+/**
+ * The settings panel.
+ *
+ * Everything here can be set on the command line instead, and where it has
+ * been, the panel says so and stops offering to change it — a field that
+ * writes a value the environment then overrules is a field that lies.
+ *
+ * No secret ever comes back from the server, so the boxes start empty however
+ * much is already set, and what is set is said in words above them.
+ */
+function settingsOpen() {
+  return !el.settingsModal.classList.contains('hidden');
+}
+
+function openSettings() {
+  el.settingsModal.classList.remove('hidden');
+  el.settingsClose.focus();
+  loadSettings();
+}
+
+function closeSettings() {
+  if (!settingsOpen()) return;
+  el.settingsModal.classList.add('hidden');
+  stopWatchingLink();
+  el.settings.focus();
+}
+
+el.settings.addEventListener('click', () => (settingsOpen() ? closeSettings() : openSettings()));
+el.settingsClose.addEventListener('click', closeSettings);
+el.settingsModal.addEventListener('click', (e) => {
+  if (e.target === el.settingsModal) closeSettings();
+});
+
+function fmtLinkedAt(iso) {
+  const at = Date.parse(iso || '');
+  if (!Number.isFinite(at)) return '';
+  return ` on ${new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short' }).format(at)}`;
+}
+
+function paintSettings(data) {
+  const cw = data.chatwork || {};
+  el.cwState.textContent = cw.fromEnv
+    ? 'set in the environment'
+    : cw.set
+      ? `connected${cw.account ? ` as ${cw.account}` : ''}`
+      : 'no token yet';
+  el.cwState.classList.toggle('on', Boolean(cw.set));
+  // Whoever starts the server has already decided this one.
+  el.cwToken.disabled = cw.fromEnv;
+  el.cwSave.disabled = cw.fromEnv;
+
+  const g = data.google || {};
+  const client = g.clientFromEnv ? 'client set in the environment' : g.client ? 'client saved' : 'no client yet';
+  el.gState.textContent = g.linked
+    ? `linked${g.account ? ` as ${g.account}` : ''}${fmtLinkedAt(g.linkedAt)}`
+    : g.linking
+      ? `${client} · waiting for the consent screen`
+      : g.linkError
+        ? `${client} · ${g.linkError}`
+        : client;
+  el.gState.classList.toggle('on', Boolean(g.linked));
+  el.gId.disabled = g.clientFromEnv;
+  el.gSecret.disabled = g.clientFromEnv;
+  el.gSave.disabled = g.clientFromEnv;
+  el.gLink.disabled = !g.client;
+  el.gLink.textContent = g.linked ? 'Link a different account' : 'Link a Google account';
+}
+
+async function loadSettings() {
+  try {
+    paintSettings(await fetch('/api/settings').then((r) => r.json()));
+  } catch (err) {
+    el.cwState.textContent = err.message || String(err);
+  }
+}
+
+/** Lights the button it was fired from for as long as the server is thinking. */
+async function saving(btn, run) {
+  btn.disabled = true;
+  btn.classList.add('firing');
+  try {
+    paintSettings(await run());
+  } catch (err) {
+    alert(err.message || String(err));
+  } finally {
+    btn.classList.remove('firing');
+    btn.disabled = false;
+    // Whether it stays pressable is the panel's own answer, not this one's.
+    loadSettings();
+  }
+}
+
+/** A pasted token is finished with when you let go of it. */
+for (const [field, button] of [[el.cwToken, el.cwSave], [el.gId, el.gSave], [el.gSecret, el.gSave]]) {
+  field.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    button.click();
+  });
+}
+
+el.cwSave.addEventListener('click', () => saving(el.cwSave, async () => {
+  const data = await api('/api/settings/chatwork', { token: el.cwToken.value });
+  el.cwToken.value = '';
+  return data;
+}));
+
+el.gSave.addEventListener('click', () => saving(el.gSave, async () => {
+  const data = await api('/api/settings/google', {
+    clientId: el.gId.value,
+    clientSecret: el.gSecret.value,
+  });
+  el.gSecret.value = '';
+  return data;
+}));
+
+/**
+ * The tab is opened on the click itself and pointed at Google once the server
+ * says where — opened any later, a browser takes it for a popup and blocks it.
+ */
+el.gLink.addEventListener('click', async () => {
+  const tab = window.open('', '_blank');
+  try {
+    const { url } = await api('/api/settings/google/link');
+    if (tab) tab.location = url;
+    else window.location.href = url;
+    watchLink();
+  } catch (err) {
+    tab?.close();
+    alert(err.message || String(err));
+  }
+});
+
+/**
+ * Consent lands on a loopback listener rather than on the page that started it,
+ * so the only way to hear about it is to keep asking. Gives up on the same five
+ * minutes the listener does.
+ */
+let linkWatch = null;
+
+function stopWatchingLink() {
+  if (linkWatch) clearInterval(linkWatch);
+  linkWatch = null;
+}
+
+function watchLink() {
+  stopWatchingLink();
+  const until = Date.now() + 5 * 60_000;
+  linkWatch = setInterval(async () => {
+    if (Date.now() > until || !settingsOpen()) {
+      stopWatchingLink();
+      return;
+    }
+    try {
+      const data = await fetch('/api/settings').then((r) => r.json());
+      paintSettings(data);
+      if (!data.google?.linking) stopWatchingLink();
+    } catch {
+      /* the server will be back, and the next tick will find it */
+    }
+  }, 2000);
+}
+
 const lightbox = { items: [], index: 0 };
 
 document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
@@ -150,6 +324,10 @@ el.lightboxImg.addEventListener('load', paintLightboxCap);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     // Topmost first: whatever is over the page is what Escape is aimed at.
+    if (settingsOpen()) {
+      closeSettings();
+      return;
+    }
     if (helpOpen()) {
       closeHelp();
       return;
@@ -1333,7 +1511,7 @@ document.addEventListener('keydown', (e) => {
   if (e.key !== 'b' && e.key !== 'B') return;
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   if (typingInto(e.target)) return;
-  if (!el.lightbox.classList.contains('hidden') || helpOpen()) return;
+  if (!el.lightbox.classList.contains('hidden') || helpOpen() || settingsOpen()) return;
   if (!sharpId) return;
   // The button is the whole rule for whether a card can be boxed, so ask it
   // rather than repeating the statuses it is drawn for.

@@ -69,21 +69,17 @@ A task arrives on the morning it is due, and again every morning after that. **C
 
 Mail arrives as a card you can answer. **Radio in** sends the reply through Gmail, in the same thread, and archives the message; **Box** archives it without answering. Both only take it out of the inbox — nothing is deleted, and nothing is marked read.
 
-First, in [Google Cloud Console](https://console.cloud.google.com/): enable the Google Calendar API, the Google Tasks API and the Gmail API, create an OAuth client of type **Desktop app**, and add your own address under **Audience → Test users**. Save the JSON it offers you as `data/google-client.json`, or pass the same pair as `PITWALL_GOOGLE_CLIENT_ID` and `PITWALL_GOOGLE_CLIENT_SECRET`.
+First, in [Google Cloud Console](https://console.cloud.google.com/): enable the Google Calendar API, the Google Tasks API and the Gmail API, create an OAuth client of type **Desktop app**, and add your own address under **Audience → Test users**.
 
-Then link the account once:
+Then open the gear in the top right, paste the client id and secret it gives you, and press **Link a Google account**. Approving in the tab that opens is the whole of it — the panel says who you linked as once it has gone through. `npm run link-google` does the same from a terminal, and `npm run link-google -- --unlink` is still the way back out.
 
-```bash
-npm run link-google
-```
-
-Approving in the browser writes a refresh token to `data/google-token.json`, and what has already been delivered is tracked in `data/calendar-seen.json`, `data/todo-seen.json` and `data/mail-seen.json`. `npm run link-google -- --unlink` deletes all four; revoking pitwall at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) is a separate step. The server picks the link up on its next poll, without a restart.
+The pair is saved to `data/google-client.json` and the refresh token to `data/google-token.json`, both readable only by you; what has already been delivered is tracked in `data/calendar-seen.json`, `data/todo-seen.json` and `data/mail-seen.json`. Unlinking deletes four of those five; revoking pitwall at [myaccount.google.com/permissions](https://myaccount.google.com/permissions) is a separate step. The server picks a new link up on its next poll, without a restart.
 
 A link made before pitwall asked for a service does not cover it, and the log says which one until `npm run link-google -- --force` replaces the grant.
 
 **The link goes stale about weekly.** An OAuth client whose publishing status is **Testing** is issued refresh tokens that expire after seven days, so roughly once a week the log asks you to link again. Moving the client to **In production** removes that, but Gmail's read scope is one Google classes as restricted, and publishing with it means going through verification and a security assessment first.
 
-Consent comes back to a loopback port, which a browser outside the container cannot reach — running the server in a devcontainer, set `PITWALL_OAUTH_PORT` to a port you have forwarded.
+Consent comes back to a loopback port on the machine the server runs on, so link from a browser on that machine. Where the server is in a devcontainer, set `PITWALL_OAUTH_PORT` to a port you have forwarded.
 
 Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here. A reminder whose moment passed while the server was down is dropped rather than delivered late.
 
@@ -97,19 +93,17 @@ A message with your name on it arrives as a card you can answer — a mention, a
 
 A task assigned to you arrives on the morning it is due, and again every morning it stays open. **Chequered** ticks it off in Chatwork; **Box** files the card away and leaves the task open.
 
-Issue a token from your own account — your name, top right, then **Service Integration → API Token** — and start the server with it:
+Issue a token from your own account — your name, top right in Chatwork, then **Service Integration → API Token** — and paste it into the gear in the top right of pitwall. It is checked against Chatwork before it is saved, so a token that will not work says so there and then, and cards start arriving on the next poll. `PITWALL_CHATWORK_TOKEN` does the same from the command line.
 
-```bash
-PITWALL_CHATWORK_TOKEN=… npm start
-```
-
-On a business plan, an administrator has to approve API use for the organisation before a token will work.
+On a business plan, an administrator has to approve API use for the organisation before any token will work.
 
 Nothing pitwall reads moves the unread badge; only the buttons on a card do. The first poll after the token arrives cards nothing — whatever is already waiting is a backlog rather than news — and what has been delivered since is tracked in `data/chatwork-seen.json` and `data/chatwork-task-seen.json`.
 
 A deadline is a moment, and which day it falls on depends on where you are. Chatwork's API does not say where the account is, so it is read in this machine's zone unless `PITWALL_CHATWORK_TIMEZONE` says otherwise.
 
 ## Configuration
+
+Anything set here wins over the same thing set in the gear, which then says where the value came from instead of offering to change it.
 
 | Variable | Default | |
 | --- | --- | --- |
@@ -130,7 +124,7 @@ A deadline is a moment, and which day it falls on depends on where you are. Chat
 | `PITWALL_MAIL_POLL_SECONDS` | `60` | how often Gmail is asked what is new, which is also how long a new message waits |
 | `PITWALL_MAIL_MAX_PER_POLL` | `20` | most cards one poll may add |
 | `PITWALL_OAUTH_PORT` | any free port | where consent comes back |
-| `PITWALL_CHATWORK_TOKEN` | none | without it, no Chatwork card arrives |
+| `PITWALL_CHATWORK_TOKEN` | none | the gear takes the same token |
 | `PITWALL_CHATWORK_ROOMS` | every chat | comma-separated room ids |
 | `PITWALL_CHATWORK_POLL_SECONDS` | `60` | how often Chatwork is asked what is new, which is also how long a message waits |
 | `PITWALL_CHATWORK_MAX_PER_POLL` | `20` | most cards one poll may add |
@@ -147,7 +141,8 @@ A deadline is a moment, and which day it falls on depends on where you are. Chat
 | `~/.claude/settings.json` | `Stop`, `Notification`, `PreToolUse` and `PermissionRequest` entries |
 | `<config>.bak.<timestamp>` | a backup of each file before it is edited |
 | `./data` | the timeline itself |
-| `./data/google-token.json` | the Google refresh token, readable only by you |
+| `./data/settings.json` | what the gear was given, readable only by you |
+| `./data/google-client.json`, `./data/google-token.json` | the OAuth client and its refresh token, readable only by you |
 
 ## Uninstall
 

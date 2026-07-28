@@ -58,6 +58,11 @@ function startServer() {
         PITWALL_DATA: DATA,
         PITWALL_HOLD_SECONDS: '3',
         PITWALL_MAX_HOLD_SECONDS: '30',
+        // Blanked rather than inherited: whoever runs this suite may have their
+        // own services set up, and the settings panel is tested from nothing.
+        PITWALL_CHATWORK_TOKEN: '',
+        PITWALL_GOOGLE_CLIENT_ID: '',
+        PITWALL_GOOGLE_CLIENT_SECRET: '',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
@@ -705,6 +710,64 @@ async function main() {
       const page = await fetch(`${BASE}/`, { headers: { 'Sec-Fetch-Site': 'cross-site' } });
       if (page.status === 200) ok('while the page itself is still served');
       else fail('while the page itself is still served', { status: page.status });
+    }
+
+    // the settings panel
+    {
+      const { data } = await json('GET', '/api/settings');
+      if (data.chatwork?.set === false && data.google?.linked === false) ok('nothing is set to begin with');
+      else fail('nothing is set to begin with', JSON.stringify(data));
+
+      const early = await json('POST', '/api/settings/google/link');
+      if (early.status === 400) ok('there is nothing to link with before a client is saved');
+      else fail('there is nothing to link with before a client is saved', JSON.stringify(early.data));
+
+      const secret = 'not-in-the-response';
+      const saved = await json('POST', '/api/settings/google', {
+        clientId: 'client-1.apps.googleusercontent.com',
+        clientSecret: secret,
+      });
+      if (saved.status === 200 && saved.data.google?.client === true) ok('a client saved from the panel is picked up');
+      else fail('a client saved from the panel is picked up', JSON.stringify(saved.data));
+
+      const back = await json('GET', '/api/settings');
+      if (!JSON.stringify(back.data).includes(secret)) ok('and the secret it saved never comes back to the page');
+      else fail('and the secret it saved never comes back to the page', 'the secret was in the response');
+
+      const file = path.join(DATA, 'google-client.json');
+      const onDisk = JSON.parse(fs.readFileSync(file, 'utf8'));
+      if (onDisk.installed?.client_secret === secret) ok('it lands in the file the link already reads');
+      else fail('it lands in the file the link already reads', JSON.stringify(onDisk));
+
+      const mode = fs.statSync(file).mode & 0o777;
+      if (mode === 0o600) ok('readable by nobody else');
+      else fail('readable by nobody else', mode.toString(8));
+
+      const half = await json('POST', '/api/settings/google', { clientId: 'on its own' });
+      if (half.status === 400) ok('half a client is refused');
+      else fail('half a client is refused', JSON.stringify(half.data));
+
+      // What the link failed over before a client was saved was the missing
+      // client, and saying so over a client that is now there reads as a new
+      // failure rather than an old one.
+      const stale = await json('GET', '/api/settings');
+      if (stale.data.google?.linkError === null) ok('and saving a client clears what the last attempt said');
+      else fail('and saving a client clears what the last attempt said', stale.data.google?.linkError);
+
+      // Clearing asks Chatwork nothing; setting one would have to, so it is not
+      // done here.
+      const cleared = await json('POST', '/api/settings/chatwork', { token: '' });
+      if (cleared.status === 200 && cleared.data.chatwork?.set === false) ok('an empty token box takes the token off');
+      else fail('an empty token box takes the token off', JSON.stringify(cleared.data));
+
+      const link = await json('POST', '/api/settings/google/link');
+      if (link.status === 200 && /^https:\/\/accounts\.google\.com\//.test(link.data.url || '')) {
+        ok('and the panel is handed somewhere to send the browser');
+      } else fail('and the panel is handed somewhere to send the browser', JSON.stringify(link.data));
+
+      const waiting = await json('GET', '/api/settings');
+      if (waiting.data.google?.linking === true) ok('while consent is out, the panel is told to wait');
+      else fail('while consent is out, the panel is told to wait', JSON.stringify(waiting.data.google));
     }
   } catch (error) {
     fail('unexpected', error);

@@ -83,6 +83,11 @@ export function linkedAccount() {
   return readToken()?.account || null;
 }
 
+/** When the grant on disk was made. A Testing client's lasts about a week. */
+export function linkedAt() {
+  return readToken()?.linkedAt || null;
+}
+
 /**
  * Whether the saved grant covers something. A link made before a scope was
  * added keeps working for everything it already had, and the part that is new
@@ -368,3 +373,50 @@ export async function authorize({ onUrl = openBrowser } = {}) {
 }
 
 export { openBrowser };
+
+/**
+ * The consent run the settings panel started, if there is one.
+ *
+ * `authorize` hands its address out before it starts waiting, so the panel can
+ * be given somewhere to send you while the run carries on behind it. What
+ * happens after that reaches nobody — the tab that approves it lands on the
+ * loopback listener, not on the page that opened it — so the outcome is kept
+ * here for the panel to come back and read.
+ */
+let consent = null;
+
+export function startConsent() {
+  if (consent && !consent.settled) return consent.url;
+
+  const record = { settled: false, error: null, account: null };
+  record.url = new Promise((resolve, reject) => {
+    authorize({ onUrl: resolve })
+      .then(({ account }) => {
+        record.settled = true;
+        record.account = account;
+      })
+      .catch((error) => {
+        record.settled = true;
+        record.error = error.message;
+        // Only lands anywhere when it failed before there was an address to
+        // send you to — a missing client, or a port that will not open.
+        reject(error);
+      });
+  });
+  consent = record;
+  return record.url;
+}
+
+export function consentStatus() {
+  if (!consent) return null;
+  return { running: !consent.settled, error: consent.error, account: consent.account };
+}
+
+/**
+ * Drop what the last run said. Called when the client is replaced: whatever it
+ * failed over is not the client that is there now, and an error left standing
+ * describes a setup that no longer exists.
+ */
+export function forgetConsent() {
+  if (consent?.settled !== false) consent = null;
+}

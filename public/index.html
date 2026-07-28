@@ -31,6 +31,13 @@
           <path d="M3 3v5h5" /><path d="M12 7v5l4 2" />
         </svg>
       </button>
+      <button type="button" class="icon-btn" id="settings"
+              title="services" aria-label="services">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      </button>
       <button type="button" class="icon-btn" id="help"
               title="hooks and keys" aria-label="hooks and keys">
         <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -88,6 +95,46 @@
           <dt><kbd>B</kbd></dt>
           <dd>Box the card in focus — the sharp one</dd>
         </dl>
+      </div>
+    </div>
+  </div>
+
+  <div id="settings-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+    <div class="modal-panel">
+      <div class="modal-head">
+        <h2 id="settings-title">Services</h2>
+        <button type="button" class="modal-close" id="settings-close" aria-label="close">×</button>
+      </div>
+      <div class="modal-body">
+        <h3>Chatwork</h3>
+        <p class="state" id="cw-state">…</p>
+        <div class="field">
+          <input type="password" id="cw-token" autocomplete="off" spellcheck="false"
+                 placeholder="API token" aria-label="Chatwork API token" />
+          <button type="button" class="btn primary" id="cw-save">Save</button>
+        </div>
+        <p class="note">Your name, top right in Chatwork, then <strong>Service Integration → API Token</strong>.
+          Saving an empty box takes the token off again.</p>
+
+        <h3>Google</h3>
+        <p class="state" id="g-state">…</p>
+        <div class="field">
+          <input type="text" id="g-id" autocomplete="off" spellcheck="false"
+                 placeholder="OAuth client id" aria-label="Google OAuth client id" />
+        </div>
+        <div class="field">
+          <input type="password" id="g-secret" autocomplete="off" spellcheck="false"
+                 placeholder="client secret" aria-label="Google OAuth client secret" />
+          <button type="button" class="btn primary" id="g-save">Save</button>
+        </div>
+        <div class="field">
+          <button type="button" class="btn" id="g-link">Link a Google account</button>
+        </div>
+        <p class="note">Enable the Calendar, Tasks and Gmail APIs in
+          <a href="https://console.cloud.google.com/" target="_blank" rel="noopener noreferrer">Google Cloud Console</a>,
+          create a client of type <strong>Desktop app</strong>, and add your own address under
+          <strong>Audience → Test users</strong>. Consent comes back to the machine the server runs on,
+          so link from a browser on that machine.</p>
       </div>
     </div>
   </div>

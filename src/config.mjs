@@ -140,6 +140,7 @@ export const paths = {
   entries: path.join(config.dataDir, 'entries.json'),
   images: path.join(config.dataDir, 'images'),
   responses: path.join(config.dataDir, 'responses'),
+  settings: path.join(config.dataDir, 'settings.json'),
   googleClient: path.join(config.dataDir, 'google-client.json'),
   googleToken: path.join(config.dataDir, 'google-token.json'),
   calendarSeen: path.join(config.dataDir, 'calendar-seen.json'),

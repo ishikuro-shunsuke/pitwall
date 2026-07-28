@@ -12,6 +12,9 @@ import * as todo from './todo.mjs';
 import * as mail from './mail.mjs';
 import * as chatwork from './chatwork.mjs';
 import * as chatworkTask from './chatwork-task.mjs';
+import * as chatworkApi from './chatwork-api.mjs';
+import * as settings from './settings.mjs';
+import * as google from './google-auth.mjs';
 import { buildEntry, publicEntry } from './normalize.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
@@ -605,6 +608,81 @@ async function handleCompleteTask(req, res, params) {
   sendJson(res, 200, { ok: true });
 }
 
+/**
+ * What the settings panel is allowed to know.
+ *
+ * Whether a secret is set, never what it is: this page is served to anything
+ * that can reach the port, and a token typed in on one machine must not be
+ * readable from the next. A value that came from the environment is named as
+ * such, because the panel cannot change that one and should not pretend to.
+ */
+function settingsState() {
+  const linking = google.consentStatus();
+  return {
+    chatwork: {
+      set: chatworkApi.hasToken(),
+      fromEnv: settings.chatworkFromEnv(),
+      account: chatworkApi.knownAccount()?.name || null,
+    },
+    google: {
+      client: Boolean(google.readClient()),
+      clientFromEnv: settings.googleClientFromEnv(),
+      linked: google.isLinked(),
+      account: google.linkedAccount(),
+      linkedAt: google.linkedAt(),
+      linking: linking?.running ? true : false,
+      linkError: linking?.error || null,
+    },
+  };
+}
+
+async function handleSaveChatwork(req, res) {
+  const body = await readBody(req);
+  const token = String(body.token || '').trim();
+  if (token) {
+    // Said now, at the moment it is pasted, rather than in a log line a minute
+    // later that nobody has the panel open to see.
+    try {
+      await chatworkApi.verify(token);
+    } catch (error) {
+      return sendJson(res, 400, { error: `Chatwork would not take that token: ${error.message}` });
+    }
+  }
+  await settings.saveChatworkToken(token);
+  // The account behind the old token is not the account behind this one.
+  chatworkApi.reset();
+  if (token) await chatworkApi.me().catch(() => {});
+  sendJson(res, 200, { ok: true, ...settingsState() });
+}
+
+async function handleSaveGoogleClient(req, res) {
+  const body = await readBody(req);
+  try {
+    await settings.saveGoogleClient({
+      clientId: body.clientId ?? body.client_id,
+      clientSecret: body.clientSecret ?? body.client_secret,
+    });
+  } catch (error) {
+    return sendJson(res, 400, { error: error.message });
+  }
+  google.forgetConsent();
+  sendJson(res, 200, { ok: true, ...settingsState() });
+}
+
+/**
+ * Start consent and hand back where to send the browser. The run carries on
+ * here while the tab is away at Google, and the panel comes back to
+ * `/api/settings` to find out how it went.
+ */
+async function handleGoogleLink(_req, res) {
+  try {
+    const url = await google.startConsent();
+    sendJson(res, 200, { ok: true, url });
+  } catch (error) {
+    sendJson(res, 400, { error: error.message });
+  }
+}
+
 function handleSse(req, res) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -719,6 +797,19 @@ async function router(req, res) {
         chatworkTasks: chatworkTask.status(),
         time: Date.now(),
       });
+    }
+
+    if (method === 'GET' && pathname === '/api/settings') {
+      return sendJson(res, 200, settingsState());
+    }
+    if (method === 'POST' && pathname === '/api/settings/chatwork') {
+      return handleSaveChatwork(req, res);
+    }
+    if (method === 'POST' && pathname === '/api/settings/google') {
+      return handleSaveGoogleClient(req, res);
+    }
+    if (method === 'POST' && pathname === '/api/settings/google/link') {
+      return handleGoogleLink(req, res);
     }
 
     if (method === 'GET' && pathname === '/api/events') return handleSse(req, res);
