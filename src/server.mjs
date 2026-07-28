@@ -405,6 +405,31 @@ async function handleGetEntry(_req, res, params) {
 async function handleReply(req, res, params) {
   const entry = store.get(params.id);
   if (!entry) return sendJson(res, 404, { error: 'not found' });
+
+  // A mail card answers a person, not a hook, so there is no waiter to hand
+  // the text to — it goes out through Gmail and the card is done.
+  if (entry.mail) {
+    if (entry.status !== 'notice') {
+      return sendJson(res, 409, { error: 'already boxed', status: entry.status });
+    }
+    const body = await readBody(req);
+    const message = String(body.message || '').trim();
+    if (!message) return sendJson(res, 400, { error: 'message required' });
+    try {
+      await mail.replyAndArchive(entry.mail, message);
+    } catch (error) {
+      // The card stays: nothing has left the inbox, so it is still yours.
+      return sendJson(res, 502, { error: `could not send through Gmail: ${error.message}` });
+    }
+    store.update(params.id, {
+      status: 'dismissed',
+      resolvedAt: new Date().toISOString(),
+      resolution: 'replied',
+      reply: message,
+    });
+    return sendJson(res, 200, { ok: true });
+  }
+
   if (entry.status !== 'waiting') {
     return sendJson(res, 409, { error: 'not waiting', status: entry.status });
   }
@@ -440,6 +465,22 @@ async function handleDismiss(req, res, params) {
         resolution: ok ? 'dismiss' : 'dismiss-offline',
       });
     }
+    return sendJson(res, 200, { ok: true });
+  }
+  // Box on a mail card is the archive button. Every other card it only files
+  // away here; this one it files away in Gmail too, which is what stops the
+  // message matching the query and arriving all over again.
+  if (entry.mail && entry.status === 'notice') {
+    try {
+      await mail.archive(entry.mail);
+    } catch (error) {
+      return sendJson(res, 502, { error: `could not archive in Gmail: ${error.message}` });
+    }
+    store.update(params.id, {
+      status: 'dismissed',
+      resolvedAt: new Date().toISOString(),
+      resolution: 'archived',
+    });
     return sendJson(res, 200, { ok: true });
   }
   // A notice was never a question, and a card whose window has closed can no

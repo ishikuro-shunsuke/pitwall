@@ -17,7 +17,9 @@ export const SCOPES = [
   // Not the read-only one: a card can tick its task off, and Google has no
   // narrower grant for that than the whole of Tasks.
   'https://www.googleapis.com/auth/tasks',
-  'https://www.googleapis.com/auth/gmail.readonly',
+  // Not the read-only one: a card replies and archives. Google has no scope
+  // that reads and moves mail without also being able to send it.
+  'https://www.googleapis.com/auth/gmail.modify',
 ];
 export const SCOPE = SCOPES.join(' ');
 
@@ -200,6 +202,14 @@ export function apiGet(url) {
 export function apiPatch(url, body) {
   return api(url, {
     method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
+export function apiPost(url, body) {
+  return api(url, {
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });

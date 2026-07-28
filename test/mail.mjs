@@ -17,7 +17,7 @@ process.env.PITWALL_MAIL_MAX_PER_POLL = '2';
 const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
   'https://www.googleapis.com/auth/tasks',
-  'https://www.googleapis.com/auth/gmail.readonly',
+  'https://www.googleapis.com/auth/gmail.modify',
 ].join(' ');
 const TOKEN = path.join(DATA, 'google-token.json');
 const writeToken = (extra) => fs.writeFileSync(TOKEN, JSON.stringify({
@@ -50,6 +50,7 @@ const message = ({ id, from, subject, to = 'me@example.com', cc, text, html, par
     { name: 'From', value: from },
     { name: 'Subject', value: subject },
     { name: 'To', value: to },
+    { name: 'Message-ID', value: `<${id}@example.com>` },
   ];
   if (cc) headers.push({ name: 'Cc', value: cc });
   let payload;
@@ -77,6 +78,8 @@ let mailbox = [
 let tokenCalls = 0;
 const queries = [];
 const fetched = [];
+const sent = [];
+const modified = [];
 
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === 'string' ? input : input.toString());
@@ -95,6 +98,21 @@ globalThis.fetch = async (input, init = {}) => {
     queries.push(url.searchParams.get('q'));
     return reply({ messages: mailbox.map((m) => ({ id: m.id, threadId: m.threadId })) });
   }
+  if (url.pathname.endsWith('/users/me/messages/send') && init.method === 'POST') {
+    const body = JSON.parse(init.body);
+    sent.push({ ...body, mime: Buffer.from(body.raw, 'base64url').toString('utf8') });
+    return reply({ id: 'sent-1', threadId: body.threadId });
+  }
+  const mod = url.pathname.match(/\/users\/me\/messages\/([^/]+)\/modify$/);
+  if (mod && init.method === 'POST') {
+    const id = decodeURIComponent(mod[1]);
+    modified.push({ id, ...JSON.parse(init.body) });
+    // Gmail stops matching `in:inbox` once the label is off, and so does the
+    // stub, or nothing here proves the archive reached it.
+    mailbox = mailbox.filter((m) => m.id !== id);
+    return reply({ id });
+  }
+
   const one = url.pathname.match(/\/users\/me\/messages\/([^/]+)$/);
   if (one) {
     const id = decodeURIComponent(one[1]);
@@ -229,14 +247,79 @@ await internals.poll();
 is('what was already said survives a restart', cards().length, settled);
 is('and a restart does not re-prime the mailbox', internals.isPrimed(), true);
 
+// --- writing a reply ---------------------------------------------------------
+
+is('a subject already answered is not answered twice',
+  internals.replySubject('Re: brakes'), 'Re: brakes');
+is('and one that was not, is', internals.replySubject('brakes'), 'Re: brakes');
+is('an ascii header is left alone', internals.encodeWord('Re: brakes'), 'Re: brakes');
+{
+  const subject = 'セクタータイムの件について、確認したいことがいくつかあります';
+  const enc = internals.encodeWord(subject);
+  const back = enc.split(/\r\n /)
+    .map((w) => Buffer.from(w.replace(/^=\?UTF-8\?B\?|\?=$/g, ''), 'base64').toString('utf8'))
+    .join('');
+  is('a header in Japanese survives the encoding', back, subject);
+  is('and no encoded word runs past the 75 RFC 2047 allows',
+    enc.split(/\r\n /).every((w) => w.length <= 75), true);
+}
+
+{
+  const mail = await import('../src/mail.mjs');
+  const card = byTitle('Pit window');
+
+  await mail.replyAndArchive(card.mail, '了解です。\nラップ32で。');
+
+  is('the reply is sent once', sent.length, 1);
+  const mime = sent[0]?.mime || '';
+  const has = (needle) => mime.includes(needle);
+  is('it goes to whoever wrote', has('To: ren@example.com'), true);
+  is('it is sent as the linked account', has('From: me@example.com'), true);
+  is('it answers the subject, unencoded where it can be', has('Subject: Re: Pit window'), true);
+  is('it lands under the message it answers', has('In-Reply-To: <m6@example.com>'), true);
+  is('and stays in the same thread', sent[0]?.threadId, 't-m6');
+  is('the body is utf-8', has('charset="UTF-8"'), true);
+  {
+    const body = mime.split('\r\n\r\n')[1] || '';
+    is('and says what was typed',
+      Buffer.from(body.replace(/\r\n/g, ''), 'base64').toString('utf8'), '了解です。\nラップ32で。');
+  }
+
+  is('answering also takes it out of the inbox', modified.length, 1);
+  is('by dropping the one label', JSON.stringify(modified[0]?.removeLabelIds), '["INBOX"]');
+  is('and nothing is deleted', modified[0]?.addLabelIds, undefined);
+}
+
+// --- archiving without a reply -----------------------------------------------
+
+{
+  const mail = await import('../src/mail.mjs');
+  mailbox = [
+    message({ id: 'm7', from: 'Kai <kai@example.com>', subject: 'Brakes', text: 'Ready.', when: 9000 }),
+    ...mailbox,
+  ];
+  await internals.poll();
+  const card = byTitle('Brakes');
+  if (!card) fail('the mail to archive is on the timeline', 'no card');
+
+  const wrote = sent.length;
+  await mail.archive(card.mail);
+  is('archiving writes no mail', sent.length, wrote);
+  is('but does take it out of the inbox', modified.at(-1)?.id, 'm7');
+
+  const before = cards().length;
+  await internals.poll();
+  is('and an archived message does not come round again', cards().length, before);
+}
+
 // --- a link made before Gmail was asked for ----------------------------------
 
 {
   const auth = await import('../src/google-auth.mjs');
-  is('consent asks for gmail, read only', auth.SCOPE.includes('/auth/gmail.readonly'), true);
-  is('and never asks to send', auth.SCOPE.includes('/auth/gmail.send'), false);
+  is('consent asks to read and move mail', auth.SCOPE.includes('/auth/gmail.modify'), true);
+  is('and never asks for the one that can delete outright', auth.SCOPE.includes('https://mail.google.com/'), false);
   is('a grant that covers gmail is recognised',
-    auth.hasScope('https://www.googleapis.com/auth/gmail.readonly'), true);
+    auth.hasScope('https://www.googleapis.com/auth/gmail.modify'), true);
 
   writeToken({ scope: 'https://www.googleapis.com/auth/calendar.readonly' });
   const mail = await import('../src/mail.mjs');

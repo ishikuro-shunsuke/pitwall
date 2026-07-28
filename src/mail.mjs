@@ -7,19 +7,20 @@
  * the first poll after linking stays quiet — an inbox that has been filling up
  * since before pitwall existed is a backlog, not news.
  *
- * Reading only. A card carries no reply box, and Box takes it off the feed
- * without touching the mailbox.
+ * A card can answer and it can archive. Both take the message out of the
+ * inbox, which is the same thing that takes it out of the query, so neither
+ * comes round again.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { config, paths } from './config.mjs';
 import * as store from './store.mjs';
 import { buildEntry } from './normalize.mjs';
-import { apiGet, isLinked, hasScope, linkedAccount, NeedsLinkError } from './google-auth.mjs';
+import { apiGet, apiPost, isLinked, hasScope, linkedAccount, NeedsLinkError } from './google-auth.mjs';
 import { plainText } from './html-text.mjs';
 
 const API = 'https://gmail.googleapis.com/gmail/v1';
-const SCOPE = 'https://www.googleapis.com/auth/gmail.readonly';
+const SCOPE = 'https://www.googleapis.com/auth/gmail.modify';
 const SEEN_TTL_MS = 30 * 86_400_000;
 
 /** Message ids already turned into a card. */
@@ -214,10 +215,95 @@ function entryFor(message, self) {
     messageId: message.id,
     threadId: message.threadId || null,
     from: from.email,
+    // Where an answer goes. A list or a ticketing system says so in a header,
+    // and answering the From address instead reaches a mailbox nobody reads.
+    replyTo: address(header(message, 'Reply-To') || header(message, 'From')).email,
     subject: header(message, 'Subject').trim() || null,
+    // What makes an answer land under the question rather than beside it.
+    rfcMessageId: header(message, 'Message-ID') || null,
+    references: header(message, 'References') || null,
     receivedMs,
   };
   return entry;
+}
+
+/**
+ * A header value that is not plain ASCII, as RFC 2047 wants it. An encoded
+ * word may not run past 75 characters, so a long subject becomes several,
+ * folded onto continuation lines — and the split falls between characters,
+ * since half of a multi-byte one decodes to nothing.
+ */
+function encodeWord(text) {
+  const value = String(text || '');
+  if (/^[\x20-\x7E]*$/.test(value)) return value;
+  const words = [];
+  let chunk = [];
+  let size = 0;
+  for (const ch of value) {
+    const bytes = Buffer.from(ch, 'utf8');
+    // 45 bytes encode to 60 characters, which leaves room for the wrapper.
+    if (size + bytes.length > 45) {
+      words.push(Buffer.concat(chunk).toString('base64'));
+      chunk = [];
+      size = 0;
+    }
+    chunk.push(bytes);
+    size += bytes.length;
+  }
+  if (chunk.length) words.push(Buffer.concat(chunk).toString('base64'));
+  return words.map((w) => `=?UTF-8?B?${w}?=`).join('\r\n ');
+}
+
+function replySubject(subject) {
+  const value = String(subject || '').trim() || '(no subject)';
+  return /^re:/i.test(value) ? value : `Re: ${value}`;
+}
+
+/**
+ * The reply as a message. Base64 throughout rather than quoted-printable: a
+ * reply written in Japanese is almost all multi-byte, and every line of it
+ * would otherwise need folding by hand.
+ */
+function draft(mail, text, self) {
+  const headers = [
+    `To: ${mail.replyTo || mail.from}`,
+    `Subject: ${encodeWord(replySubject(mail.subject))}`,
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset="UTF-8"',
+    'Content-Transfer-Encoding: base64',
+  ];
+  if (self) headers.unshift(`From: ${self}`);
+  if (mail.rfcMessageId) {
+    headers.push(`In-Reply-To: ${mail.rfcMessageId}`);
+    headers.push(`References: ${[mail.references, mail.rfcMessageId].filter(Boolean).join(' ')}`);
+  }
+  const body = Buffer.from(String(text), 'utf8').toString('base64').replace(/(.{76})/g, '$1\r\n');
+  return `${headers.join('\r\n')}\r\n\r\n${body}`;
+}
+
+/** Out of the inbox. The message itself is untouched, and nothing is deleted. */
+export async function archive({ messageId }) {
+  await apiPost(`${API}/users/me/messages/${encodeURIComponent(messageId)}/modify`, {
+    removeLabelIds: ['INBOX'],
+  });
+  markSeen(messageId);
+  await saveSeen();
+}
+
+/**
+ * Answer, then archive. The archive is what takes it out of the query, so a
+ * send that lands and an archive that fails would leave the card to arrive
+ * again with the reply already gone — which is why the failure is reported
+ * rather than swallowed.
+ */
+export async function replyAndArchive(mail, text) {
+  const body = String(text || '').trim();
+  if (!body) throw new Error('nothing to send');
+  await apiPost(`${API}/users/me/messages/send`, {
+    raw: Buffer.from(draft(mail, body, linkedAccount()), 'utf8').toString('base64url'),
+    threadId: mail.threadId || undefined,
+  });
+  await archive(mail);
 }
 
 async function poll() {
@@ -326,6 +412,9 @@ export function status() {
 export const internals = {
   address,
   header,
+  encodeWord,
+  replySubject,
+  draft,
   withoutQuote,
   messageText,
   bodyFor,

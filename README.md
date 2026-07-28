@@ -67,7 +67,7 @@ A reminder set on an event arrives as a card at the minute the event asked for, 
 
 A task arrives on the morning it is due, and again every morning after that. **Chequered** ticks it off in Google — the one button on the feed that changes anything outside pitwall. **Box** files the card away and leaves the task open, so it comes round again tomorrow.
 
-Mail is read only: a card for each new message, **Box** to clear it. Nothing sent, nothing marked read, nothing moved.
+Mail arrives as a card you can answer. **Radio in** sends the reply through Gmail, in the same thread, and archives the message; **Box** archives it without answering. Both only take it out of the inbox — nothing is deleted, and nothing is marked read.
 
 First, in [Google Cloud Console](https://console.cloud.google.com/): enable the Google Calendar API, the Google Tasks API and the Gmail API, create an OAuth client of type **Desktop app**, and add your own address under **Audience → Test users**. Save the JSON it offers you as `data/google-client.json`, or pass the same pair as `PITWALL_GOOGLE_CLIENT_ID` and `PITWALL_GOOGLE_CLIENT_SECRET`.
 
@@ -88,6 +88,8 @@ Consent comes back to a loopback port, which a browser outside the container can
 Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here. A reminder whose moment passed while the server was down is dropped rather than delivered late.
 
 Every task list is watched, and consent asks to edit them as well as read them — ticking one off is a write, and Google has no narrower grant for it. A time of day set on a task is not readable through Google's API, so cards land at 09:00 instead — `PITWALL_TODO_DUE_HOUR` moves that. Everything already overdue arrives on the first morning after you link, and a morning that passed with the server down arrives when it comes back up.
+
+`PITWALL_MAIL_QUERY` decides which mail is worth a card, in Gmail's own search syntax — `in:inbox is:unread` by default, or something like `in:inbox is:unread -category:promotions` where the tabs are in use. Consent covers reading, sending and moving, but not deleting. The first poll after linking cards nothing: an inbox that filled up before pitwall existed is a backlog rather than news, so only what arrives afterwards reaches the feed.
 
 ## Configuration
 

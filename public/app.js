@@ -685,6 +685,16 @@ function cueHtml(entry) {
  */
 const firing = new Set();
 
+/**
+ * Whether there is anywhere on this card to type. An agent card takes a reply
+ * while it is being held; a mail card takes one until it has been answered or
+ * archived, because the person it would reach is not waiting on a socket.
+ */
+function takesReply(entry) {
+  if (entry.status === 'waiting') return true;
+  return Boolean(entry.mail) && entry.status === 'notice';
+}
+
 function actionsHtml(entry) {
   const links = entry.links || {};
   const parts = [];
@@ -693,6 +703,11 @@ function actionsHtml(entry) {
   if (entry.status === 'waiting') {
     parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
+  } else if (entry.mail && entry.status === 'notice') {
+    // Both of these take the message out of the inbox; the only question the
+    // card asks is whether an answer goes with it.
+    parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Send the reply and archive in Gmail">Radio in</button>`);
+    parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive in Gmail">Box</button>`);
   } else if (entry.todo && entry.status === 'notice') {
     // The only card on the feed that can change something outside pitwall, so
     // it says what it does to the task and Box is left meaning what it means
@@ -717,10 +732,13 @@ function actionsHtml(entry) {
   }
 
   let composer = '';
-  if (entry.status === 'waiting') {
+  if (takesReply(entry)) {
+    const placeholder = entry.mail
+      ? 'Reply goes out through Gmail…'
+      : 'Reply goes back into the same agent turn…';
     composer = `
       <div class="composer" data-composer="${esc(entry.id)}">
-        <textarea placeholder="Reply goes back into the same agent turn…" data-reply-input="${esc(entry.id)}">${esc(state.drafts.get(entry.id) || '')}</textarea>
+        <textarea placeholder="${placeholder}" data-reply-input="${esc(entry.id)}">${esc(state.drafts.get(entry.id) || '')}</textarea>
       </div>`;
   }
 
@@ -1060,7 +1078,9 @@ function paint(items) {
 function upsert(entry) {
   if (!entry?.id) return;
   state.entries.set(entry.id, entry);
-  if (entry.status !== 'waiting') release(entry.id);
+  // A mail card sits at `notice` for as long as it is answerable, so releasing
+  // on anything but `waiting` would wipe the draft on every poll.
+  if (!takesReply(entry)) release(entry.id);
 }
 
 /** The entry can no longer take a reply — drop the draft and stop holding it. */
@@ -1144,6 +1164,9 @@ el.timeline.addEventListener('focusout', scheduleFocus);
 el.timeline.addEventListener('focusin', (e) => {
   const id = e.target.getAttribute?.('data-reply-input');
   if (!id) return;
+  // There is an agent behind a waiting card and nothing behind a mail one, so
+  // typing into mail has nothing to hold open and nothing to tell.
+  if (state.entries.get(id)?.status !== 'waiting') return;
   state.engaged.add(id);
   startHoldHeartbeat(id);
 });
