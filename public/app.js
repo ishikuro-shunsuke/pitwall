@@ -730,6 +730,12 @@ function actionsHtml(entry) {
   if (links.resumeCommand) {
     parts.push(`<button type="button" class="btn quiet" data-act="copy" data-copy="${esc(links.resumeCommand)}">Copy resume cmd</button>`);
   }
+  // Out of the feed and into Gmail, so it opens beside the timeline rather
+  // than over it. Stays on the card once it is boxed, which is when going and
+  // looking at the thread is most of what is left to do with it.
+  if (entry.mail?.webUrl) {
+    parts.push(`<a class="btn quiet" href="${esc(entry.mail.webUrl)}" target="_blank" rel="noopener noreferrer">Open in Gmail</a>`);
+  }
 
   let composer = '';
   if (takesReply(entry)) {

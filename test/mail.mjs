@@ -206,7 +206,8 @@ is('a message that was not there before is a card', cards().length, 1);
     is('the others on it are named', has('Also to kai'), true);
     is('and you are not named among them', has('me@example.com'), false);
     is('the message is there', has('Lap 32 at the earliest.'), true);
-    is('and the thread is reachable in Gmail', has('(https://mail.google.com/mail/u/0/#all/t-m6)'), true);
+    is('the thread is reachable in Gmail', card.mail.webUrl, 'https://mail.google.com/mail/u/0/#all/t-m6');
+    is('and the body no longer repeats the link', has('mail.google.com'), false);
   }
 }
 

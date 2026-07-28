@@ -150,6 +150,11 @@ function recipientLine(message, self) {
   return rest > 0 ? `Also to ${shown} and ${rest} more` : `Also to ${shown}`;
 }
 
+/** Where the thread lives. `#all` rather than `#inbox`, which it leaves. */
+function threadUrl(message) {
+  return `https://mail.google.com/mail/u/0/#all/${message.threadId || message.id}`;
+}
+
 function bodyFor(message, from, receivedMs, self) {
   const when = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
@@ -167,7 +172,8 @@ function bodyFor(message, from, receivedMs, self) {
   const text = messageText(message);
   if (text) blocks.push(text.length > 1200 ? `${text.slice(0, 1200)}…` : text);
 
-  blocks.push(`[Open in Gmail](https://mail.google.com/mail/u/0/#all/${message.threadId || message.id})`);
+  // The way to the thread is a button on the card, not a line under a message
+  // that may run to a screenful before you reach it.
   return blocks.join('\n\n');
 }
 
@@ -222,6 +228,7 @@ function entryFor(message, self) {
     // What makes an answer land under the question rather than beside it.
     rfcMessageId: header(message, 'Message-ID') || null,
     references: header(message, 'References') || null,
+    webUrl: threadUrl(message),
     receivedMs,
   };
   return entry;
