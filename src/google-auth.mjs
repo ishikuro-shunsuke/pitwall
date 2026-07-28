@@ -14,7 +14,9 @@ import { config, paths } from './config.mjs';
 
 export const SCOPES = [
   'https://www.googleapis.com/auth/calendar.readonly',
-  'https://www.googleapis.com/auth/tasks.readonly',
+  // Not the read-only one: a card can tick its task off, and Google has no
+  // narrower grant for that than the whole of Tasks.
+  'https://www.googleapis.com/auth/tasks',
 ];
 export const SCOPE = SCOPES.join(' ');
 
@@ -173,9 +175,12 @@ export function reset() {
   cached = null;
 }
 
-export async function apiGet(url) {
+async function api(url, init = {}) {
   const token = await getAccessToken();
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+  const res = await fetch(url, {
+    ...init,
+    headers: { ...init.headers, Authorization: `Bearer ${token}` },
+  });
   if (res.status === 401) {
     cached = null;
     throw new NeedsLinkError('Google rejected the access token');
@@ -185,6 +190,18 @@ export async function apiGet(url) {
     throw new Error(`google api ${res.status}: ${detail.slice(0, 300)}`);
   }
   return res.json();
+}
+
+export function apiGet(url) {
+  return api(url);
+}
+
+export function apiPatch(url, body) {
+  return api(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 function openBrowser(url) {

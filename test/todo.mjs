@@ -14,7 +14,7 @@ process.env.PITWALL_GOOGLE_CLIENT_ID = 'test-client';
 process.env.PITWALL_GOOGLE_CLIENT_SECRET = 'test-secret';
 process.env.PITWALL_TODO_DUE_HOUR = '9';
 
-const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks.readonly';
+const SCOPES = 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks';
 const TOKEN = path.join(DATA, 'google-token.json');
 const writeToken = (extra) => fs.writeFileSync(TOKEN, JSON.stringify({
   refresh_token: 'test-refresh',
@@ -130,6 +130,7 @@ let tasks = {
 let tokenCalls = 0;
 let broken = null;
 const read = [];
+const written = [];
 
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === 'string' ? input : input.toString());
@@ -147,6 +148,20 @@ globalThis.fetch = async (input, init = {}) => {
   if (url.pathname.endsWith('/users/@me/lists')) {
     return reply({ items: LISTS });
   }
+  const patch = url.pathname.match(/\/lists\/([^/]+)\/tasks\/([^/]+)$/);
+  if (patch && init.method === 'PATCH') {
+    const [listId, taskId] = patch.slice(1).map(decodeURIComponent);
+    const body = JSON.parse(init.body);
+    written.push({ listId, taskId, ...body });
+    // Google stops handing back a task the moment it is completed, and the
+    // test has to stop too, or nothing here proves the tick reached it.
+    tasks = {
+      ...tasks,
+      [listId]: (tasks[listId] || []).map((t) => (t.id === taskId ? { ...t, ...body } : t)),
+    };
+    return reply({ id: taskId, ...body });
+  }
+
   const listing = url.pathname.match(/\/lists\/([^/]+)\/tasks$/);
   if (listing) {
     const id = decodeURIComponent(listing[1]);
@@ -300,17 +315,62 @@ is('what was already said survives a restart', cards().length, settled);
   config.todo.listIds = [];
 }
 
+// --- ticking one off ---------------------------------------------------------
+
+{
+  clock = zonedTime('2026-08-05', ZONE, 9, 10);
+  await internals.poll();
+  internals.fireDue();
+  const card = cards().find((c) => c.title === 'Send the invoice');
+  const held = internals.pendingKeys().filter((k) => k.startsWith('list-a|today|'));
+  is('the task has tomorrow morning still queued', held.length, 1);
+
+  const todo = await import('../src/todo.mjs');
+  await todo.complete(card.todo);
+
+  is('the tick reaches Google', written.length, 1);
+  is('and says the task is done', written[0]?.status, 'completed');
+  is('against the task the card came off', `${written[0]?.listId}|${written[0]?.taskId}`, 'list-a|today');
+  is('the mornings already queued for it are dropped',
+    internals.pendingKeys().some((k) => k.startsWith('list-a|today|')), false);
+
+  const ticked = cards().filter((c) => c.title === 'Send the invoice').length;
+  const others = cards().length - ticked;
+  clock = zonedTime('2026-08-06', ZONE, 9, 10);
+  await internals.poll();
+  internals.fireDue();
+  is('the next morning does not bring it round again',
+    cards().filter((c) => c.title === 'Send the invoice').length, ticked);
+  is('while the tasks nobody ticked still arrive', cards().length - ticked > others, true);
+  is('and it is not queued for the morning after either',
+    internals.pendingKeys().some((k) => k.startsWith('list-a|today|')), false);
+}
+
+// --- boxing one -------------------------------------------------------------
+
+{
+  // Box is the card leaving pitwall, not the task leaving Google. Nothing here
+  // reaches out, so what proves it is that Google was never written to again.
+  const wrote = written.length;
+  clock = zonedTime('2026-08-07', ZONE, 9, 10);
+  await internals.poll();
+  internals.fireDue();
+  is('a card boxed rather than ticked writes nothing to Google', written.length, wrote);
+  is('and its task is still on the timeline tomorrow',
+    internals.pendingKeys().some((k) => k.startsWith('list-c|other|')), true);
+}
+
 // --- a link made before Tasks was asked for ----------------------------------
 
 {
   const auth = await import('../src/google-auth.mjs');
-  is('consent asks for tasks too, read only', auth.SCOPE.includes('/auth/tasks.readonly'), true);
+  is('consent asks to write to tasks, not just read', auth.SCOPE.includes('/auth/tasks'), true);
   is('and still asks for the calendar', auth.SCOPE.includes('/auth/calendar.readonly'), true);
-  is('a grant that covers tasks is recognised', auth.hasScope('https://www.googleapis.com/auth/tasks.readonly'), true);
+  is('a grant that covers tasks is recognised', auth.hasScope('https://www.googleapis.com/auth/tasks'), true);
 
   writeToken({ scope: 'https://www.googleapis.com/auth/calendar.readonly' });
   is('an older grant is not mistaken for one',
-    auth.hasScope('https://www.googleapis.com/auth/tasks.readonly'), false);
+    auth.hasScope('https://www.googleapis.com/auth/tasks'), false);
   const todo = await import('../src/todo.mjs');
   is('and the module says so rather than polling into a refusal', todo.status().linked, false);
   writeToken();

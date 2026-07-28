@@ -488,6 +488,32 @@ async function handleArchiveNotice(req, res, params) {
   sendJson(res, 200, { ok: true });
 }
 
+/**
+ * Boxing a task card only files it away; this is the button that reaches back
+ * into Google. The card leaves either way, so the two are not the same thing
+ * and neither one does the other's half.
+ */
+async function handleCompleteTask(req, res, params) {
+  const entry = store.get(params.id);
+  if (!entry) return sendJson(res, 404, { error: 'not found' });
+  if (!entry.todo) return sendJson(res, 409, { error: 'not a task' });
+  if (entry.status !== 'notice') {
+    return sendJson(res, 409, { error: 'already boxed', status: entry.status });
+  }
+  try {
+    await todo.complete(entry.todo);
+  } catch (error) {
+    // The card stays where it is: it is still owed until Google says otherwise.
+    return sendJson(res, 502, { error: `could not complete in Google Tasks: ${error.message}` });
+  }
+  store.update(params.id, {
+    status: 'dismissed',
+    resolvedAt: new Date().toISOString(),
+    resolution: 'completed',
+  });
+  sendJson(res, 200, { ok: true });
+}
+
 function handleSse(req, res) {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream; charset=utf-8',
@@ -589,6 +615,9 @@ async function router(req, res) {
 
     params = match(pathname, '/api/entries/:id/archive');
     if (method === 'POST' && params) return handleArchiveNotice(req, res, params);
+
+    params = match(pathname, '/api/entries/:id/complete');
+    if (method === 'POST' && params) return handleCompleteTask(req, res, params);
 
     if (method === 'POST' && pathname === '/api/hooks/wait') return handleWait(req, res);
     if (method === 'POST' && pathname === '/api/hooks/response') return handleCursorResponse(req, res);

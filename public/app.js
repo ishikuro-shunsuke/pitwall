@@ -686,6 +686,12 @@ function actionsHtml(entry) {
   if (entry.status === 'waiting') {
     parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
+  } else if (entry.todo && entry.status === 'notice') {
+    // The only card on the feed that can change something outside pitwall, so
+    // it says what it does to the task and Box is left meaning what it means
+    // everywhere else — off the feed, and nothing more.
+    parts.push(`<button type="button" class="btn primary${lit('complete')}" data-act="complete" data-id="${esc(entry.id)}" title="Complete in Google Tasks">Chequered</button>`);
+    parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive, leaving the task open">Box</button>`);
   } else if (entry.bucket === 'timeline') {
     // A notice and a closed card both sit here with nothing to answer, so the
     // one button is the whole card. Same button as the one beside a reply, and
@@ -1056,6 +1062,7 @@ function release(id) {
   state.engaged.delete(id);
   firing.delete(`${id}:send`);
   firing.delete(`${id}:dismiss`);
+  firing.delete(`${id}:complete`);
   stopHoldHeartbeat(id);
 }
 
@@ -1222,6 +1229,21 @@ async function dismissEntry(id) {
   }
 }
 
+/** Tick the task off in Google, and slide the card out the way a reply does. */
+async function completeTask(id) {
+  light(id, 'complete');
+  exits.set(id, 'right');
+  try {
+    await api(`/api/entries/${id}/complete`);
+    release(id);
+    await refresh();
+  } catch (err) {
+    unlight(id, 'complete');
+    exits.delete(id);
+    throw err;
+  }
+}
+
 el.timeline.addEventListener('keydown', (e) => {
   const id = e.target.getAttribute?.('data-reply-input');
   if (!id) return;
@@ -1305,6 +1327,10 @@ el.timeline.addEventListener('click', async (e) => {
     }
     if (act === 'dismiss') {
       await dismissEntry(id);
+      return;
+    }
+    if (act === 'complete') {
+      await completeTask(id);
       return;
     }
     if (act === 'copy') {

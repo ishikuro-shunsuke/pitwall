@@ -12,11 +12,11 @@ import fsp from 'node:fs/promises';
 import { config, paths } from './config.mjs';
 import * as store from './store.mjs';
 import { buildEntry } from './normalize.mjs';
-import { apiGet, isLinked, hasScope, linkedTimeZone, NeedsLinkError } from './google-auth.mjs';
+import { apiGet, apiPatch, isLinked, hasScope, linkedTimeZone, NeedsLinkError } from './google-auth.mjs';
 import { zonedTime, zonedDate, nextDate } from './zoned.mjs';
 
 const API = 'https://tasks.googleapis.com/tasks/v1';
-const SCOPE = 'https://www.googleapis.com/auth/tasks.readonly';
+const SCOPE = 'https://www.googleapis.com/auth/tasks';
 const SEEN_TTL_MS = 7 * 86_400_000;
 const DAY_MS = 86_400_000;
 
@@ -293,6 +293,25 @@ async function cycle() {
     nextPollAt = Date.now() + config.todo.pollSeconds * 1000;
   }
   schedule();
+}
+
+/**
+ * Tick a task off in Google, from its card.
+ *
+ * The next poll would drop it anyway — it stops coming back the moment it is
+ * completed — but the mornings already queued for it are cleared here so a
+ * card cannot arrive between the tick and that poll. They are recorded as
+ * spoken for as well, in case Google is still catching up when the poll lands.
+ */
+export async function complete({ listId, taskId }) {
+  const url = `${API}/lists/${encodeURIComponent(listId)}/tasks/${encodeURIComponent(taskId)}`;
+  await apiPatch(url, { status: 'completed' });
+  for (const key of [...pending.keys()]) {
+    if (!key.startsWith(`${listId}|${taskId}|`)) continue;
+    pending.delete(key);
+    markSeen(key);
+  }
+  await saveSeen();
 }
 
 export function start() {

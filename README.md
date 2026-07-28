@@ -63,7 +63,9 @@ A question Claude asks mid-session arrives as a card too, with its options, and 
 
 ## Google Calendar and Tasks
 
-A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. A task arrives on the morning it is due, and again every morning until it is ticked off in Google. There is nothing to reply to; **Box** clears either.
+A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. There is nothing to reply to; **Box** clears it.
+
+A task arrives on the morning it is due, and again every morning after that. **Chequered** ticks it off in Google — the one button on the feed that changes anything outside pitwall. **Box** files the card away and leaves the task open, so it comes round again tomorrow.
 
 First, in [Google Cloud Console](https://console.cloud.google.com/): enable the Google Calendar API and the Google Tasks API, create an OAuth client of type **Desktop app**, and add your own address under **Audience → Test users**. Save the JSON it offers you as `data/google-client.json`, or pass the same pair as `PITWALL_GOOGLE_CLIENT_ID` and `PITWALL_GOOGLE_CLIENT_SECRET`.
 
@@ -81,7 +83,7 @@ Consent comes back to a loopback port, which a browser outside the container can
 
 Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here. A reminder whose moment passed while the server was down is dropped rather than delivered late.
 
-Every task list is watched. A time of day set on a task is not readable through Google's API, so cards land at 09:00 instead — `PITWALL_TODO_DUE_HOUR` moves that. Everything already overdue arrives on the first morning after you link, and a morning that passed with the server down arrives when it comes back up.
+Every task list is watched, and consent asks to edit them as well as read them. A time of day set on a task is not readable through Google's API, so cards land at 09:00 instead — `PITWALL_TODO_DUE_HOUR` moves that. Everything already overdue arrives on the first morning after you link, and a morning that passed with the server down arrives when it comes back up.
 
 ## Configuration
 
