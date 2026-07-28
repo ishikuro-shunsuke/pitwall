@@ -81,6 +81,7 @@ Approving in the browser writes a refresh token to `data/google-token.json`, and
 
 A link made before pitwall asked for a service does not cover it, and the log says which one until `npm run link-google -- --force` replaces the grant.
 
+**The link goes stale about weekly.** An OAuth client whose publishing status is **Testing** is issued refresh tokens that expire after seven days, so roughly once a week the log asks you to link again. Moving the client to **In production** removes that, but Gmail's read scope is one Google classes as restricted, and publishing with it means going through verification and a security assessment first.
 
 Consent comes back to a loopback port, which a browser outside the container cannot reach — running the server in a devcontainer, set `PITWALL_OAUTH_PORT` to a port you have forwarded.
 
