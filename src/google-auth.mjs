@@ -189,10 +189,35 @@ async function api(url, init = {}) {
     throw new NeedsLinkError('Google rejected the access token');
   }
   if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    throw new Error(`google api ${res.status}: ${detail.slice(0, 300)}`);
+    throw apiError(res.status, await res.text().catch(() => ''));
   }
   return res.json();
+}
+
+/**
+ * What Google actually said, in one line.
+ *
+ * An API that has never been switched on in the project answers every call
+ * with a page of JSON, and the only part of it that matters is the address
+ * that switches it on. Left raw it arrives cut off mid-sentence in the log,
+ * which is where a poll that repeats forever puts it.
+ */
+function apiError(status, text) {
+  let error = null;
+  try {
+    error = JSON.parse(text)?.error;
+  } catch {
+    /* not JSON, so there is nothing in it to find */
+  }
+  const off = (error?.details || []).find((d) => d.reason === 'SERVICE_DISABLED');
+  if (off) {
+    const service = off.metadata?.service || 'an API pitwall needs';
+    const where = off.metadata?.activationUrl;
+    return new Error(
+      `${service} is not enabled on your Google Cloud project${where ? ` — turn it on at ${where}` : ''}`,
+    );
+  }
+  return new Error(`google api ${status}: ${String(error?.message || text).slice(0, 300)}`);
 }
 
 export function apiGet(url) {

@@ -313,6 +313,46 @@ is('an ascii header is left alone', internals.encodeWord('Re: brakes'), 'Re: bra
   is('and an archived message does not come round again', cards().length, before);
 }
 
+// --- an API nobody switched on ----------------------------------------------
+
+{
+  const auth = await import('../src/google-auth.mjs');
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (input, init = {}) => {
+    const url = new URL(typeof input === 'string' ? input : input.toString());
+    if (url.href === 'https://oauth2.googleapis.com/token') return realFetch(input, init);
+    return new Response(JSON.stringify({
+      error: {
+        code: 403,
+        message: 'Gmail API has not been used in project 916877411210 before or it is disabled. Enable it by visiting https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=916877411210 then retry. If you enabled this API recently, wait a few minutes for the action to propagate to our systems and retry.',
+        status: 'PERMISSION_DENIED',
+        details: [{
+          '@type': 'type.googleapis.com/google.rpc.ErrorInfo',
+          reason: 'SERVICE_DISABLED',
+          domain: 'googleapis.com',
+          metadata: {
+            service: 'gmail.googleapis.com',
+            consumer: 'projects/916877411210',
+            activationUrl: 'https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=916877411210',
+          },
+        }],
+      },
+    }), { status: 403, headers: { 'Content-Type': 'application/json' } });
+  };
+
+  let said = null;
+  try {
+    await auth.apiGet('https://gmail.googleapis.com/gmail/v1/users/me/messages');
+  } catch (error) {
+    said = error.message;
+  }
+  is('an API left switched off says which one',
+    said, 'gmail.googleapis.com is not enabled on your Google Cloud project — turn it on at https://console.developers.google.com/apis/api/gmail.googleapis.com/overview?project=916877411210');
+  is('and not a page of json cut off mid-sentence', said.includes('{'), false);
+
+  globalThis.fetch = realFetch;
+}
+
 // --- a link made before Gmail was asked for ----------------------------------
 
 {

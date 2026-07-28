@@ -251,7 +251,8 @@ if (card) {
   is('the call is one click', has('[Join the call](https://meet.google.com/abc-defg-hij)'), true);
   is('the people are named', has('With Ren, kai'), true);
   is('the description is unwrapped', has('Bring the deck'), true);
-  is('and the event is reachable in Google', has('(https://calendar.google.com/event?eid=due)'), true);
+  is('the event is reachable in Google', card.calendar.htmlLink, 'https://calendar.google.com/event?eid=due');
+  is('and the body does not repeat the link', has('calendar.google.com'), false);
 }
 
 is('the reminder still ahead is held, not fired', internals.pendingKeys().some((k) => k.includes('|later|')), true);

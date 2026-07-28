@@ -118,7 +118,7 @@ function bodyFor(task, due, day, timeZone) {
   const links = linkLines(task);
   if (links.length) blocks.push(links.join('\n'));
 
-  if (task.webViewLink) blocks.push(`[Open in Google Tasks](${task.webViewLink})`);
+  // The way to the task is a button on the card, not a line under it.
   return blocks.join('\n\n');
 }
 

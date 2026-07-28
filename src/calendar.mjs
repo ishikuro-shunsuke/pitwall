@@ -134,7 +134,7 @@ function bodyFor(event, startMs, endMs, allDay, timeZone) {
     blocks.push(description.length > 800 ? `${description.slice(0, 800)}…` : description);
   }
 
-  if (event.htmlLink) blocks.push(`[Open in Google Calendar](${event.htmlLink})`);
+  // The way to the event is a button on the card, not a line under it.
   return blocks.join('\n\n');
 }
 

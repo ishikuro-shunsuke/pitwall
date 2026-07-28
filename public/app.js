@@ -695,6 +695,13 @@ function takesReply(entry) {
   return Boolean(entry.mail) && entry.status === 'notice';
 }
 
+/** Where a Google card came from: the slot it hangs on, its url, its button. */
+const OPEN_IN = [
+  ['mail', 'webUrl', 'Open in Gmail'],
+  ['calendar', 'htmlLink', 'Open in Calendar'],
+  ['todo', 'webViewLink', 'Open in Tasks'],
+];
+
 function actionsHtml(entry) {
   const links = entry.links || {};
   const parts = [];
@@ -730,11 +737,14 @@ function actionsHtml(entry) {
   if (links.resumeCommand) {
     parts.push(`<button type="button" class="btn quiet" data-act="copy" data-copy="${esc(links.resumeCommand)}">Copy resume cmd</button>`);
   }
-  // Out of the feed and into Gmail, so it opens beside the timeline rather
-  // than over it. Stays on the card once it is boxed, which is when going and
-  // looking at the thread is most of what is left to do with it.
-  if (entry.mail?.webUrl) {
-    parts.push(`<a class="btn quiet" href="${esc(entry.mail.webUrl)}" target="_blank" rel="noopener noreferrer">Open in Gmail</a>`);
+  // Out of the feed and into the service it came from, so it opens beside the
+  // timeline rather than over it. Stays on the card once it is boxed, which is
+  // when going and looking at the original is most of what is left to do.
+  for (const [slot, field, label] of OPEN_IN) {
+    const href = entry[slot]?.[field];
+    if (href) {
+      parts.push(`<a class="btn quiet" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${label}</a>`);
+    }
   }
 
   let composer = '';

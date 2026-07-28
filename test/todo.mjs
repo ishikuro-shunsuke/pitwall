@@ -216,7 +216,8 @@ const byTitle = (t) => cards().find((c) => c.title === t);
     is('the body leads with the day', has('**Due today**'), true);
     is('the notes come through', has('Bank details are in the shared drive'), true);
     is('a link on the task is one click', has('[The thread](https://mail.example.com/1)'), true);
-    is('and the task is reachable in Google', has('(https://tasks.google.com/task/today)'), true);
+    is('the task is reachable in Google', card.todo.webViewLink, 'https://tasks.google.com/task/today');
+    is('and the body does not repeat the link', has('tasks.google.com'), false);
   }
 }
 {
