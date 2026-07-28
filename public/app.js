@@ -1023,7 +1023,6 @@ function paintTally() {
       && at.getDate() === today.getDate()) cleared++;
   }
   el.tallyCount.textContent = String(cleared);
-  el.tally.hidden = cleared === 0;
 }
 
 let dayTimer = null;

@@ -112,8 +112,9 @@ a { color: var(--accent); }
 /* How many cards you saw the end of today, wherever you sent them from. It sits
    on the middle of the page rather than the middle of the space the two ends
    leave, which is why the bar is three columns wide and the outer two carry
-   equal weight. Nothing yet is nothing to say: at nought the line is not there
-   at all, and the first card you clear puts it up. */
+   equal weight. It stands there at nought too: a day's count that takes itself
+   off the bar until you have earned it is a tally you cannot start the morning
+   reading, and an empty middle looks like the thing has broken. */
 .tally {
   justify-self: center;
   margin: 0;
