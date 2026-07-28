@@ -10,8 +10,11 @@ import os from 'node:os';
 
 const DATA = await fsp.mkdtemp(path.join(os.tmpdir(), 'pitwall-cal-'));
 process.env.PITWALL_DATA = DATA;
-process.env.PITWALL_GOOGLE_CLIENT_ID = 'test-client';
-process.env.PITWALL_GOOGLE_CLIENT_SECRET = 'test-secret';
+// The OAuth pair lives in the file the panel writes, and nowhere else.
+fs.writeFileSync(
+  path.join(DATA, 'google-client.json'),
+  JSON.stringify({ installed: { client_id: 'test-client', client_secret: 'test-secret' } }),
+);
 process.env.PITWALL_CALENDAR_STALE_MINUTES = '20';
 fs.writeFileSync(
   path.join(DATA, 'google-token.json'),
@@ -349,6 +352,9 @@ is('what was already said survives a restart', cards().length, 3);
   is('the token file is readable by nobody else', fs.statSync(path.join(DATA, 'google-token.json')).mode & 0o077, 0);
 }
 
+// The store writes on a timer, and a write that lands mid-delete leaves the
+// directory behind it.
+store.shutdown();
 await fsp.rm(DATA, { recursive: true, force: true });
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

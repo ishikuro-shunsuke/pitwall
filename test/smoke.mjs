@@ -58,11 +58,6 @@ function startServer() {
         PITWALL_DATA: DATA,
         PITWALL_HOLD_SECONDS: '3',
         PITWALL_MAX_HOLD_SECONDS: '30',
-        // Blanked rather than inherited: whoever runs this suite may have their
-        // own services set up, and the settings panel is tested from nothing.
-        PITWALL_CHATWORK_TOKEN: '',
-        PITWALL_GOOGLE_CLIENT_ID: '',
-        PITWALL_GOOGLE_CLIENT_SECRET: '',
       },
       stdio: ['ignore', 'pipe', 'pipe'],
     });

@@ -93,7 +93,7 @@ A message with your name on it arrives as a card you can answer — a mention, a
 
 A task assigned to you arrives on the morning it is due, and again every morning it stays open. **Chequered** ticks it off in Chatwork; **Box** files the card away and leaves the task open.
 
-Issue a token from your own account — your name, top right in Chatwork, then **Service Integration → API Token** — and paste it into the gear in the top right of pitwall. It is checked against Chatwork before it is saved, so a token that will not work says so there and then, and cards start arriving on the next poll. `PITWALL_CHATWORK_TOKEN` does the same from the command line.
+Issue a token from your own account — your name, top right in Chatwork, then **Service Integration → API Token** — and paste it into the gear in the top right of pitwall. It is checked against Chatwork before it is saved, so a token that will not work says so there and then, and cards start arriving on the next poll.
 
 On a business plan, an administrator has to approve API use for the organisation before any token will work.
 
@@ -103,7 +103,7 @@ A deadline is a moment, and which day it falls on depends on where you are. Chat
 
 ## Configuration
 
-Anything set here wins over the same thing set in the gear, which then says where the value came from instead of offering to change it.
+How the server runs. Which accounts it watches is set in the gear instead, and nothing is set in both places.
 
 | Variable | Default | |
 | --- | --- | --- |
@@ -124,7 +124,6 @@ Anything set here wins over the same thing set in the gear, which then says wher
 | `PITWALL_MAIL_POLL_SECONDS` | `60` | how often Gmail is asked what is new, which is also how long a new message waits |
 | `PITWALL_MAIL_MAX_PER_POLL` | `20` | most cards one poll may add |
 | `PITWALL_OAUTH_PORT` | any free port | where consent comes back |
-| `PITWALL_CHATWORK_TOKEN` | none | the gear takes the same token |
 | `PITWALL_CHATWORK_ROOMS` | every chat | comma-separated room ids |
 | `PITWALL_CHATWORK_POLL_SECONDS` | `60` | how often Chatwork is asked what is new, which is also how long a message waits |
 | `PITWALL_CHATWORK_MAX_PER_POLL` | `20` | most cards one poll may add |

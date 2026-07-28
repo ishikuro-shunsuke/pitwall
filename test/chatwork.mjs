@@ -10,9 +10,12 @@ import os from 'node:os';
 
 const DATA = await fsp.mkdtemp(path.join(os.tmpdir(), 'pitwall-chatwork-'));
 process.env.PITWALL_DATA = DATA;
-process.env.PITWALL_CHATWORK_TOKEN = 'test-token';
 process.env.PITWALL_CHATWORK_TIMEZONE = 'Asia/Tokyo';
 process.env.PITWALL_CHATWORK_TASK_DUE_HOUR = '9';
+
+// The token lives where the panel puts it, which is the only place it lives.
+const SETTINGS = path.join(DATA, 'settings.json');
+fs.writeFileSync(SETTINGS, JSON.stringify({ version: 1, chatwork: { token: 'test-token' } }));
 
 let passed = 0;
 let failed = 0;
@@ -510,28 +513,9 @@ is('and the late one has aged a day',
   is('what was already said survives a restart', taskCards().length, settled);
 }
 
-// --- no token ----------------------------------------------------------------
-
-{
-  const { config } = await import('../src/config.mjs');
-  config.chatwork.token = '';
-  is('with no token the module says so rather than polling into a refusal',
-    chatwork.status().linked, false);
-  is('and so does the task side', chatworkTask.status().linked, false);
-  let threw = null;
-  try {
-    await chatwork.internals.poll();
-  } catch (error) {
-    threw = error.name;
-  }
-  is('a poll made anyway stops at the token', threw, 'NeedsTokenError');
-  config.chatwork.token = 'test-token';
-}
-
 // --- the token the panel writes ----------------------------------------------
 
 {
-  const { config } = await import('../src/config.mjs');
   const api = await import('../src/chatwork-api.mjs');
   const settings = await import('../src/settings.mjs');
 
@@ -545,23 +529,32 @@ is('and the late one has aged a day',
   }
   is('and one it will not take says so at once', refused, 'NeedsTokenError');
 
-  config.chatwork.token = '';
   await settings.saveChatworkToken('from-the-panel');
   is('a token typed into the panel is the one that is used',
     settings.chatworkToken(), 'from-the-panel');
   is('the file is readable by nobody else',
-    fs.statSync(path.join(DATA, 'settings.json')).mode & 0o777, 0o600);
+    fs.statSync(SETTINGS).mode & 0o777, 0o600);
 
-  config.chatwork.token = 'from-the-environment';
-  is('and the environment has the last word over it',
-    settings.chatworkToken(), 'from-the-environment');
-  is('which the panel is told, so it does not offer to change it',
-    settings.chatworkFromEnv(), true);
+  is('the environment has nothing to say about it',
+    settings.retiredEnv().includes('PITWALL_CHATWORK_TOKEN'), false);
+  process.env.PITWALL_CHATWORK_TOKEN = 'not-read-any-more';
+  is('and one left over from before is named rather than obeyed',
+    `${settings.chatworkToken()}|${settings.retiredEnv().join()}`,
+    'from-the-panel|PITWALL_CHATWORK_TOKEN');
+  delete process.env.PITWALL_CHATWORK_TOKEN;
 
-  config.chatwork.token = '';
   await settings.saveChatworkToken('');
   is('an empty box takes it off again', settings.chatworkToken(), '');
-  config.chatwork.token = 'test-token';
+  is('with no token the module says so rather than polling into a refusal',
+    chatwork.status().linked, false);
+  is('and so does the task side', chatworkTask.status().linked, false);
+  let threw = null;
+  try {
+    await chatwork.internals.poll();
+  } catch (error) {
+    threw = error.name;
+  }
+  is('a poll made anyway stops at the token', threw, 'NeedsTokenError');
 }
 
 Date.now = realNow;

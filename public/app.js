@@ -151,11 +151,8 @@ el.helpModal.addEventListener('click', async (e) => {
 });
 
 /**
- * The settings panel.
- *
- * Everything here can be set on the command line instead, and where it has
- * been, the panel says so and stops offering to change it — a field that
- * writes a value the environment then overrules is a field that lies.
+ * The settings panel: which accounts these are, which is nothing the command
+ * line has an opinion about.
  *
  * No secret ever comes back from the server, so the boxes start empty however
  * much is already set, and what is set is said in words above them.
@@ -191,18 +188,13 @@ function fmtLinkedAt(iso) {
 
 function paintSettings(data) {
   const cw = data.chatwork || {};
-  el.cwState.textContent = cw.fromEnv
-    ? 'set in the environment'
-    : cw.set
-      ? `connected${cw.account ? ` as ${cw.account}` : ''}`
-      : 'no token yet';
+  el.cwState.textContent = cw.set
+    ? `connected${cw.account ? ` as ${cw.account}` : ''}`
+    : 'no token yet';
   el.cwState.classList.toggle('on', Boolean(cw.set));
-  // Whoever starts the server has already decided this one.
-  el.cwToken.disabled = cw.fromEnv;
-  el.cwSave.disabled = cw.fromEnv;
 
   const g = data.google || {};
-  const client = g.clientFromEnv ? 'client set in the environment' : g.client ? 'client saved' : 'no client yet';
+  const client = g.client ? 'client saved' : 'no client yet';
   el.gState.textContent = g.linked
     ? `linked${g.account ? ` as ${g.account}` : ''}${fmtLinkedAt(g.linkedAt)}`
     : g.linking
@@ -211,9 +203,6 @@ function paintSettings(data) {
         ? `${client} · ${g.linkError}`
         : client;
   el.gState.classList.toggle('on', Boolean(g.linked));
-  el.gId.disabled = g.clientFromEnv;
-  el.gSecret.disabled = g.clientFromEnv;
-  el.gSave.disabled = g.clientFromEnv;
   el.gLink.disabled = !g.client;
   el.gLink.textContent = g.linked ? 'Link a different account' : 'Link a Google account';
 }

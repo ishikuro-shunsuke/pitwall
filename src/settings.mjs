@@ -1,11 +1,12 @@
 /**
- * What the settings panel writes, and the environment's last word over it.
+ * Whose accounts these are.
  *
- * Anything here can also be set as an environment variable, and where both
- * exist the environment wins — it is set by whoever starts the server, on the
- * line that starts it, and something typed into a browser weeks ago should not
- * quietly take that over. The panel says which of the two a value came from,
- * so a field it cannot change is a field it does not offer.
+ * Which Chatwork account, which Google account: that is yours to say, and it
+ * is said in one place — the panel, writing here. The environment says how the
+ * server runs, which is a different question with a different answer, and
+ * nothing is settable in both. A value with two homes needs a rule about which
+ * one wins, and then the rule needs explaining every time somebody reads it
+ * back and finds the other one.
  *
  * Secrets go through here in one direction. What is saved is read back by the
  * pollers and never by a browser: the panel is told that a token is set and
@@ -48,11 +49,7 @@ async function write(next) {
 }
 
 export function chatworkToken() {
-  return config.chatwork.token || all().chatwork?.token || '';
-}
-
-export function chatworkFromEnv() {
-  return Boolean(config.chatwork.token);
+  return all().chatwork?.token || '';
 }
 
 /** An empty token is the way to take one off again. */
@@ -64,8 +61,18 @@ export async function saveChatworkToken(token) {
   await write(next);
 }
 
-export function googleClientFromEnv() {
-  return Boolean(config.google.clientId && config.google.clientSecret);
+/**
+ * Variables that used to be read here and are not any more. Named at boot so a
+ * line left in a shell profile is not silently doing nothing.
+ */
+const RETIRED = [
+  'PITWALL_CHATWORK_TOKEN',
+  'PITWALL_GOOGLE_CLIENT_ID',
+  'PITWALL_GOOGLE_CLIENT_SECRET',
+];
+
+export function retiredEnv() {
+  return RETIRED.filter((name) => process.env[name]);
 }
 
 /**

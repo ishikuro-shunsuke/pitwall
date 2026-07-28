@@ -44,8 +44,6 @@ export const config = {
   maxImageBytes: num(process.env.PITWALL_MAX_IMAGE_BYTES, 32 * 1024 * 1024),
 
   google: {
-    clientId: process.env.PITWALL_GOOGLE_CLIENT_ID || '',
-    clientSecret: process.env.PITWALL_GOOGLE_CLIENT_SECRET || '',
     /**
      * Google accepts any loopback port for a desktop client, so consent takes
      * whatever is free — unless the browser is on the other side of a container
@@ -104,8 +102,6 @@ export const config = {
   },
 
   chatwork: {
-    /** Issued from the account's own settings page. Nothing works without it. */
-    token: process.env.PITWALL_CHATWORK_TOKEN || '',
     /** Empty means every chat the account is in. */
     roomIds: (process.env.PITWALL_CHATWORK_ROOMS || '')
       .split(',')

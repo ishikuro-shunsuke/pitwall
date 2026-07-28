@@ -675,9 +675,8 @@ kbd {
   font-size: 12px;
 }
 .field input:focus { outline: none; border-color: var(--muted); }
-/* Set on the command line, and not this panel's to change. Left on screen so
-   the setting is still findable, rather than disappearing where it was. */
-.field input:disabled,
+/* Nothing to press yet — linking needs a client before it has anywhere to go.
+   Left on screen so the step is still visible, rather than appearing later. */
 .btn:disabled {
   opacity: 0.45;
   pointer-events: none;

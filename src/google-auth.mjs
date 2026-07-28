@@ -35,12 +35,11 @@ export class NeedsLinkError extends Error {
 }
 
 /**
- * Either the two environment variables, or the JSON Google Cloud Console hands
- * you on the download button — which nests the pair under `installed`.
+ * The pair, however it got into the file: the panel writes it in the shape the
+ * Cloud Console's own download button uses, which nests it under `installed`,
+ * and a download saved there by hand is read the same way.
  */
 export function readClient() {
-  const { clientId, clientSecret } = config.google;
-  if (clientId && clientSecret) return { clientId, clientSecret };
   try {
     const raw = JSON.parse(fs.readFileSync(paths.googleClient, 'utf8'));
     const c = raw.installed || raw.web || raw;
@@ -275,7 +274,7 @@ export async function authorize({ onUrl = openBrowser } = {}) {
   const client = readClient();
   if (!client) {
     throw new Error(
-      `no OAuth client: set PITWALL_GOOGLE_CLIENT_ID and PITWALL_GOOGLE_CLIENT_SECRET, or save the console download to ${paths.googleClient}`,
+      `no OAuth client: paste the client id and secret into the settings panel, or save the console download to ${paths.googleClient}`,
     );
   }
 

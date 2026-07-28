@@ -613,20 +613,17 @@ async function handleCompleteTask(req, res, params) {
  *
  * Whether a secret is set, never what it is: this page is served to anything
  * that can reach the port, and a token typed in on one machine must not be
- * readable from the next. A value that came from the environment is named as
- * such, because the panel cannot change that one and should not pretend to.
+ * readable from the next.
  */
 function settingsState() {
   const linking = google.consentStatus();
   return {
     chatwork: {
       set: chatworkApi.hasToken(),
-      fromEnv: settings.chatworkFromEnv(),
       account: chatworkApi.knownAccount()?.name || null,
     },
     google: {
       client: Boolean(google.readClient()),
-      clientFromEnv: settings.googleClientFromEnv(),
       linked: google.isLinked(),
       account: google.linkedAccount(),
       linkedAt: google.linkedAt(),
@@ -864,6 +861,10 @@ export function startServer() {
   server.listen(config.port, config.host, () => {
     console.log(`[pitwall] http://${config.host}:${config.port}/`);
   });
+
+  for (const name of settings.retiredEnv()) {
+    console.log(`[pitwall] ${name} is no longer read — that setting lives in the panel behind the gear`);
+  }
 
   calendar.start();
   todo.start();
