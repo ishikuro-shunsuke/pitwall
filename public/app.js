@@ -629,16 +629,16 @@ function holdChip(entry) {
  * so the line names the action and leaves the window to you.
  */
 const SESSION_CUE = {
-  ask_user_question: ['answer', 'the question'],
-  exit_plan_mode: ['approve', 'or reject the plan'],
+  ask_user_question: 'answer',
+  exit_plan_mode: 'approve',
 };
 
 function cueHtml(entry) {
   const hold = holdChip(entry);
   if (hold) return `<div class="cue">${hold}</div>`;
-  const cue = SESSION_CUE[entry.notificationType];
-  if (!cue) return '';
-  return `<div class="cue"><span class="chip act">${cue[0]}</span><span>${cue[1]} in the session, not from here</span></div>`;
+  const verb = SESSION_CUE[entry.notificationType];
+  if (!verb) return '';
+  return `<div class="cue"><span class="chip act">${verb}</span><span>in the session</span></div>`;
 }
 
 /**
