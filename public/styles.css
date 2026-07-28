@@ -32,6 +32,10 @@
   /* Chatwork's own mark is four colours at once, so it takes the widest gap the
      others leave rather than one of them. */
   --brand-chatwork: oklch(var(--tone-l) var(--tone-c) 204);
+  /* Claude Desktop asks in its own right, and a card from it is answered
+     somewhere Claude Code's cards are not, so it takes the gap furthest from
+     Claude's own rather than a shade of it. */
+  --brand-desktop: oklch(var(--tone-l) var(--tone-c) 330);
 
   /* Red is the only colour in here that means anything: something is waiting,
      something is running out, or you are on the button that acts. It carries
@@ -361,6 +365,7 @@ body.in-the-pits .empty { display: none; }
 .badge.todo { background: var(--brand-todo); border-color: var(--brand-todo); color: var(--on-accent); }
 .badge.mail { background: var(--brand-mail); border-color: var(--brand-mail); color: var(--on-accent); }
 .badge.chatwork { background: var(--brand-chatwork); border-color: var(--brand-chatwork); color: var(--on-accent); }
+.badge.desktop { background: var(--brand-desktop); border-color: var(--brand-desktop); color: var(--on-accent); }
 
 /* Which project a card came out of is how you know whether it is yours to deal
    with, so it opens the card at the size of the title below it and in the

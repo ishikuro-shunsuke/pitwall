@@ -138,9 +138,10 @@ export const config = {
 
 /**
  * Cursor's stop hook holds the agent for as long as it waits, so an entry
- * nobody is looking at has to let go early. Claude's hook waits in the
- * background with the session already stopped, where nothing is being held —
- * so it stays answerable for the whole window.
+ * nobody is looking at has to let go early. Claude Desktop is the same: a tool
+ * call is open the whole time it waits. Claude Code's hook is the exception —
+ * it waits in the background with the session already stopped, where nothing is
+ * being held, so it stays answerable for the whole window.
  */
 export function softHoldSeconds(agent) {
   return agent === 'claude' ? config.maxHoldSeconds : config.holdSeconds;
