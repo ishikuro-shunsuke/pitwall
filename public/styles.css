@@ -234,9 +234,10 @@ a { color: var(--accent); }
 }
 /* The way back onto the timeline, at the weight of the reply on a card — it is
    the same kind of thing, the one button on the strip that does something. Small
-   enough that the head of the page does not shift when it arrives. */
+   enough that the head of the page does not shift when it arrives, and it takes
+   no slack of its own: the clock has already gone to the end of the line, and
+   the button follows it there. */
 .stint-go {
-  margin-left: auto;
   padding: 2px 10px;
   font-size: 11px;
   letter-spacing: inherit;

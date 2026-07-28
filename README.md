@@ -95,7 +95,7 @@ A task assigned to you arrives on the morning it is due, and again every morning
 
 ## Stints
 
-Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight for five and comes back once that bar has filled, but the next stint waits for **Rejoin** however long you leave it.
+Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight, and it stays there however long you take: the stop is five minutes at the least, and past that the clock counts up to say how long the feed has been away from you. **Rejoin** brings it back and starts the next 25.
 
 The clock is kept in the browser you set it in, so a reload picks it up where it left off, and a stint whose 25 minutes ran out while the tab was closed has had its stop without you.
 

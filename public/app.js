@@ -364,9 +364,11 @@ function watchLink() {
  * corner of your eye all afternoon, and the stop is only a break if the cards
  * are actually gone off the screen while it runs.
  *
- * The lights go green by hand. A break that ends itself is one you spend
- * watching the clock, and whatever you got up for is not on a five-minute
- * schedule.
+ * The lights go green by hand, and the feed waits with them. A break that ends
+ * itself is one you spend watching the clock, and whatever you got up for is
+ * not on a five-minute schedule — so the five is the least the stop takes
+ * rather than the whole of it, and what the clock has to say after that is how
+ * long the timeline has been away from you.
  *
  * This clock is the browser's own — no skew, because there is no other end to
  * agree with. Nothing on the server knows a stint is running and nothing needs
@@ -391,7 +393,11 @@ function readStint() {
   try {
     const saved = JSON.parse(localStorage.getItem('pitwall.stint') || 'null');
     if (saved && saved.phase in STINT_PHASE) {
-      return { phase: saved.phase, until: Number(saved.until) || 0 };
+      // At the exit the mark is when the stop finished, which is what the
+      // overrun is counted from. One written down before there was an overrun
+      // to count has none, and takes the moment it is read.
+      const until = Number(saved.until) || (saved.phase === 'exit' ? Date.now() : 0);
+      return { phase: saved.phase, until };
     }
   } catch { /* ignore */ }
   return null;
@@ -415,8 +421,10 @@ function settleStint() {
   if (stint.phase === 'stint' && Date.now() >= stint.until) {
     stint = { phase: 'pit', until: stint.until + PIT_MS };
   }
+  // The mark stays where the stop ended rather than being cleared: standing at
+  // the exit, that is the moment everything after it is counted from.
   if (stint.phase === 'pit' && Date.now() >= stint.until) {
-    stint = { phase: 'exit', until: 0 };
+    stint = { phase: 'exit', until: stint.until };
   }
   // Only a phase that turned, so the second hand is not writing to disk.
   if (stint.phase !== was) writeStint();
@@ -429,9 +437,14 @@ function goGreen() {
   paintStint();
 }
 
-/** The timeline is off the screen, so anything aimed at a card is aimed at nothing. */
+/**
+ * Anywhere but out on the timeline — the stop and the wait at the exit both
+ * count, because you are in the pit lane until you have gone back out of it.
+ * The feed is off the screen for the whole of that, so anything aimed at a card
+ * is aimed at nothing.
+ */
 function inThePits() {
-  return stint?.phase === 'pit';
+  return Boolean(stint) && stint.phase !== 'stint';
 }
 
 function paintStint() {
@@ -447,16 +460,20 @@ function paintStint() {
   // written every second, the same two words are read out every second with it.
   const said = STINT_PHASE[phase];
   if (el.stintPhase.textContent !== said) el.stintPhase.textContent = said;
-  el.stintClock.textContent = fmtRemain(remain);
-  el.stintClock.classList.toggle('hidden', phase === 'exit');
+  // At the exit the clock turns round: the stop is served and the figure is
+  // how long the timeline has been away from you since, which is the one thing
+  // you cannot tell by looking at a page with nothing on it.
+  el.stintClock.textContent = phase === 'exit'
+    ? `+${fmtRemain(Math.max(0, Date.now() - stint.until))}`
+    : fmtRemain(remain);
   el.stintGo.classList.toggle('hidden', phase !== 'exit');
 
   // The stint drains and the stop fills: one is time going, the other time
-  // being served. Stopped at the exit there is nothing running, so the line is
-  // empty and the only thing on the strip is the way back out.
+  // being served. The full line stays up at the exit — the stop is done, and
+  // what is left is the button beside it.
   const share = phase === 'stint' ? remain / STINT_MS
     : phase === 'pit' ? 1 - remain / PIT_MS
-      : 0;
+      : 1;
   el.stintFill.style.width = `${Math.min(1, Math.max(0, share)) * 100}%`;
 
   // Only the stint reddens, on the same run-in as a hold: red here means
