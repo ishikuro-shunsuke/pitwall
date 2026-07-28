@@ -98,7 +98,7 @@ export const config = {
      * poll only has to have found them by then; mail lands on the feed when
      * the poll finds it and not before.
      */
-    pollSeconds: num(process.env.PITWALL_MAIL_POLL_SECONDS, 30),
+    pollSeconds: num(process.env.PITWALL_MAIL_POLL_SECONDS, 60),
     /** A quiet hour that ends in a hundred cards is worse than a missed one. */
     maxPerPoll: num(process.env.PITWALL_MAIL_MAX_PER_POLL, 20),
   },
