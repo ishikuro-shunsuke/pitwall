@@ -269,9 +269,11 @@ function nowMs() {
  * means something here, and a repo that happened to hash into it would be
  * telling you its card is urgent. A service that owns a colour is named onto
  * one instead of hashing into it — there is no counting on a hash to land
- * somewhere recognisable.
+ * somewhere recognisable. Chatwork's own mark is four colours at once, so there
+ * is nothing there to borrow; it takes the middle of the widest gap the others
+ * leave, which is as far from any of them as a hue can get.
  */
-const SERVICE_HUE = { gmail: 29, gcal: 260, gtasks: 148 };
+const SERVICE_HUE = { gmail: 29, gcal: 260, gtasks: 148, chatwork: 204 };
 
 function repoTones(key) {
   if (!key) return null;
@@ -373,12 +375,12 @@ function startsChip(entry) {
 }
 
 /**
- * A task has a due date and no hour, so there is nothing to count down to. How
- * far past its date it has got is the one thing worth the space, and it takes
- * the same reddening run as a meeting closing in.
+ * A task is owed on a day rather than at a minute, so there is nothing to count
+ * down to. How far past its date it has got is the one thing worth the space,
+ * and it takes the same reddening run as a meeting closing in.
  */
 function dueChip(entry) {
-  const todo = entry.todo;
+  const todo = entry.todo || entry.chatworkTask;
   if (!todo) return '';
   const late = todo.overdueDays || 0;
   if (!late) return '<span class="chip hold">due today</span>';
@@ -693,14 +695,16 @@ const firing = new Set();
  */
 function takesReply(entry) {
   if (entry.status === 'waiting') return true;
-  return Boolean(entry.mail) && entry.status === 'notice';
+  return Boolean(entry.mail || entry.chatwork) && entry.status === 'notice';
 }
 
-/** Where a Google card came from: the slot it hangs on, its url, its button. */
+/** Where a card came from: the slot it hangs on, its url, its button. */
 const OPEN_IN = [
   ['mail', 'webUrl', 'Open in Gmail'],
   ['calendar', 'htmlLink', 'Open in Calendar'],
   ['todo', 'webViewLink', 'Open in Tasks'],
+  ['chatwork', 'webUrl', 'Open in Chatwork'],
+  ['chatworkTask', 'webUrl', 'Open in Chatwork'],
 ];
 
 function actionsHtml(entry) {
@@ -716,11 +720,18 @@ function actionsHtml(entry) {
     // card asks is whether an answer goes with it.
     parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Send the reply and archive in Gmail">Radio in</button>`);
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive in Gmail">Box</button>`);
-  } else if (entry.todo && entry.status === 'notice') {
-    // The only card on the feed that can change something outside pitwall, so
-    // it says what it does to the task and Box is left meaning what it means
+  } else if (entry.chatwork && entry.status === 'notice') {
+    // Both of these read the room up to this message, which is what clears it
+    // in Chatwork; the only question the card asks is whether an answer goes
+    // with it.
+    parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Send the reply and read up to this message">Radio in</button>`);
+    parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Read up to this message in Chatwork">Box</button>`);
+  } else if ((entry.todo || entry.chatworkTask) && entry.status === 'notice') {
+    // The cards on the feed that can change something outside pitwall, so they
+    // say what they do to the task and Box is left meaning what it means
     // everywhere else — off the feed, and nothing more.
-    parts.push(`<button type="button" class="btn primary${lit('complete')}" data-act="complete" data-id="${esc(entry.id)}" title="Complete in Google Tasks">Chequered</button>`);
+    const service = entry.todo ? 'Google Tasks' : 'Chatwork';
+    parts.push(`<button type="button" class="btn primary${lit('complete')}" data-act="complete" data-id="${esc(entry.id)}" title="Complete in ${service}">Chequered</button>`);
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive, leaving the task open">Box</button>`);
   } else if (entry.bucket === 'timeline') {
     // A notice and a closed card both sit here with nothing to answer, so the
@@ -752,7 +763,9 @@ function actionsHtml(entry) {
   if (takesReply(entry)) {
     const placeholder = entry.mail
       ? 'Reply goes out through Gmail…'
-      : 'Reply goes back into the same agent turn…';
+      : entry.chatwork
+        ? 'Reply goes into the room, under this message…'
+        : 'Reply goes back into the same agent turn…';
     composer = `
       <div class="composer" data-composer="${esc(entry.id)}">
         <textarea placeholder="${placeholder}" data-reply-input="${esc(entry.id)}">${esc(state.drafts.get(entry.id) || '')}</textarea>

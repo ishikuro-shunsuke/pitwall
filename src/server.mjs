@@ -10,6 +10,8 @@ import * as waiters from './waiters.mjs';
 import * as calendar from './calendar.mjs';
 import * as todo from './todo.mjs';
 import * as mail from './mail.mjs';
+import * as chatwork from './chatwork.mjs';
+import * as chatworkTask from './chatwork-task.mjs';
 import { buildEntry, publicEntry } from './normalize.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
@@ -432,6 +434,30 @@ async function handleReply(req, res, params) {
     return sendJson(res, 200, { ok: true });
   }
 
+  // Same again for a chat message: the answer goes into the room, and the card
+  // is done because there was never a hook behind it.
+  if (entry.chatwork) {
+    if (entry.status !== 'notice') {
+      return sendJson(res, 409, { error: 'already boxed', status: entry.status });
+    }
+    const body = await readBody(req);
+    const message = String(body.message || '').trim();
+    if (!message) return sendJson(res, 400, { error: 'message required' });
+    try {
+      await chatwork.replyAndRead(entry.chatwork, message);
+    } catch (error) {
+      // The card stays: nothing has been said, so it is still yours to answer.
+      return sendJson(res, 502, { error: `could not send through Chatwork: ${error.message}` });
+    }
+    store.update(params.id, {
+      status: 'dismissed',
+      resolvedAt: new Date().toISOString(),
+      resolution: 'replied',
+      reply: message,
+    });
+    return sendJson(res, 200, { ok: true });
+  }
+
   if (entry.status !== 'waiting') {
     return sendJson(res, 409, { error: 'not waiting', status: entry.status });
   }
@@ -482,6 +508,21 @@ async function handleDismiss(req, res, params) {
       status: 'dismissed',
       resolvedAt: new Date().toISOString(),
       resolution: 'archived',
+    });
+    return sendJson(res, 200, { ok: true });
+  }
+  // And on a chat message it reads the room up to that message, which is what
+  // stops it counting against you in Chatwork's own badge.
+  if (entry.chatwork && entry.status === 'notice') {
+    try {
+      await chatwork.markRead(entry.chatwork);
+    } catch (error) {
+      return sendJson(res, 502, { error: `could not mark read in Chatwork: ${error.message}` });
+    }
+    store.update(params.id, {
+      status: 'dismissed',
+      resolvedAt: new Date().toISOString(),
+      resolution: 'read',
     });
     return sendJson(res, 200, { ok: true });
   }
@@ -540,15 +581,21 @@ async function handleArchiveNotice(req, res, params) {
 async function handleCompleteTask(req, res, params) {
   const entry = store.get(params.id);
   if (!entry) return sendJson(res, 404, { error: 'not found' });
-  if (!entry.todo) return sendJson(res, 409, { error: 'not a task' });
+  const where = entry.todo
+    ? { tick: () => todo.complete(entry.todo), service: 'Google Tasks' }
+    : entry.chatworkTask
+      ? { tick: () => chatworkTask.complete(entry.chatworkTask), service: 'Chatwork' }
+      : null;
+  if (!where) return sendJson(res, 409, { error: 'not a task' });
   if (entry.status !== 'notice') {
     return sendJson(res, 409, { error: 'already boxed', status: entry.status });
   }
   try {
-    await todo.complete(entry.todo);
+    await where.tick();
   } catch (error) {
-    // The card stays where it is: it is still owed until Google says otherwise.
-    return sendJson(res, 502, { error: `could not complete in Google Tasks: ${error.message}` });
+    // The card stays where it is: it is still owed until the service says
+    // otherwise.
+    return sendJson(res, 502, { error: `could not complete in ${where.service}: ${error.message}` });
   }
   store.update(params.id, {
     status: 'dismissed',
@@ -668,6 +715,8 @@ async function router(req, res) {
         calendar: calendar.status(),
         todo: todo.status(),
         mail: mail.status(),
+        chatwork: chatwork.status(),
+        chatworkTasks: chatworkTask.status(),
         time: Date.now(),
       });
     }
@@ -728,6 +777,8 @@ export function startServer() {
   calendar.start();
   todo.start();
   mail.start();
+  chatwork.start();
+  chatworkTask.start();
 
   const shutdown = () => {
     console.log('[pitwall] shutting down…');
@@ -737,6 +788,8 @@ export function startServer() {
     calendar.stop();
     todo.stop();
     mail.stop();
+    chatwork.stop();
+    chatworkTask.stop();
     store.shutdown();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 1500).unref?.();

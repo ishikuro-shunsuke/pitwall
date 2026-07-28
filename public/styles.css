@@ -29,6 +29,9 @@
      and Tasks takes Google's green rather than the blue Google actually gives
      it, which is Calendar's blue to two degrees. */
   --brand-mail: oklch(var(--tone-l) var(--tone-c) 29);
+  /* Chatwork's own mark is four colours at once, so it takes the widest gap the
+     others leave rather than one of them. */
+  --brand-chatwork: oklch(var(--tone-l) var(--tone-c) 204);
 
   /* Red is the only colour in here that means anything: something is waiting,
      something is running out, or you are on the button that acts. It carries
@@ -230,6 +233,7 @@ main {
 .badge.calendar { background: var(--brand-calendar); border-color: var(--brand-calendar); color: var(--on-accent); }
 .badge.todo { background: var(--brand-todo); border-color: var(--brand-todo); color: var(--on-accent); }
 .badge.mail { background: var(--brand-mail); border-color: var(--brand-mail); color: var(--on-accent); }
+.badge.chatwork { background: var(--brand-chatwork); border-color: var(--brand-chatwork); color: var(--on-accent); }
 
 /* Which project a card came out of is how you know whether it is yours to deal
    with, so it opens the card at the size of the title below it and in the

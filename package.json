@@ -18,7 +18,7 @@
     "install-hooks:devcontainer": "node bin/install-hooks.mjs --devcontainer",
     "uninstall-hooks": "node bin/install-hooks.mjs --uninstall",
     "demo": "node demo/feed.mjs",
-    "test": "node test/smoke.mjs && node test/install-hooks.mjs && node test/calendar.mjs && node test/todo.mjs && node test/mail.mjs",
+    "test": "node test/smoke.mjs && node test/install-hooks.mjs && node test/calendar.mjs && node test/todo.mjs && node test/mail.mjs && node test/chatwork.mjs",
     "smoke": "node test/smoke.mjs"
   }
 }

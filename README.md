@@ -2,7 +2,7 @@
 
 One timeline for every coding agent that is waiting on you.
 
-Cursor and Claude Code stop and wait for your input in windows you are not looking at. pitwall collects those moments into a single timeline in your browser, and delivers your reply back into the same chat or session. Link a Google account and your calendar reminders, due tasks and new mail arrive on the same timeline. Everything runs on your machine, with no dependencies beyond Node.js.
+Cursor and Claude Code stop and wait for your input in windows you are not looking at. pitwall collects those moments into a single timeline in your browser, and delivers your reply back into the same chat or session. Link a Google account and your calendar reminders, due tasks and new mail arrive on the same timeline; hand over a Chatwork token and so do the messages and tasks with your name on them. Everything runs on your machine, with no dependencies beyond Node.js.
 
 https://github.com/user-attachments/assets/942aed4a-8fb7-4f03-b8a2-f58dd02ed616
 
@@ -91,6 +91,24 @@ Every task list is watched, and consent asks to edit them as well as read them �
 
 `PITWALL_MAIL_QUERY` decides which mail is worth a card, in Gmail's own search syntax — `in:inbox is:unread` by default, or something like `in:inbox is:unread -category:promotions` where the tabs are in use. Consent covers reading, sending and moving, but not deleting. The first poll after linking cards nothing: an inbox that filled up before pitwall existed is a backlog rather than news, so only what arrives afterwards reaches the feed.
 
+## Chatwork
+
+A message with your name on it arrives as a card you can answer — a mention, a reply to something you wrote, or anything at all in a one-to-one chat. A message to everyone does not. **Radio in** posts your reply into the room, under the message it answers; **Box** answers nothing. Both then read that room up to that message, which is what takes it off Chatwork's own badge, and reads everything older in the room with it.
+
+A task assigned to you arrives on the morning it is due, and again every morning it stays open. **Chequered** ticks it off in Chatwork; **Box** files the card away and leaves the task open.
+
+Issue a token from your own account — your name, top right, then **Service Integration → API Token** — and start the server with it:
+
+```bash
+PITWALL_CHATWORK_TOKEN=… npm start
+```
+
+On a business plan, an administrator has to approve API use for the organisation before a token will work.
+
+Nothing pitwall reads moves the unread badge; only the buttons on a card do. The first poll after the token arrives cards nothing — whatever is already waiting is a backlog rather than news — and what has been delivered since is tracked in `data/chatwork-seen.json` and `data/chatwork-task-seen.json`.
+
+A deadline is a moment, and which day it falls on depends on where you are. Chatwork's API does not say where the account is, so it is read in this machine's zone unless `PITWALL_CHATWORK_TIMEZONE` says otherwise.
+
 ## Configuration
 
 | Variable | Default | |
@@ -112,6 +130,13 @@ Every task list is watched, and consent asks to edit them as well as read them �
 | `PITWALL_MAIL_POLL_SECONDS` | `60` | how often Gmail is asked what is new, which is also how long a new message waits |
 | `PITWALL_MAIL_MAX_PER_POLL` | `20` | most cards one poll may add |
 | `PITWALL_OAUTH_PORT` | any free port | where consent comes back |
+| `PITWALL_CHATWORK_TOKEN` | none | without it, no Chatwork card arrives |
+| `PITWALL_CHATWORK_ROOMS` | every chat | comma-separated room ids |
+| `PITWALL_CHATWORK_POLL_SECONDS` | `60` | how often Chatwork is asked what is new, which is also how long a message waits |
+| `PITWALL_CHATWORK_MAX_PER_POLL` | `20` | most cards one poll may add |
+| `PITWALL_CHATWORK_TASK_POLL_SECONDS` | `300` | how often tasks are asked for |
+| `PITWALL_CHATWORK_TASK_DUE_HOUR` | `9` | the hour a due task lands on |
+| `PITWALL_CHATWORK_TIMEZONE` | this machine's | which zone a deadline's day is read in |
 
 ## What it puts on your machine
 
@@ -140,5 +165,5 @@ curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/clea
 
 ```bash
 npm run dev    # --watch
-npm test       # end-to-end smoke test, installer test, and calendar, tasks and mail against a stubbed Google
+npm test       # end-to-end smoke test, installer test, and calendar, tasks, mail and Chatwork against stubbed services
 ```

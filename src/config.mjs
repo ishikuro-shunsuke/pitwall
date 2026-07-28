@@ -102,6 +102,28 @@ export const config = {
     /** A quiet hour that ends in a hundred cards is worse than a missed one. */
     maxPerPoll: num(process.env.PITWALL_MAIL_MAX_PER_POLL, 20),
   },
+
+  chatwork: {
+    /** Issued from the account's own settings page. Nothing works without it. */
+    token: process.env.PITWALL_CHATWORK_TOKEN || '',
+    /** Empty means every chat the account is in. */
+    roomIds: (process.env.PITWALL_CHATWORK_ROOMS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+    /** As with mail, this is the whole of the wait before a message lands. */
+    pollSeconds: num(process.env.PITWALL_CHATWORK_POLL_SECONDS, 60),
+    maxPerPoll: num(process.env.PITWALL_CHATWORK_MAX_PER_POLL, 20),
+    /** Tasks are asked for far less often: a deadline is a day, not a minute. */
+    taskPollSeconds: num(process.env.PITWALL_CHATWORK_TASK_POLL_SECONDS, 300),
+    taskDueHour: hourOfDay(process.env.PITWALL_CHATWORK_TASK_DUE_HOUR ?? '', 9),
+    /**
+     * A task's deadline is an instant, and which day it falls on depends on
+     * where you are. Chatwork's API does not say where the account is, so this
+     * is the only thing that can — the server's own zone otherwise.
+     */
+    timeZone: process.env.PITWALL_CHATWORK_TIMEZONE || '',
+  },
 };
 
 /**
@@ -123,6 +145,8 @@ export const paths = {
   calendarSeen: path.join(config.dataDir, 'calendar-seen.json'),
   todoSeen: path.join(config.dataDir, 'todo-seen.json'),
   mailSeen: path.join(config.dataDir, 'mail-seen.json'),
+  chatworkSeen: path.join(config.dataDir, 'chatwork-seen.json'),
+  chatworkTaskSeen: path.join(config.dataDir, 'chatwork-task-seen.json'),
   public: path.join(ROOT, 'public'),
   deeplink: path.join(ROOT, 'src', 'deeplink.mjs'),
 };
