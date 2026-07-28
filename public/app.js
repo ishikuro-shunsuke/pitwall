@@ -1779,14 +1779,17 @@ document.addEventListener('keydown', (e) => {
 });
 
 /**
- * Opens `url` in the viewer. Arrow keys walk every image on screen, not just
- * the card that was clicked, so `from` says which thumbnail was the way in —
+ * Opens `url` in the viewer. Arrow keys walk the images of the one card you
+ * opened from, so `origin` says which element was the way in — it names both
+ * the card to walk and, when it is a thumbnail, which one was clicked, since
  * two refs with the same bytes share one url and can't be told apart by it.
  */
-function openImage(url, cap, from) {
-  const buttons = [...el.timeline.querySelectorAll('[data-img]')];
+function openImage(url, cap, origin) {
+  const scope = origin?.closest('.card') || el.timeline;
+  const buttons = [...scope.querySelectorAll('[data-img]')];
   const items = buttons.map((b) => ({ url: b.dataset.img, cap: b.dataset.cap }));
-  let index = from ? buttons.indexOf(from) : items.findIndex((it) => it.url === url);
+  let index = buttons.indexOf(origin);
+  if (index < 0) index = items.findIndex((it) => it.url === url);
   if (index < 0) {
     items.unshift({ url, cap });
     index = 0;
@@ -1800,7 +1803,7 @@ el.timeline.addEventListener('click', async (e) => {
     // A modified click keeps the href, so the file can still be opened raw.
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
     e.preventDefault();
-    openImage(imgLink.dataset.imgOpen, imgLink.dataset.cap);
+    openImage(imgLink.dataset.imgOpen, imgLink.dataset.cap, imgLink);
     return;
   }
 
