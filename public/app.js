@@ -924,7 +924,10 @@ function repoTones(key) {
 function selectedEntries() {
   const items = [...state.entries.values()]
     .filter((e) => e.bucket === state.view);
-  items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  // The order the server sends, held to here as well, because the entries are
+  // a map that arrivals and SSE updates write into out of order.
+  const dir = state.view === 'archive' ? -1 : 1;
+  items.sort((a, b) => dir * (Date.parse(a.createdAt) - Date.parse(b.createdAt)));
   return items;
 }
 
@@ -1590,9 +1593,10 @@ new IntersectionObserver((entries) => {
   if (entries.some((e) => e.isIntersecting)) showMore();
 }, { rootMargin: '600px 0px' }).observe(el.more);
 
-// Newest first means an arrival pushes whatever you are reading down the page.
-// Nothing survives the repaint for the browser to anchor to, so the card at the
-// top of the reading area is measured before the swap and put back after it.
+// A card leaving from above whatever you are reading pulls the rest up the
+// page, and on the archive an arrival does the same. Nothing survives the
+// repaint for the browser to anchor to, so the card at the top of the reading
+// area is measured before the swap and put back after it.
 
 /** Scrolled this close to the head of the feed, arrivals are meant to show up. */
 const TOP_SLACK = 8;

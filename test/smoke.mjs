@@ -416,6 +416,34 @@ async function main() {
       else fail('notify filters uninteresting types', skipped.data);
     }
 
+    // which end of the list you work from
+    {
+      const notice = async (message) => {
+        const n = await json('POST', '/api/hooks/notify?agent=claude', {
+          cwd: DATA, notification_type: 'permission_prompt', message,
+        });
+        // Two in the same millisecond would have no order to be in.
+        await new Promise((r) => setTimeout(r, 20));
+        return n.data.id;
+      };
+      const older = await notice('waiting longer');
+      const newer = await notice('just arrived');
+
+      const timeline = await json('GET', '/api/entries?view=timeline');
+      const at = (id) => timeline.data.entries.findIndex((e) => e.id === id);
+      if (at(older) >= 0 && at(older) < at(newer)) ok('the timeline leads with what has waited longest');
+      else fail('the timeline leads with what has waited longest', { older: at(older), newer: at(newer) });
+
+      await json('POST', `/api/entries/${older}/dismiss`);
+      await json('POST', `/api/entries/${newer}/dismiss`);
+
+      const archive = await json('GET', '/api/entries?view=archive');
+      const seen = (id) => archive.data.entries.findIndex((e) => e.id === id);
+      // Nothing is owed on the archive, so it reads the way a feed does.
+      if (seen(newer) >= 0 && seen(newer) < seen(older)) ok('the archive leads with the last thing that happened');
+      else fail('the archive leads with the last thing that happened', { older: seen(older), newer: seen(newer) });
+    }
+
     // expired via short hold
     {
       const created = await json('POST', '/api/hooks/wait', {

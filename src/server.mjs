@@ -415,7 +415,12 @@ async function handleList(req, res, url) {
 
   if (view !== 'all') items = items.filter((e) => e.bucket === view);
 
-  items.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  // Oldest first on the timeline, which is a queue and not a feed: the card
+  // to answer next is the one that has waited longest and is nearest its hold
+  // running out, and it belongs where the reading starts. The archive is over
+  // — you scan it, and there the last thing that happened leads.
+  const dir = view === 'archive' ? -1 : 1;
+  items.sort((a, b) => dir * (Date.parse(a.createdAt) - Date.parse(b.createdAt)));
 
   sendJson(res, 200, {
     entries: items,
