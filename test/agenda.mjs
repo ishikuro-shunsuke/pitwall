@@ -245,8 +245,14 @@ is('the card lands on the hour', cards().length, 1);
 }
 
 is('the day asked for is the day where the account lives',
-  read.every((r) => r.from === zonedTime(TODAY, ZONE, 0) && r.to === zonedTime(TOMORROW, ZONE, 0)), true);
-is('every calendar is read when none were named', new Set(read.map((r) => r.id)).size, 3);
+  read.filter((r) => r.id !== 'primary')
+    .every((r) => r.from === zonedTime(TODAY, ZONE, 0) && r.to === zonedTime(TOMORROW, ZONE, 0)), true);
+is('every calendar is read when none were named',
+  new Set(read.map((r) => r.id).filter((id) => id !== 'primary')).size, 3);
+// Tasks are only ever put on the calendar you own, and the read is for their
+// hours alone — nothing off it reaches the card as an event.
+is('and the one you own is read again, for the hours on the tasks',
+  read.some((r) => r.id === 'primary'), true);
 is('and the token was fetched once', tokenCalls, 1);
 
 // --- the rest of the day -----------------------------------------------------
@@ -376,7 +382,8 @@ internals.loadSeen();
   read.length = 0;
   clock = zonedTime('2026-08-07', ZONE, 7, 0);
   await internals.cycle();
-  is('naming a calendar leaves the rest unread', read.map((r) => r.id).join(), 'personal');
+  is('naming a calendar leaves the rest unread',
+    read.map((r) => r.id).filter((id) => id !== 'primary').join(), 'personal');
   config.calendar.ids = [];
 }
 

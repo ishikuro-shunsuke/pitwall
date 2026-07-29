@@ -153,6 +153,9 @@ function taskOrder(a, b) {
  */
 function taskLine(task) {
   const notes = [];
+  // The hours first, where a task has any: it is the only thing on the line
+  // that says where in the day it goes.
+  if (task.at) notes.push(task.at);
   if (task.lateDays > 0) notes.push(`${task.lateDays} day${task.lateDays === 1 ? '' : 's'} late`);
   if (task.where) notes.push(task.where);
   return notes.length ? `${task.title} — ${notes.join(' · ')}` : task.title;

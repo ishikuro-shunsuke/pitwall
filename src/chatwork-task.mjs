@@ -302,6 +302,9 @@ export async function outstanding(day, timeZone) {
       title: titleOf(chatworkText(withoutOpeningAddress(task.body))),
       due,
       lateDays: Math.max(0, daysBetween(due, day, timeZone)),
+      // Chatwork's deadline is an instant, but it is a deadline and not a slot
+      // in the day, so there are no hours to put on the line.
+      at: null,
       // Two services on one list, and only the one that is not the default
       // has to say so.
       where: 'Chatwork',

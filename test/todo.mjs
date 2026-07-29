@@ -134,6 +134,26 @@ let tokenCalls = 0;
 let broken = null;
 const read = [];
 const written = [];
+const gridReads = [];
+
+/**
+ * A task Google has put on the grid comes back as a focus-time block, and the
+ * only thing that says it is a task is the note in the description. That note
+ * names it in the short form, of which the Tasks API's own id is the base64url
+ * — so the id is derived here the way Google derives it, not invented.
+ */
+const taskIdOf = (shortId) => Buffer.from(shortId, 'utf8').toString('base64url');
+let grid = [];
+const block = (shortId, startIso, endIso) => ({
+  id: `ev-${shortId}`,
+  status: 'confirmed',
+  eventType: 'focusTime',
+  summary: 'a task on the grid',
+  description: `To make edits, please go to: https://tasks.google.com/task/${shortId}`,
+  start: { dateTime: startIso },
+  end: { dateTime: endIso },
+  reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] },
+});
 
 globalThis.fetch = async (input, init = {}) => {
   const url = new URL(typeof input === 'string' ? input : input.toString());
@@ -150,6 +170,11 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.pathname.endsWith('/users/@me/lists')) {
     return reply({ items: LISTS });
+  }
+  // The calendar, where a task given a time keeps it.
+  if (url.pathname.endsWith('/calendars/primary/events')) {
+    gridReads.push(Date.parse(url.searchParams.get('timeMin')));
+    return reply({ items: grid });
   }
   const patch = url.pathname.match(/\/lists\/([^/]+)\/tasks\/([^/]+)$/);
   if (patch && init.method === 'PATCH') {
@@ -307,6 +332,74 @@ const settled = cards().length;
 await internals.poll();
 internals.fireDue();
 is('what was already said survives a restart', cards().length, settled);
+
+// --- a task Google has put on the grid ---------------------------------------
+
+{
+  const DAY = '2026-08-10';
+  const SHORT = 'QuoteTask01';
+  const TIMED = taskIdOf(SHORT);
+  const blockStart = zonedTime(DAY, ZONE, 11, 0);
+  tasks = {
+    ...tasks,
+    'list-b': [
+      ...tasks['list-b'],
+      { id: TIMED, title: 'Draft the quote', status: 'needsAction', due: due(DAY) },
+    ],
+  };
+  grid = [block(SHORT, new Date(blockStart).toISOString(),
+    new Date(blockStart + 3_600_000).toISOString())];
+
+  // Past the hour every other task would have landed on, and well before the
+  // hour this one was actually given.
+  clock = zonedTime(DAY, ZONE, 9, 30);
+  await internals.poll();
+  internals.fireDue();
+
+  is('the grid is read for the days in hand', gridReads.length > 0, true);
+  is('a task with a time of its own does not land on the hour',
+    Boolean(byTitle('Draft the quote')), false);
+  is('it waits for the time it was given',
+    internals.pendingKeys().includes(`list-b|${TIMED}|${DAY}`), true);
+
+  clock = blockStart + 5000;
+  internals.fireDue();
+  const card = byTitle('Draft the quote');
+  if (!card) fail('a scheduled task lands at its own time', 'no card');
+  else {
+    is('a scheduled task lands at its own time', card.todo.startMs, blockStart);
+    is('and the card says which hours they are', card.body.includes('**Due today** · 11:00–12:00'), true);
+    is('while still being a task, with the button that ticks it off', card.todo.taskId, TIMED);
+  }
+
+  // Tomorrow it is still owed, but the block was yesterday's.
+  const after = nextDate(DAY, ZONE);
+  clock = zonedTime(after, ZONE, 9, 30);
+  await internals.poll();
+  internals.fireDue();
+  const again = cards().filter((c) => c.title === 'Draft the quote');
+  is('the morning after, it is back on the hour', again.length, 2);
+  is('with no hours left to quote', again.at(-1).todo.startMs, null);
+
+  grid = [];
+  tasks = { ...tasks, 'list-b': tasks['list-b'].filter((t) => t.id !== TIMED) };
+}
+
+// --- when the grid cannot be read --------------------------------------------
+
+{
+  // The times are a bonus, and a calendar that will not answer must not take
+  // the tasks down with it.
+  const realGrid = grid;
+  grid = null; // makes the stub throw on JSON.stringify
+  clock = zonedTime('2026-08-12', ZONE, 9, 30);
+  const before = cards().length;
+  await internals.poll();
+  internals.fireDue();
+  is('a grid that cannot be read still leaves the tasks on the hour',
+    cards().length > before, true);
+  grid = realGrid;
+}
 
 // --- naming the lists --------------------------------------------------------
 

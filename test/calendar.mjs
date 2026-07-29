@@ -121,6 +121,28 @@ let events = [
     reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 60 }] },
   },
   {
+    // A task Google has put on the grid. It arrives as a focus-time block and
+    // the description is the only thing that says otherwise.
+    id: 'ontheGrid',
+    status: 'confirmed',
+    eventType: 'focusTime',
+    summary: 'Draft the quote',
+    description: 'Changes made to the title will not be saved. To make edits, please go to: https://tasks.google.com/task/QuoteTask01',
+    start: { dateTime: iso(now + 10 * MIN) },
+    end: { dateTime: iso(now + 70 * MIN) },
+    reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 0 }] },
+  },
+  {
+    // A focus-time block somebody actually booked, which still wants its say.
+    id: 'headsDown',
+    status: 'confirmed',
+    eventType: 'focusTime',
+    summary: 'Heads down',
+    start: { dateTime: iso(now + 12 * MIN) },
+    end: { dateTime: iso(now + 72 * MIN) },
+    reminders: { useDefault: false, overrides: [{ method: 'popup', minutes: 5 }] },
+  },
+  {
     id: 'desk',
     status: 'confirmed',
     eventType: 'workingLocation',
@@ -262,6 +284,15 @@ is('the reminder still ahead is held, not fired', internals.pendingKeys().some((
 is('an event that switched its reminders off stays quiet', internals.pendingKeys().some((k) => k.includes('|silenced|')), false);
 is('a declined invitation stays quiet', internals.pendingKeys().some((k) => k.includes('|declined|')), false);
 is('a working-location marker stays quiet', internals.pendingKeys().some((k) => k.includes('|desk|')), false);
+// It has a card of its own, off the task, with the button that ticks it off.
+is('a task on the grid is left to the tasks',
+  internals.pendingKeys().some((k) => k.includes('|ontheGrid|')), false);
+is('and never reaches the feed as an event',
+  cards().some((c) => c.title === 'Draft the quote'), false);
+is('while a focus block somebody booked is held for its own minute',
+  internals.pendingKeys().some((k) => k.includes('|headsDown|')), true);
+is('the one is told from the other by the note Google leaves, not by its type',
+  Boolean(internals.taskOf({ eventType: 'focusTime', description: 'heads down' })), false);
 is('a reminder whose moment has passed is swallowed', [...internals.seen.keys()].some((k) => k.includes('|stale|')), true);
 
 // --- polling again ---------------------------------------------------------

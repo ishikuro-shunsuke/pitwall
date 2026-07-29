@@ -89,7 +89,7 @@ A reminder set on an event arrives as a card at the minute the event asked for, 
 
 One card each morning lists the whole day — every event on every calendar being watched, with its hours, its room and its call link, and under them everything still owed: tasks due today or already past, from Google Tasks and Chatwork alike. It lands at 07:00 in the account's own time zone rather than the server's, and `PITWALL_AGENDA_HOUR` moves that. A morning that passed with the server down arrives when it comes back up, until the day turns.
 
-A task arrives on the morning it is due, and again every morning after that. **Chequered** ticks it off in Google — the one button on the feed that changes anything outside pitwall. **Box** files the card away and leaves the task open, so it comes round again tomorrow.
+A task arrives on the morning it is due, and again every morning after that — or at the hour itself, where you gave it one in Google and it sits on the calendar grid. **Chequered** ticks it off in Google — the one button on the feed that changes anything outside pitwall. **Box** files the card away and leaves the task open, so it comes round again tomorrow.
 
 Mail arrives as a card you can answer. **Radio in** sends the reply through Gmail, in the same thread, and archives the message; **Box** archives it without answering. Both only take it out of the inbox — nothing is deleted, and nothing is marked read.
 
@@ -107,7 +107,7 @@ Consent comes back to a loopback port on the machine the server runs on, so link
 
 Every calendar ticked in Google Calendar's own sidebar is watched, and the reminder is the one on the event, so anything you have silenced there stays silent here.
 
-Every task list is watched, and consent asks to edit them as well as read them — ticking one off is a write, and Google has no narrower grant for it. A time of day set on a task is not readable through Google's API, so cards land at 09:00 instead — `PITWALL_TODO_DUE_HOUR` moves that. Everything already overdue arrives on the first morning after you link, and a morning that passed with the server down arrives when it comes back up.
+Every task list is watched, and consent asks to edit them as well as read them — ticking one off is a write, and Google has no narrower grant for it. The Tasks API drops the time of day, but a task given one is also a block on the calendar you own, and that is where pitwall reads it — so those cards land at their own hour and the rest at 09:00, which `PITWALL_TODO_DUE_HOUR` moves. The block itself stays off the diary and off the morning card's event list: the task is already there, with the button that ticks it off. Everything already overdue arrives on the first morning after you link, and a morning that passed with the server down arrives when it comes back up.
 
 `PITWALL_MAIL_QUERY` decides which mail is worth a card, in Gmail's own search syntax — `in:inbox is:unread` by default, or something like `in:inbox is:unread -category:promotions` where the tabs are in use. Consent covers reading, sending and moving, but not deleting. The first poll after linking cards nothing; only mail that arrives afterwards reaches the feed.
 

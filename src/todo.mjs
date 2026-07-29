@@ -1,11 +1,14 @@
 /**
  * Google Tasks, on the timeline.
  *
- * A task carries a due date and nothing else: the API drops the time of day
- * that the Tasks app lets you set, and there are no reminders on it to inherit.
- * So the hour is pitwall's to choose — one card per task on the morning it is
- * due, and again every morning it stays undone, until it is ticked off in
- * Google.
+ * A task carries a due date and nothing else: the Tasks API drops the time of
+ * day, and there are no reminders on it to inherit. So the hour is pitwall's
+ * to choose — one card per task on the morning it is due, and again every
+ * morning it stays undone, until it is ticked off in Google.
+ *
+ * Except when Google has put the task on the calendar grid, which is the one
+ * place the time it was given survives. Then the card lands at that time
+ * instead, and the calendar leaves the event alone: it is this card's task.
  */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -13,6 +16,7 @@ import { config, paths } from './config.mjs';
 import * as store from './store.mjs';
 import { buildEntry } from './normalize.mjs';
 import { apiGet, apiPatch, isLinked, hasScope, linkedTimeZone, NeedsLinkError } from './google-auth.mjs';
+import { fetchEvents, boundaryMs, taskOf } from './calendar.mjs';
 import { zonedTime, zonedDate, nextDate } from './zoned.mjs';
 
 const API = 'https://tasks.googleapis.com/tasks/v1';
@@ -96,11 +100,58 @@ function daysBetween(fromDate, toDate, timeZone) {
   return Math.round((to - from) / DAY_MS);
 }
 
-function overdueLine(due, day, timeZone) {
+function overdueLine(due, day, timeZone, block = null) {
+  const clock = block ? ` · ${clockRange(block, timeZone)}` : '';
   const late = daysBetween(due, day, timeZone);
-  if (late <= 0) return '**Due today**';
+  if (late <= 0) return `**Due today**${clock}`;
   const plural = late === 1 ? 'day' : 'days';
-  return `**Overdue by ${late} ${plural}** · was due ${fmtDate(due, timeZone)}`;
+  return `**Overdue by ${late} ${plural}** · was due ${fmtDate(due, timeZone)}${clock}`;
+}
+
+/**
+ * Where Google has put a task on the grid, and when.
+ *
+ * Keyed by the day the block falls on rather than by the task alone: a task
+ * that stays undone outlives its block, and tomorrow's card has no time of its
+ * own to inherit.
+ */
+async function scheduled(days, timeZone) {
+  const placed = new Map();
+  const fromMs = zonedTime(days[0], timeZone, 0);
+  const toMs = zonedTime(nextDate(days[days.length - 1], timeZone), timeZone, 0);
+  let events;
+  try {
+    // Tasks land on the calendar you own, so there is one calendar to ask.
+    events = await fetchEvents({ id: 'primary' }, fromMs, toMs);
+  } catch (error) {
+    // The times are a bonus. Without them every card lands on the hour, which
+    // is where they all landed before Google started scheduling anything.
+    if (error instanceof NeedsLinkError) throw error;
+    complain(`could not read the grid for task times: ${error.message}`);
+    return placed;
+  }
+
+  for (const event of events) {
+    if (event.status === 'cancelled') continue;
+    const task = taskOf(event);
+    if (!task) continue;
+    const startMs = boundaryMs(event.start, timeZone);
+    if (startMs == null) continue;
+    placed.set(`${task.taskId}|${zonedDate(startMs, timeZone)}`, {
+      startMs,
+      endMs: boundaryMs(event.end, timeZone) ?? startMs + 3_600_000,
+    });
+  }
+  return placed;
+}
+
+/** The hours a scheduled task takes, for the card that announces it. */
+function clockRange(block, timeZone) {
+  if (!block) return '';
+  const at = (ms) => new Intl.DateTimeFormat('en-GB', {
+    timeZone, hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(ms));
+  return `${at(block.startMs)}–${at(block.endMs)}`;
 }
 
 function linkLines(task) {
@@ -109,8 +160,8 @@ function linkLines(task) {
     .map((l) => `[${l.description || l.type || 'link'}](${l.link})`);
 }
 
-function bodyFor(task, due, day, timeZone) {
-  const blocks = [overdueLine(due, day, timeZone)];
+function bodyFor(task, due, day, timeZone, block = null) {
+  const blocks = [overdueLine(due, day, timeZone, block)];
 
   const notes = String(task.notes || '').trim();
   if (notes) blocks.push(notes.length > 800 ? `${notes.slice(0, 800)}…` : notes);
@@ -158,7 +209,7 @@ async function fetchTasks(list, dueMaxMs) {
   return items;
 }
 
-function entryFor(list, task, due, day, timeZone) {
+function entryFor(list, task, due, day, timeZone, block = null) {
   const entry = buildEntry({
     agent: 'todo',
     kind: 'notice',
@@ -170,7 +221,7 @@ function entryFor(list, task, due, day, timeZone) {
       // slot's name is left to say which list it came off.
       repo: { key: 'gtasks', name: list.name },
     },
-    body: bodyFor(task, due, day, timeZone),
+    body: bodyFor(task, due, day, timeZone, block),
   });
   entry.todo = {
     listId: list.id,
@@ -178,6 +229,7 @@ function entryFor(list, task, due, day, timeZone) {
     due,
     day,
     overdueDays: Math.max(0, daysBetween(due, day, timeZone)),
+    startMs: block?.startMs ?? null,
     webViewLink: task.webViewLink || null,
   };
   return entry;
@@ -191,6 +243,7 @@ async function poll() {
   // Tomorrow is held ready so its morning does not depend on a poll landing
   // between the hour and the next one.
   const days = [today, tomorrow];
+  const placed = await scheduled(days, timeZone);
   const lists = await fetchLists();
   const next = new Map();
 
@@ -219,10 +272,11 @@ async function poll() {
         if (due > day) continue;
         const key = `${list.id}|${task.id}|${day}`;
         if (seen.has(key)) continue;
+        const block = placed.get(`${task.id}|${day}`) || null;
         next.set(key, {
-          atMs: zonedTime(day, timeZone, config.todo.dueHour),
+          atMs: block ? block.startMs : zonedTime(day, timeZone, config.todo.dueHour),
           due,
-          make: () => entryFor(list, task, due, day, timeZone),
+          make: () => entryFor(list, task, due, day, timeZone, block),
         });
       }
     }
@@ -324,6 +378,7 @@ export async function outstanding(day, timeZone) {
   if (!hasScope(SCOPE)) return { tasks: [], missing: ['Google Tasks'] };
   const tasks = [];
   const missing = [];
+  const placed = await scheduled([day], timeZone);
   const lists = await fetchLists();
 
   for (const list of lists) {
@@ -344,6 +399,7 @@ export async function outstanding(day, timeZone) {
         title: task.title?.trim() || '(no title)',
         due,
         lateDays: Math.max(0, daysBetween(due, day, timeZone)),
+        at: clockRange(placed.get(`${task.id}|${day}`), timeZone) || null,
         where: null,
       });
     }
@@ -387,6 +443,8 @@ export function status() {
 /** The pieces the tests drive directly, without the timer wrapped around them. */
 export const internals = {
   dueDate,
+  scheduled,
+  clockRange,
   daysBetween,
   overdueLine,
   bodyFor,

@@ -158,11 +158,32 @@ function reminderMinutes(event, calendar) {
   return [...minutes];
 }
 
+/** The note Google leaves on a task it has put on the grid. */
+const TASK_URL = /https:\/\/tasks\.google\.com\/task\/([A-Za-z0-9_-]+)/;
+
+/**
+ * The task behind an event, where there is one.
+ *
+ * A task given a time in Google's own UI arrives here as a focus-time block,
+ * indistinguishable from a focus-time block somebody meant to book — except
+ * for the line Google adds to the description saying where to go to edit it.
+ * That line names the task, in the short form the Tasks API spells base64url.
+ */
+export function taskOf(event) {
+  if (event.eventType !== 'focusTime') return null;
+  const found = TASK_URL.exec(event.description || '');
+  if (!found) return null;
+  return { taskId: Buffer.from(found[1], 'utf8').toString('base64url') };
+}
+
 export function skip(event) {
   if (event.status === 'cancelled') return true;
   // "In the office" markers are not appointments and nobody set a reminder on
   // them on purpose; they would still inherit the calendar's default.
   if (event.eventType === 'workingLocation') return true;
+  // A task on the grid is a task, and it has a card of its own with the button
+  // that ticks it off. Twice over it would be the same thing said two ways.
+  if (taskOf(event)) return true;
   return (event.attendees || []).some((a) => a.self && a.responseStatus === 'declined');
 }
 
@@ -394,6 +415,7 @@ export function status() {
 
 /** The pieces the tests drive directly, without the timer wrapped around them. */
 export const internals = {
+  taskOf,
   zonedMidnight,
   whenLine,
   reminderMinutes,
