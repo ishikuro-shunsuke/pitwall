@@ -87,7 +87,7 @@ Run the server in WSL and the connector comes out in its `wsl.exe` form, naming 
 
 A reminder set on an event arrives as a card at the minute the event asked for, carrying the time, the place, the call link and who else is coming. There is nothing to reply to; **Box** clears it.
 
-One card each morning lists the whole day — every event on every calendar being watched, with its hours, its room and its call link. It lands at 07:00 in the account's own time zone rather than the server's, and `PITWALL_AGENDA_HOUR` moves that. A morning that passed with the server down arrives when it comes back up, until the day turns.
+One card each morning lists the whole day — every event on every calendar being watched, with its hours, its room and its call link, and under them everything still owed: tasks due today or already past, from Google Tasks and Chatwork alike. It lands at 07:00 in the account's own time zone rather than the server's, and `PITWALL_AGENDA_HOUR` moves that. A morning that passed with the server down arrives when it comes back up, until the day turns.
 
 A task arrives on the morning it is due, and again every morning after that. **Chequered** ticks it off in Google — the one button on the feed that changes anything outside pitwall. **Box** files the card away and leaves the task open, so it comes round again tomorrow.
 

@@ -315,6 +315,42 @@ export async function complete({ listId, taskId }) {
   await saveSeen();
 }
 
+/**
+ * Everything still owed by the end of a day, for the card that lists the whole
+ * morning in one place. Read at the hour it is spoken rather than held from a
+ * poll, so it cannot quote a list that has since been worked through.
+ */
+export async function outstanding(day, timeZone) {
+  if (!hasScope(SCOPE)) return { tasks: [], missing: ['Google Tasks'] };
+  const tasks = [];
+  const missing = [];
+  const lists = await fetchLists();
+
+  for (const list of lists) {
+    let rows;
+    try {
+      rows = await fetchTasks(list, zonedTime(day, timeZone, 12) + DAY_MS);
+    } catch (error) {
+      // One list you can no longer read must not take the morning down with it.
+      if (error instanceof NeedsLinkError) throw error;
+      missing.push(list.name);
+      continue;
+    }
+    for (const task of rows) {
+      if (task.deleted || task.status === 'completed') continue;
+      const due = dueDate(task);
+      if (!due || due > day) continue;
+      tasks.push({
+        title: task.title?.trim() || '(no title)',
+        due,
+        lateDays: Math.max(0, daysBetween(due, day, timeZone)),
+        where: null,
+      });
+    }
+  }
+  return { tasks, missing };
+}
+
 export function start() {
   if (running) return false;
   running = true;

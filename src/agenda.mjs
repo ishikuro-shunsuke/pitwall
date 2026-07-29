@@ -16,7 +16,19 @@ import * as store from './store.mjs';
 import { buildEntry } from './normalize.mjs';
 import { isLinked, linkedTimeZone, NeedsLinkError } from './google-auth.mjs';
 import { fetchCalendars, fetchEvents, boundaryMs, meetLink, skip } from './calendar.mjs';
+import * as todo from './todo.mjs';
+import * as chatworkTask from './chatwork-task.mjs';
 import { zonedTime, zonedDate, nextDate } from './zoned.mjs';
+
+/**
+ * What is owed today, wherever it is kept. Each still has its own card at its
+ * own hour; this is the one place that says how many of them there are before
+ * the day starts.
+ */
+const TASK_SOURCES = [
+  { name: 'Google Tasks', from: todo },
+  { name: 'Chatwork', from: chatworkTask },
+];
 
 const SEEN_TTL_MS = 7 * 86_400_000;
 /** Longest the timer ever sleeps, so a link appearing is noticed the same hour. */
@@ -128,22 +140,46 @@ function order(a, b) {
   return a.title.localeCompare(b.title);
 }
 
-function bodyFor(items, missing, dayStartMs, dayEndMs, timeZone) {
+/** Most overdue first: what has waited longest has waited longest. */
+function taskOrder(a, b) {
+  if (a.due !== b.due) return a.due < b.due ? -1 : 1;
+  return a.title.localeCompare(b.title);
+}
+
+/**
+ * A task has no hours to give, so the line carries only what an event's would
+ * not already say — how far past its day it is, and which service is holding
+ * it when that is not the obvious one.
+ */
+function taskLine(task) {
+  const notes = [];
+  if (task.lateDays > 0) notes.push(`${task.lateDays} day${task.lateDays === 1 ? '' : 's'} late`);
+  if (task.where) notes.push(task.where);
+  return notes.length ? `${task.title} — ${notes.join(' · ')}` : task.title;
+}
+
+function bodyFor(items, tasks, missing, dayStartMs, dayEndMs, timeZone) {
   // Named off noon, which is the one hour of the day no shift can move onto
   // another date.
   const blocks = [`**${fmt(dayStartMs + 43_200_000, timeZone, DAY)}**`];
-  blocks.push(items.length
-    ? items.map((item) => lineFor(item, dayStartMs, dayEndMs, timeZone)).join('\n')
-    : 'Nothing on today.');
-  // A calendar that would not answer leaves a hole in a card whose whole claim
-  // is that it is the lot. Say where the hole is.
+  if (items.length) {
+    blocks.push(items.map((item) => lineFor(item, dayStartMs, dayEndMs, timeZone)).join('\n'));
+  } else {
+    // An empty diary is not an empty day when there is a list under it.
+    blocks.push(tasks.length ? 'Nothing in the diary.' : 'Nothing on today.');
+  }
+  if (tasks.length) blocks.push(['**Still to do**', ...tasks.map(taskLine)].join('\n'));
+  // A calendar or a list that would not answer leaves a hole in a card whose
+  // whole claim is that it is the lot. Say where the hole is.
   if (missing.length) blocks.push(`Could not read ${missing.join(', ')}.`);
   return blocks.join('\n\n');
 }
 
-function titleFor(items) {
-  if (!items.length) return 'Nothing on today';
-  return items.length === 1 ? '1 event today' : `${items.length} events today`;
+function titleFor(items, tasks = []) {
+  const parts = [];
+  if (items.length) parts.push(`${items.length} event${items.length === 1 ? '' : 's'}`);
+  if (tasks.length) parts.push(`${tasks.length} task${tasks.length === 1 ? '' : 's'}`);
+  return parts.length ? `${parts.join(', ')} today` : 'Nothing on today';
 }
 
 /** Google's day view, opened on the day the card is about. */
@@ -152,22 +188,23 @@ function dayLink(day) {
   return `https://calendar.google.com/calendar/r/day/${y}/${m}/${d}`;
 }
 
-function entryFor(day, items, missing, dayStartMs, dayEndMs, timeZone) {
+function entryFor(day, items, tasks, missing, dayStartMs, dayEndMs, timeZone) {
   const entry = buildEntry({
     agent: 'calendar',
     kind: 'notice',
     payload: {
-      title: titleFor(items),
+      title: titleFor(items, tasks),
       notice: 'calendar-agenda',
       // The reminder cards name the calendar an event came off. This one is
       // every calendar at once, so the slot says what the card is instead.
       repo: { key: 'gcal', name: 'Today' },
     },
-    body: bodyFor(items, missing, dayStartMs, dayEndMs, timeZone),
+    body: bodyFor(items, tasks, missing, dayStartMs, dayEndMs, timeZone),
   });
   entry.agenda = {
     day,
     count: items.length,
+    taskCount: tasks.length,
     missing,
     htmlLink: dayLink(day),
   };
@@ -214,13 +251,28 @@ async function collect(day, timeZone) {
     }
   }
 
+  const tasks = [];
+  for (const source of TASK_SOURCES) {
+    try {
+      const owed = await source.from.outstanding(day, timeZone);
+      tasks.push(...owed.tasks);
+      missing.push(...owed.missing);
+    } catch (error) {
+      // A list nobody can read must not take the diary down with it.
+      if (error instanceof NeedsLinkError) throw error;
+      complain(`${source.name}: ${error.message}`);
+      missing.push(source.name);
+    }
+  }
+
   items.sort(order);
-  return { items, missing, dayStartMs, dayEndMs };
+  tasks.sort(taskOrder);
+  return { items, tasks, missing, dayStartMs, dayEndMs };
 }
 
 async function deliver(day, timeZone) {
-  const { items, missing, dayStartMs, dayEndMs } = await collect(day, timeZone);
-  store.add(entryFor(day, items, missing, dayStartMs, dayEndMs, timeZone));
+  const { items, tasks, missing, dayStartMs, dayEndMs } = await collect(day, timeZone);
+  store.add(entryFor(day, items, tasks, missing, dayStartMs, dayEndMs, timeZone));
   markSeen(day);
   await saveSeen();
 }
@@ -306,8 +358,10 @@ export const internals = {
   nextDue,
   span,
   lineFor,
+  taskLine,
   titleFor,
   order,
+  taskOrder,
   collect,
   deliver,
   cycle: () => cycle(),

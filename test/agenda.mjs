@@ -25,8 +25,17 @@ fs.writeFileSync(path.join(DATA, 'google-token.json'), JSON.stringify({
   // the server's own clock instead of the account's is a failure and not a
   // coincidence.
   timeZone: ZONE,
-  scope: 'https://www.googleapis.com/auth/calendar.readonly',
+  scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/tasks',
 }));
+
+/** Due dates land as a UTC midnight, which is all the API ever records. */
+const TASKS = [
+  { id: 't1', title: '経費精算', status: 'needsAction', due: '2026-07-25T00:00:00.000Z' },
+  { id: 't2', title: 'Send the invoice', status: 'needsAction', due: '2026-07-28T00:00:00.000Z' },
+  { id: 't3', title: 'Tomorrow can wait', status: 'needsAction', due: '2026-07-29T00:00:00.000Z' },
+  { id: 't4', title: 'Already ticked', status: 'completed', due: '2026-07-28T00:00:00.000Z' },
+  { id: 't5', title: 'Someday, maybe', status: 'needsAction' },
+];
 
 let passed = 0;
 let failed = 0;
@@ -137,6 +146,14 @@ globalThis.fetch = async (input, init = {}) => {
   }
   if (url.pathname.endsWith('/users/me/calendarList')) return reply({ items: CALENDARS });
 
+  // Google Tasks, so the card can say what is owed as well as what is booked.
+  if (url.pathname.endsWith('/users/@me/lists')) {
+    return reply({ items: [{ id: 'list-a', title: 'My Tasks' }] });
+  }
+  if (/\/lists\/[^/]+\/tasks$/.test(url.pathname)) {
+    return reply({ items: TASKS });
+  }
+
   const listing = url.pathname.match(/\/calendars\/([^/]+)\/events$/);
   if (listing) {
     const id = decodeURIComponent(listing[1]);
@@ -208,7 +225,7 @@ is('the card lands on the hour', cards().length, 1);
   is('it knows which day it is about', card.agenda.day, TODAY);
   is('the day view is one click', card.agenda.htmlLink,
     'https://calendar.google.com/calendar/r/day/2026/7/28');
-  is('the head counts the day', card.title, '6 events today');
+  is('the head counts the day', card.title, '6 events, 2 tasks today');
   is('the body opens with the day itself', card.body.split('\n')[0], '**Tuesday 28 July**');
 
   const listed = lines(card);
@@ -259,6 +276,35 @@ is('the next morning brings its own card', cards().length, 2);
   is('and it is about tomorrow', card.agenda.day, TOMORROW);
 }
 
+// --- what is owed, under what is booked --------------------------------------
+
+{
+  clock = zonedTime(TODAY, ZONE, 7, 0);
+  const card = cards().find((c) => c.agenda?.day === TODAY);
+  const body = card.body;
+  const owed = body.split('**Still to do**\n')[1]?.split('\n\n')[0]?.split('\n') ?? [];
+
+  is('the tasks owed today are on the card', owed.length, 2);
+  is('and the count is on the entry', card.agenda.taskCount, 2);
+  is('the one that has waited longest is first', owed[0], '経費精算 — 3 days late');
+  is('and one owed today needs no note', owed[1], 'Send the invoice');
+  is('a task owed tomorrow is not owed today', body.includes('Tomorrow can wait'), false);
+  is('a task already ticked off stays off', body.includes('Already ticked'), false);
+  is('and one nobody dated is owed on no morning', body.includes('Someday, maybe'), false);
+  is('the diary still comes first', body.indexOf('Still to do') > body.indexOf('Company offsite'), true);
+}
+
+{
+  // Two services on one list, and only the one that is not Google says so.
+  is('a Chatwork task names where it is kept',
+    internals.taskLine({ title: 'Review the deck', lateDays: 0, where: 'Chatwork' }),
+    'Review the deck — Chatwork');
+  is('a day late is a day, not days',
+    internals.taskLine({ title: 'x', lateDays: 1, where: null }), 'x — 1 day late');
+  is('and both notes sit on one line',
+    internals.taskLine({ title: 'x', lateDays: 2, where: 'Chatwork' }), 'x — 2 days late · Chatwork');
+}
+
 // --- a day with nothing on it ------------------------------------------------
 
 {
@@ -266,9 +312,13 @@ is('the next morning brings its own card', cards().length, 2);
   clock = zonedTime(empty, ZONE, 7, 0);
   await internals.cycle();
   const card = latest();
-  is('a day with nothing on it still gets its card', card.agenda.day, empty);
-  is('and says so', card.body.includes('Nothing on today.'), true);
-  is('the head says so too', card.title, 'Nothing on today');
+  is('a day with nothing booked still gets its card', card.agenda.day, empty);
+  // The tasks outlive every day they were owed on, so the diary empties long
+  // before the card does.
+  is('an empty diary says it is the diary that is empty',
+    card.body.includes('Nothing in the diary.'), true);
+  is('and the head counts what is left', card.title, '3 tasks today');
+  is('while nothing on at all would say so', internals.titleFor([], []), 'Nothing on today');
 }
 
 // --- one calendar goes bad ---------------------------------------------------

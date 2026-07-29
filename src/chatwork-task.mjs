@@ -285,6 +285,31 @@ export async function complete({ roomId, taskId }) {
   await saveSeen();
 }
 
+/**
+ * The same list the morning card wants, off Chatwork. The day is the agenda's
+ * own, and so is the zone it is a day in — one card cannot mean two todays.
+ */
+export async function outstanding(day, timeZone) {
+  if (!api.hasToken()) return { tasks: [], missing: [] };
+  const tasks = [];
+  const rows = (await api.get('/my/tasks', { status: 'open' })) || [];
+
+  for (const task of rows) {
+    if (task.status && task.status !== 'open') continue;
+    const due = dueDate(task, timeZone);
+    if (!due || due > day) continue;
+    tasks.push({
+      title: titleOf(chatworkText(withoutOpeningAddress(task.body))),
+      due,
+      lateDays: Math.max(0, daysBetween(due, day, timeZone)),
+      // Two services on one list, and only the one that is not the default
+      // has to say so.
+      where: 'Chatwork',
+    });
+  }
+  return { tasks, missing: [] };
+}
+
 export function start() {
   if (running) return false;
   running = true;
