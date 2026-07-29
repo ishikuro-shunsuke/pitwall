@@ -17,6 +17,7 @@ import * as chatworkApi from './chatwork-api.mjs';
 import * as settings from './settings.mjs';
 import * as google from './google-auth.mjs';
 import { buildEntry, publicEntry } from './normalize.mjs';
+import { connectorState } from './mcp-config.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
 store.init();
@@ -823,6 +824,11 @@ async function router(req, res) {
 
     if (method === 'GET' && pathname === '/api/settings') {
       return sendJson(res, 200, settingsState());
+    }
+    if (method === 'GET' && pathname === '/api/mcp') {
+      // Loopback: the connector is spawned on the machine the server is on, not
+      // on whatever address this page was opened at.
+      return sendJson(res, 200, connectorState(`http://127.0.0.1:${config.port}`));
     }
     if (method === 'POST' && pathname === '/api/settings/chatwork') {
       return handleSaveChatwork(req, res);

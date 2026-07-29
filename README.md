@@ -63,13 +63,15 @@ A question Claude asks mid-session arrives as a card too, with its options, and 
 
 ## Claude Desktop
 
-Claude Desktop can ask through pitwall instead of stopping to ask in the chat, and your answer goes back into the same conversation. Print the connector for this machine:
+Claude Desktop can ask through pitwall instead of stopping to ask in the chat, and your answer goes back into the same conversation. **Help**, in the top right, has the connector to copy and says which file it goes in — `claude_desktop_config.json`, under `~/Library/Application Support/Claude/` on macOS, `%APPDATA%\Claude\` on Windows and `~/.config/Claude/` on Linux. Quit Claude Desktop and open it again once it is in.
+
+Where the server is in a container, Help cannot say — every path it knows is a path inside that container, and Claude Desktop cannot start anything in there. Run this on the machine Claude Desktop is on instead, from a checkout there:
 
 ```bash
 npm run mcp-config
 ```
 
-Paste what it prints into `claude_desktop_config.json`, then quit Claude Desktop and open it again. That file is at `~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows, and `~/.config/Claude/claude_desktop_config.json` on Linux.
+The server can stay where it is, as long as its port is reachable from there.
 
 Claude asks only when it decides to, so tell it to. Under **Settings → Profile**, in your personal preferences:
 
@@ -79,9 +81,7 @@ A card waits 5 minutes with nobody looking at it, and up to 30 with the composer
 
 ### On Windows, with pitwall in WSL
 
-Run `npm run mcp-config` inside WSL and it prints the `wsl.exe` form. It names your node binary by its full path on purpose — going through a login shell breaks the connector, because whatever your shell profile prints lands in the middle of what Claude Desktop is reading.
-
-Run it from a checkout in WSL rather than one inside a devcontainer: Claude Desktop can start a command in WSL, but not inside the container. The server itself can stay wherever it is, as long as its port is reachable from there.
+Run the server in WSL and the connector comes out in its `wsl.exe` form, naming your node binary by its full path. Leave it that way: going through a login shell breaks the connector, because whatever your shell profile prints lands in the middle of what Claude Desktop is reading.
 
 ## Google Calendar, Tasks and Gmail
 

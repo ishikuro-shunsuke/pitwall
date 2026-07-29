@@ -10,6 +10,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { configPath, connector } from '../src/mcp-config.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const PORT = 5477 + Math.floor(Math.random() * 1000);
@@ -189,6 +190,37 @@ async function main() {
       timeoutMs: 20_000,
     });
     is('an absurd hold= is clamped to the hold', clamped.data.action, 'release');
+
+    /* ------------------------------------------------- the connector block -- */
+
+    const here = connector('http://127.0.0.1:4477').mcpServers.pitwall;
+    is('the connector runs this node', here.command, process.execPath);
+    is('against the bin entry', here.args.includes(path.join(ROOT, 'bin', 'pitwall-mcp.mjs')), true);
+    is('and is told where to look', here.args.slice(-2).join(' '), '--url http://127.0.0.1:4477');
+
+    // Claude Desktop is on the Windows side of a WSL boundary, so the command
+    // has to cross it, and its config is over there too.
+    const realDistro = process.env.WSL_DISTRO_NAME;
+    process.env.WSL_DISTRO_NAME = 'Ubuntu';
+    const wsl = connector('http://127.0.0.1:4477').mcpServers.pitwall;
+    is('under WSL the command crosses the boundary', wsl.command, 'wsl.exe');
+    is('naming the distro', wsl.args.slice(0, 2).join(' '), '-d Ubuntu');
+    is('running node directly, never through a shell', wsl.args[2], '-e');
+    is('by its full path', wsl.args[3], process.execPath);
+    is('and the config is the Windows one', configPath().includes('APPDATA'), true);
+    if (realDistro === undefined) delete process.env.WSL_DISTRO_NAME;
+    else process.env.WSL_DISTRO_NAME = realDistro;
+
+    // What the Help panel is given. Either it can describe this machine or it
+    // cannot; half an answer would be a block that pastes and never runs.
+    const { data: state } = await json('GET', '/api/mcp');
+    is('the panel is told whether this is a container', typeof state.container, 'boolean');
+    is(
+      'and gets either all of an answer or none of it',
+      state.container ? state.connector === null && state.configPath === null
+        : Boolean(state.connector) && Boolean(state.configPath),
+      true,
+    );
 
     /* --------------------------------------------------------- the server -- */
 

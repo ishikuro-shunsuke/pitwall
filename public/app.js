@@ -35,6 +35,10 @@ const el = {
   helpModal: document.getElementById('help-modal'),
   helpClose: document.getElementById('help-close'),
   helpUrl: document.getElementById('help-url'),
+  mcpIntro: document.getElementById('mcp-intro'),
+  mcpCmd: document.getElementById('mcp-cmd'),
+  mcpJson: document.getElementById('mcp-json'),
+  mcpNote: document.getElementById('mcp-note'),
   settings: document.getElementById('settings'),
   settingsModal: document.getElementById('settings-modal'),
   settingsClose: document.getElementById('settings-close'),
@@ -176,9 +180,50 @@ function helpOpen() {
   return !el.helpModal.classList.contains('hidden');
 }
 
+/**
+ * The connector is a command on the machine the server is on, so only the server
+ * can say what it is — where node lives, where the checkout is, which distro.
+ * Asked for once: none of those change while the page is open.
+ */
+let mcpAsked = false;
+
+async function loadMcp() {
+  if (mcpAsked) return;
+  mcpAsked = true;
+  let data;
+  try {
+    data = await fetch('/api/mcp').then((r) => r.json());
+  } catch {
+    mcpAsked = false;
+    return;
+  }
+
+  if (data.container) {
+    // Every path this server knows is a path inside its container, and Claude
+    // Desktop cannot start anything in there. Nothing to paste.
+    el.mcpIntro.textContent =
+      'This server is in a container, so the command Claude Desktop needs is not one it can '
+      + 'see from here. Run this on the machine Claude Desktop is on:';
+    el.mcpCmd.classList.remove('hidden');
+    el.mcpJson.textContent = 'npm run mcp-config';
+    el.mcpNote.textContent = 'The server can stay where it is, as long as its port is reachable from there.';
+    return;
+  }
+
+  el.mcpIntro.textContent = `Claude Desktop can ask through pitwall instead of stopping to ask in `
+    + `the chat. Put this in ${data.configPath}, then quit Claude Desktop and open it again.`;
+  el.mcpCmd.classList.remove('hidden');
+  el.mcpJson.textContent = JSON.stringify(data.connector, null, 2);
+  el.mcpNote.textContent =
+    'If the file already has an "mcpServers" object, add the "pitwall" entry to it. '
+    + 'Claude asks only when it decides to — the README has the sentence to put in your '
+    + 'own preferences so that it does.';
+}
+
 function openHelp() {
   el.helpModal.classList.remove('hidden');
   el.helpClose.focus();
+  loadMcp();
 }
 
 function closeHelp() {
