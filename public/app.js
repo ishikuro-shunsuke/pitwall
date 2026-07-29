@@ -674,17 +674,22 @@ function paintStint() {
   if (!stint) return;
 
   const { phase } = stint;
-  const waiting = STINT_WAITING.has(phase);
   const remain = Math.max(0, stint.until - Date.now());
   // Which phase it has reached is worth saying out loud, and worth saying once:
   // written every second, the same two words are read out every second with it.
   const said = STINT_PHASE[phase];
   if (el.stintPhase.textContent !== said) el.stintPhase.textContent = said;
-  // Waiting on you, the clock turns round and says how long it has been. On a
-  // page with the feed off it there is nothing else that could tell you.
-  el.stintClock.textContent = waiting
-    ? `+${fmtRemain(Math.max(0, Date.now() - stint.until))}`
-    : fmtRemain(remain);
+  // Running, the figure is what is left. Waiting on you it turns round, because
+  // on a page with the feed off it there is nothing else that could say how
+  // long it has been — and the two waits turn round differently. The call has
+  // nothing behind it, so it counts what you are over by and the + says so; the
+  // exit has the whole stop behind it, so it counts the stop, which passes five
+  // minutes and keeps going. A length, not an excess, and it reads as one.
+  el.stintClock.textContent = phase === 'box'
+    ? `+${fmtSince(Date.now() - stint.until)}`
+    : phase === 'exit'
+      ? fmtSince(Date.now() - stint.until + PIT_MS)
+      : fmtRemain(remain);
   el.stintIn.classList.toggle('hidden', phase !== 'box');
   el.stintGo.classList.toggle('hidden', phase !== 'exit');
 
@@ -862,6 +867,15 @@ function fmtRemain(ms) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return m > 0 ? `${m}m ${String(r).padStart(2, '0')}s` : `${r}s`;
+}
+
+/**
+ * The same figure the other way round: time that has run rather than time left.
+ * A second that has not finished has not been served, so it is dropped where a
+ * countdown would round it up and read a second early.
+ */
+function fmtSince(ms) {
+  return fmtRemain(Math.floor(Math.max(0, ms) / 1000) * 1000);
 }
 
 function nowMs() {
