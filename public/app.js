@@ -711,10 +711,13 @@ function paintStint() {
         : 1;
   el.stintFill.style.width = `${Math.min(1, Math.max(0, share)) * 100}%`;
 
-  // Only the stint reddens, on the same run-in as a hold: red here means
-  // something wants you, and a break running down wants nothing.
+  // Only the stint reddens on the way down, on the same run-in as a hold: red
+  // here means something wants you, and a break running down wants nothing. At
+  // the call it is not running down any more and something does want you, so
+  // the whole bar goes over.
   el.stint.classList.toggle('low', phase === 'stint' && remain <= 5 * 60_000);
   el.stint.classList.toggle('critical', phase === 'stint' && remain <= 60_000);
+  el.stint.classList.toggle('boxed', phase === 'box');
 }
 
 el.stintIn.addEventListener('click', pitIn);

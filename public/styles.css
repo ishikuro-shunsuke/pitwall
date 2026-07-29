@@ -267,6 +267,19 @@ a { color: var(--accent); }
 .stint.low .stint-clock { color: var(--accent-soft); }
 .stint.critical .stint-fill { background: var(--accent); }
 .stint.critical .stint-clock { color: var(--accent); }
+/* Called in, and the run in to red is over: the whole bar goes red and blinks
+   until you come in. There is nothing running at the call, so the fill is empty
+   and the track itself has to carry it — a red line the width of the window,
+   which is what a page you are not looking at has to be seen by. */
+.stint.boxed .stint-bar {
+  background: var(--accent);
+  animation: stint-box 1s ease-in-out infinite;
+}
+.stint.boxed .stint-clock { color: var(--accent); }
+@keyframes stint-box { 50% { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) {
+  .stint.boxed .stint-bar { animation: none; }
+}
 
 main {
   position: relative;
