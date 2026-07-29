@@ -14,7 +14,7 @@
       "onAutoForward": "notify"
     }
   },
-  "runArgs": ["--add-host=host.docker.internal:host-gateway"],
+  "runArgs": ["--name", "pitwall", "--add-host=host.docker.internal:host-gateway"],
   "mounts": [
     "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind,consistency=cached"
   ],
