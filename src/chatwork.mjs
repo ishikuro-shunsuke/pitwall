@@ -109,6 +109,15 @@ function addressesMe(body, accountId) {
 /** A chat where every message is addressed to you by being sent at all. */
 const isDirect = (room) => room.type === 'direct';
 
+/**
+ * Taking a message back does not remove it: Chatwork leaves it in the room with
+ * its body replaced by this. In a one-to-one chat, where being sent at all is
+ * what makes a card, that would otherwise arrive as a card saying nothing.
+ */
+const DELETED = '[deleted]';
+
+const isDeleted = (body) => String(body || '').trim() === DELETED;
+
 function bodyFor(message, sendMs) {
   const when = new Intl.DateTimeFormat('en-GB', {
     weekday: 'short',
@@ -213,6 +222,7 @@ async function poll() {
 
     for (const message of messages) {
       if (String(message.account?.account_id ?? '') === self.accountId) continue;
+      if (isDeleted(message.body)) continue;
       if (!isDirect(room) && !addressesMe(message.body, self.accountId)) continue;
       const key = keyOf(room.room_id, message.message_id);
       if (seen.has(key)) continue;
@@ -251,14 +261,20 @@ async function poll() {
 
 /**
  * Read up to this message, which is what the badge in Chatwork counts down.
- * Chatwork refuses the call outright when there is nothing left to mark, and
- * that is the state the card was asking for, so it is not a failure.
+ *
+ * Two refusals are not failures. Chatwork answers 400 when there is nothing
+ * left to mark, which is the state the card was asking for; and 404 once the
+ * message has been taken back, which leaves the card pointing at nothing. A
+ * card that cannot be boxed sits on the timeline for good, and neither of those
+ * is worth that.
  */
+const NOTHING_TO_READ = new Set([400, 404]);
+
 export async function markRead({ roomId, messageId }) {
   try {
     await api.put(`/rooms/${encodeURIComponent(roomId)}/messages/read`, { message_id: String(messageId) });
   } catch (error) {
-    if (error.status !== 400) throw error;
+    if (!NOTHING_TO_READ.has(error.status)) throw error;
   }
   markSeen(keyOf(roomId, messageId));
   await saveSeen();

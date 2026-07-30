@@ -180,7 +180,12 @@ globalThis.fetch = async (input, init = {}) => {
 
   m = route.match(/^\/rooms\/(\d+)\/messages\/read$/);
   if (m && init.method === 'PUT') {
-    marked.push({ roomId: m[1], ...form() });
+    const asked = form();
+    marked.push({ roomId: m[1], ...asked });
+    // A message taken back stops being somewhere to read up to.
+    if (!(messages[Number(m[1])] || []).some((x) => x.message_id === asked.message_id)) {
+      return new Response(JSON.stringify({ errors: ['The message is not found.'] }), { status: 404 });
+    }
     // Nothing left to mark is a refusal, which is Chatwork's way of saying it
     // was already done.
     if (alreadyRead) {
@@ -379,6 +384,34 @@ is('what you said yourself is never a card',
   }
   is('a message already read is not a failure', threw, null);
   alreadyRead = false;
+}
+
+// --- a message taken back ----------------------------------------------------
+
+{
+  clock += 60_000;
+  messages[11] = [...messages[11],
+    { message_id: '6200', account: REN, body: '[deleted]', send_time: at(TODAY, 9, 30) },
+    { message_id: '6201', account: REN, body: 'this one stands', send_time: at(TODAY, 9, 31) },
+  ];
+  await chatwork.internals.poll();
+  is('a message somebody took back is never a card',
+    cards().some((c) => c.chatwork.messageId === '6200'), false);
+  is('while the one beside it still is',
+    cards().some((c) => c.chatwork.messageId === '6201'), true);
+
+  // Taken back after its card was made. The card is a moment that happened, so
+  // it stays — but Box has to be able to take it off, and Chatwork has nothing
+  // left to be read up to.
+  const card = cards().find((c) => c.chatwork.messageId === '6201');
+  messages[11] = messages[11].filter((x) => x.message_id !== '6201');
+  let threw = null;
+  try {
+    await chatwork.markRead(card.chatwork);
+  } catch (error) {
+    threw = error.message;
+  }
+  is('a card pointing at a message that has gone can still be boxed', threw, null);
 }
 
 // --- a restart ---------------------------------------------------------------
