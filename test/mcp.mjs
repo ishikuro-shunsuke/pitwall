@@ -6,6 +6,7 @@
  * spoken to over a pipe the way Claude Desktop speaks to it.
  */
 import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -346,7 +347,11 @@ async function main() {
   } finally {
     mcp?.kill();
     server.kill('SIGTERM');
-    await fsp.rm(DATA, { recursive: true, force: true });
+    // The server writes the timeline one last time on its way out. Doing that
+    // into a directory already being removed is what leaves the removal with a
+    // file it never saw, so it goes first.
+    await Promise.race([once(server, 'exit'), new Promise((r) => setTimeout(r, 2000))]);
+    await fsp.rm(DATA, { recursive: true, force: true }).catch(() => {});
   }
 
   console.log(`\n${passed} passed, ${failed} failed`);
