@@ -194,8 +194,16 @@ async function handleNotify(req, res) {
     payload: body,
     body: body.body || body.message || body.title || '',
   });
-  store.add(entry);
-  sendJson(res, 200, { ok: true, id: entry.id });
+
+  // A question the session asked mid-turn, or a permission prompt, is that
+  // session talking — so it goes into the session's card like anything else it
+  // says. Nothing about the card's status moves: a card being held is still
+  // being held, and one that was already finished with is not reopened.
+  const target = foldTarget(agent, sessionKeyOf(entry));
+  if (target) store.update(target.id, foldTurn(target, entry));
+  else store.add(entry);
+
+  sendJson(res, 200, { ok: true, id: (target ?? entry).id });
 }
 
 /**
@@ -209,7 +217,7 @@ function foldTarget(agent, key) {
   if (!key) return null;
   let found = null;
   for (const open of store.list()) {
-    if (open.agent !== agent || open.kind !== 'wait') continue;
+    if (open.agent !== agent) continue;
     if (store.bucketOf(open) !== 'timeline') continue;
     if (sessionKeyOf(open) !== key) continue;
     const at = open.createdAtMs ?? Date.parse(open.createdAt);

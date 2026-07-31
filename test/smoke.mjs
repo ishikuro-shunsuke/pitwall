@@ -348,6 +348,28 @@ async function main() {
         });
       }
 
+      // A question the session asks mid-turn is the same session talking, so it
+      // goes into the same card — without taking the card off its hold.
+      const heldUntil = card.holdUntil;
+      const noticed = await json('POST', '/api/hooks/notify', {
+        agent: 'claude',
+        sessionId: 'sess-fold',
+        notificationType: 'ask_user_question',
+        body: 'which one?',
+      });
+      const withNotice = (await json('GET', `/api/entries/${id}`)).data.entry;
+      if (noticed.data.id === id
+        && withNotice?.status === 'waiting'
+        && withNotice.holdUntil === heldUntil
+        && withNotice.priorTurns?.length === 2
+        && withNotice.body === 'which one?') {
+        ok('a notice from the same session joins its card and leaves the hold alone');
+      } else {
+        fail('a notice from the same session joins its card and leaves the hold alone', {
+          id: noticed.data.id, status: withNotice?.status, prior: withNotice?.priorTurns?.length,
+        });
+      }
+
       // Answering ends the card. What the session says next starts a new one.
       await json('POST', `/api/entries/${id}/dismiss`);
       const third = await json('POST', '/api/hooks/wait', payload('after the box'));

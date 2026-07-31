@@ -122,23 +122,21 @@ export function foldTurn(entry, next) {
     at: entry.updatedAt ?? entry.createdAt,
     title: entry.title,
     body: entry.body,
+    notice: entry.notice,
+    notificationType: entry.notificationType,
     turnMessages: entry.turnMessages ?? [],
     images: entry.images ?? [],
   }];
 
-  return {
+  const patch = {
     priorTurns: prior.slice(-MAX_PRIOR_TURNS),
     updatedAt: next.createdAt,
     updatedAtMs: next.createdAtMs,
 
-    status: 'waiting',
-    resolvedAt: null,
-    resolution: null,
-    holdUntil: next.holdUntil,
-    holdMaxAt: next.holdMaxAt,
-
-    title: next.title,
+    title: next.title ?? entry.title,
     body: next.body,
+    notice: next.notice,
+    notificationType: next.notificationType,
     turnMessages: next.turnMessages,
     images: next.images,
     repo: next.repo,
@@ -146,11 +144,25 @@ export function foldTurn(entry, next) {
     model: next.model,
     transcriptPath: next.transcriptPath,
     generationId: next.generationId,
-    notificationType: next.notificationType,
     backgroundTaskCount: next.backgroundTaskCount,
     backgroundTasks: next.backgroundTasks,
     links: next.links,
   };
+
+  // A stop is something to answer, so it reopens the card and starts the hold
+  // over. A notice is only the session talking on its way past — it says what
+  // it has to say into the card and leaves the hold, and whatever hook is
+  // holding it, exactly as it found them.
+  if (next.kind === 'wait') {
+    patch.kind = 'wait';
+    patch.status = 'waiting';
+    patch.resolvedAt = null;
+    patch.resolution = null;
+    patch.holdUntil = next.holdUntil;
+    patch.holdMaxAt = next.holdMaxAt;
+  }
+
+  return patch;
 }
 
 /**

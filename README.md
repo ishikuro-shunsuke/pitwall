@@ -59,7 +59,7 @@ npm run install-hooks -- --url http://192.168.1.10:4477
 
 **Claude Code** holds nothing. The session stops the way it always does, so you can keep typing locally, and a reply sent from the card within 30 minutes wakes it up and continues from there. What you typed does not show up in the Claude Code UI — Claude quotes it once at the start of its reply.
 
-A session that stops again lands on the card it already has, and answers to the newest thing on it; the stops before that fold up underneath. So a session is one card however many times it stops, and it keeps the place in the timeline it earned by waiting. Reply to it or box it and that card is finished — the next stop starts a new one.
+A session gets one card, however many times it stops. Everything it says lands on that card in the order it said it, oldest at the top, and you answer the newest at the bottom — the questions it asks mid-session among them. The card keeps the place in the timeline it earned by waiting. Reply to it or box it and it is finished; what the session says next starts a new one.
 
 A question Claude asks mid-session arrives as a card too, with its options, and so does a plan waiting to be accepted. Those are answered back in the session; the card is there so you know what is being asked.
 

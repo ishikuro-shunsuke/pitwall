@@ -1045,27 +1045,33 @@ function priorTurnText(turn) {
 }
 
 /**
- * What the session said into this card before now. Folded, because the card is
- * answered at its head and this is what you open when the question there does
- * not stand on its own. Each stop is marked with its own hour: that is what
- * says where one ends and the next begins, and it is the same mark the current
- * stop carries above the body, so the card reads as one run of them.
+ * Everything the session has said into this card, oldest at the top, the newest
+ * last where the reply box is. Nothing is folded away: a card is one session,
+ * and reading it downwards is reading that session in the order it happened.
+ *
+ * Each turn is marked with its own hour, which is what says where one ends and
+ * the next begins. Claude Code regenerates a session's title as it goes, so an
+ * older turn's is shown only where it is not the one already on the card.
  */
-function priorTurnsHtml(entry) {
-  const turns = entry.priorTurns || [];
-  if (!turns.length) return '';
-  // Claude Code regenerates a session's title as the session goes on, so an
-  // older stop's is worth showing only where it is not the one already at the
-  // head of the card.
-  const blocks = turns.map((turn) => `
-    <div class="prior-turn">
+function turnsStreamHtml(entry) {
+  const prior = entry.priorTurns || [];
+  const latest = `
+    <div class="turn latest">
+      ${prior.length ? turnMarkHtml(entry.updatedAt) : ''}
+      <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)', entry)}</div>
+      ${turnsHtml(entry)}
+      ${imagesHtml(entry)}
+    </div>`;
+  if (!prior.length) return latest;
+
+  const earlier = prior.map((turn) => `
+    <div class="turn">
       ${turn.title && turn.title !== entry.title ? `<p class="card-title">${esc(turn.title)}</p>` : ''}
       ${turnMarkHtml(turn.at)}
       <div class="markdown">${renderMarkdown(priorTurnText(turn), { ...entry, images: turn.images })}</div>
       ${imagesHtml({ images: turn.images })}
     </div>`).join('');
-  const label = `${turns.length} earlier stop${turns.length > 1 ? 's' : ''} in this session`;
-  return `<details class="turn-fold prior"><summary>${label}</summary>${blocks}</details>`;
+  return earlier + latest;
 }
 
 function turnMarkHtml(at) {
@@ -1476,11 +1482,7 @@ function cardHtml(entry) {
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
-        ${entry.priorTurns?.length ? turnMarkHtml(entry.updatedAt) : ''}
-        <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)', entry)}</div>
-        ${turnsHtml(entry)}
-        ${imagesHtml(entry)}
-        ${priorTurnsHtml(entry)}
+        ${turnsStreamHtml(entry)}
       </div>
       ${actionsHtml(entry)}
     </article>`;
