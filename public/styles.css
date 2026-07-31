@@ -418,6 +418,9 @@ body.in-the-pits .empty { display: none; }
 /* The clock is not running any more, and grey is how the rest of the page draws
    something that is no longer live. */
 .chip.closed { color: var(--muted); }
+/* Something the card tried to do and could not. The same red the buttons that
+   change things use, because it is the same kind of news. */
+.chip.act.warn { color: var(--accent); }
 /* The word for what the card is waiting on, in the colour this page keeps for
    things that are waiting, and the only word on its line with any weight. */
 .chip.act { color: var(--accent); font-weight: 600; }

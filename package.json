@@ -9,7 +9,8 @@
   },
   "bin": {
     "pitwall": "./bin/pitwall.mjs",
-    "pitwall-mcp": "./bin/pitwall-mcp.mjs"
+    "pitwall-mcp": "./bin/pitwall-mcp.mjs",
+    "pitwall-runner": "./bin/pitwall-runner.mjs"
   },
   "scripts": {
     "start": "PITWALL_HOST=0.0.0.0 node src/server.mjs",
@@ -19,8 +20,9 @@
     "mcp-config": "node bin/mcp-config.mjs",
     "install-hooks:devcontainer": "node bin/install-hooks.mjs --devcontainer",
     "uninstall-hooks": "node bin/install-hooks.mjs --uninstall",
+    "runner": "node bin/pitwall-runner.mjs",
     "demo": "node demo/feed.mjs",
-    "test": "node test/smoke.mjs && node test/install-hooks.mjs && node test/calendar.mjs && node test/agenda.mjs && node test/todo.mjs && node test/mail.mjs && node test/chatwork.mjs && node test/mcp.mjs",
+    "test": "node test/smoke.mjs && node test/install-hooks.mjs && node test/calendar.mjs && node test/agenda.mjs && node test/todo.mjs && node test/mail.mjs && node test/chatwork.mjs && node test/mcp.mjs && node test/runner.mjs",
     "smoke": "node test/smoke.mjs"
   }
 }

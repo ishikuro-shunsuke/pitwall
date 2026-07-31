@@ -16,7 +16,8 @@ import * as chatworkTask from './chatwork-task.mjs';
 import * as chatworkApi from './chatwork-api.mjs';
 import * as settings from './settings.mjs';
 import * as google from './google-auth.mjs';
-import { buildEntry, publicEntry, sessionKeyOf, foldTurn } from './normalize.mjs';
+import { buildEntry, publicEntry, sessionKeyOf, foldTurn, isResumable } from './normalize.mjs';
+import * as runner from './runner.mjs';
 import { connectorState } from './mcp-config.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
@@ -525,6 +526,31 @@ async function handleReply(req, res, params) {
     return sendJson(res, 200, { ok: true });
   }
 
+  // The hold ran out, but the session is still on disk and a runner covers the
+  // directory it ran in. The text goes there instead of to a hook that is no
+  // longer listening, and the card leaves the timeline the same way any
+  // answered one does — what the session says next arrives as its own card.
+  if (isResumable(entry)) {
+    const body = await readBody(req);
+    const message = String(body.message || '').trim();
+    if (!message) return sendJson(res, 400, { error: 'message required' });
+
+    runner.enqueue({
+      entryId: entry.id,
+      sessionId: entry.sessionId,
+      cwd: entry.repo?.root || entry.host?.cwd,
+      message,
+    });
+    store.update(params.id, {
+      status: 'answered',
+      resolvedAt: new Date().toISOString(),
+      resolution: 'resumed',
+      reply: message,
+      resumeError: null,
+    });
+    return sendJson(res, 200, { ok: true, resumed: true });
+  }
+
   if (entry.status !== 'waiting') {
     return sendJson(res, 409, { error: 'not waiting', status: entry.status });
   }
@@ -547,6 +573,70 @@ async function handleReply(req, res, params) {
   }
   sendJson(res, 200, { ok: true });
 }
+
+/**
+ * A runner asking for work. The poll is held open rather than answered empty,
+ * so a reply typed while the runner is waiting reaches the session at once
+ * instead of on the next round.
+ *
+ * 204 is the empty answer, and the runner asks again. Nothing distinguishes a
+ * window that passed quietly from one the runner walked away from, which is
+ * what makes it safe to hang up on this at any point.
+ */
+async function handleRunnerNext(req, res, url) {
+  const roots = runner.normalizeRoots(url.searchParams.get('roots'));
+  if (!roots.length) return sendJson(res, 400, { error: 'roots required' });
+
+  const job = await runner.take(roots, { signal: abortSignalFor(req) });
+  if (!job) {
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+  sendJson(res, 200, { job });
+}
+
+/**
+ * The runner reporting back. Starting the session is all it is asked to do —
+ * what the session then says arrives as the stop hook's own card — so success
+ * here means the process was launched, not that the work is finished.
+ */
+async function handleRunnerDone(req, res, params) {
+  const body = await readBody(req);
+  const found = runner.finish(params.id, {
+    ok: body.ok !== false,
+    error: body.error ? String(body.error).slice(0, 500) : null,
+  });
+  if (!found) return sendJson(res, 404, { error: 'no such job' });
+  sendJson(res, 200, { ok: true });
+}
+
+/** Lets a long poll be dropped the moment its connection goes. */
+function abortSignalFor(req) {
+  const ctrl = new AbortController();
+  req.on('close', () => ctrl.abort());
+  return ctrl.signal;
+}
+
+/**
+ * A job that no runner took, or that a runner could not start. The card goes
+ * back to standing unanswered with the reason on it — the reply is still in the
+ * box, so the fix is to start the runner and press the button again.
+ */
+runner.onSettled((job, { error }) => {
+  const entry = store.get(job.entryId);
+  if (!entry || entry.resolution !== 'resumed') return;
+  store.update(job.entryId, {
+    status: 'expired',
+    resolvedAt: null,
+    resolution: 'resume-failed',
+    // Not `reply`: nothing was said to anyone. It goes back in the box instead,
+    // so pressing the button again is the whole of the retry.
+    reply: null,
+    resumeText: job.message,
+    resumeError: error,
+  });
+});
 
 async function handleDismiss(req, res, params) {
   const entry = store.get(params.id);
@@ -910,6 +1000,11 @@ async function router(req, res) {
 
     params = match(pathname, '/api/hooks/wait/:id/resolve');
     if (method === 'GET' && params) return handleResolve(req, res, params, url);
+
+    if (method === 'GET' && pathname === '/api/runner/next') return handleRunnerNext(req, res, url);
+
+    params = match(pathname, '/api/runner/jobs/:id/done');
+    if (method === 'POST' && params) return handleRunnerDone(req, res, params);
 
     if (method === 'GET') return serveStatic(req, res, pathname);
 

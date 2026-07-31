@@ -233,12 +233,28 @@ export function buildEntry({
   return entry;
 }
 
+/**
+ * Whether an answer can still reach this card's session after the hook that was
+ * holding it has gone. Claude Code names its session and leaves the transcript
+ * on disk, so `--resume` can pick it up again; Cursor has nothing of the kind,
+ * and a card that was answered or boxed is finished with either way.
+ */
+export function isResumable(entry) {
+  return Boolean(
+    entry.agent === 'claude'
+    && entry.sessionId
+    && entry.status === 'expired'
+    && (entry.repo?.root || entry.host?.cwd),
+  );
+}
+
 export function publicEntry(entry) {
   if (!entry) return null;
   return {
     ...entry,
     bucket: bucketOf(entry),
     unanswered: isUnanswered(entry),
+    resumable: isResumable(entry),
     holdRemainingMs: entry.status === 'waiting'
       ? Math.max(0, (entry.holdUntil ?? 0) - Date.now())
       : 0,
