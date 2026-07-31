@@ -295,11 +295,12 @@ async function main() {
     }
 
     // Claude's hook waits with the session already stopped, so its card is not
-    // on the idle clock — and the next stop of the same session retires it.
+    // on the idle clock — and the next stop of the same session is added to
+    // that card rather than laying a second one over it.
     {
       const payload = (text) => ({
         agent: 'claude',
-        sessionId: 'sess-supersede',
+        sessionId: 'sess-fold',
         last_assistant_message: text,
         repo: { root: DATA, name: 'smoke-repo' },
         host: { cwd: DATA },
@@ -311,14 +312,47 @@ async function main() {
       if (first.data.holdUntil - Date.now() > idleWindowMs) ok('claude outlasts the idle window');
       else fail('claude outlasts the idle window', first.data);
 
+      const born = (await json('GET', `/api/entries/${id}`)).data.entry?.createdAt;
       const resolveP = json('GET', `/api/hooks/wait/${id}/resolve`, null, { timeoutMs: 10_000 });
-      await json('POST', '/api/hooks/wait', payload('second stop'));
+      const second = await json('POST', '/api/hooks/wait', payload('second stop'));
       const resolved = await resolveP;
+      // The hook holding the older turn is let go: nobody can answer it now.
       if (resolved.data?.action === 'release' && resolved.data.reason === 'superseded') {
-        ok('claude supersede');
+        ok('the hook on the older turn is released');
       } else {
-        fail('claude supersede', resolved.data);
+        fail('the hook on the older turn is released', resolved.data);
       }
+
+      const folded = await json('GET', `/api/entries/${id}`);
+      const card = folded.data.entry;
+      if (second.data.id === id
+        && card?.status === 'waiting'
+        && card.body === 'second stop'
+        && card.priorTurns?.length === 1
+        && card.priorTurns[0].body === 'first stop') {
+        ok('a second stop is added to the same card');
+      } else {
+        fail('a second stop is added to the same card', {
+          id: second.data.id, status: card?.status, body: card?.body, prior: card?.priorTurns,
+        });
+      }
+
+      // The card holds its place in the queue and its hold starts over.
+      if (card.createdAt === born
+        && Date.parse(card.updatedAt) >= Date.parse(card.createdAt)
+        && card.holdRemainingMs > idleWindowMs) {
+        ok('the folded card keeps its place and gets a fresh hold');
+      } else {
+        fail('the folded card keeps its place and gets a fresh hold', {
+          createdAt: card.createdAt, updatedAt: card.updatedAt, hold: card.holdRemainingMs,
+        });
+      }
+
+      // Answering ends the card. What the session says next starts a new one.
+      await json('POST', `/api/entries/${id}/dismiss`);
+      const third = await json('POST', '/api/hooks/wait', payload('after the box'));
+      if (third.data.id !== id) ok('a boxed card is not added to');
+      else fail('a boxed card is not added to', third.data);
     }
 
     // A hook can die between registering and polling — the agent was
@@ -351,12 +385,19 @@ async function main() {
       if (dismissed.data.entry?.status === 'dismissed') ok('dismissing an unpolled entry lands');
       else fail('dismissing an unpolled entry lands', dismissed.data.entry?.status);
 
-      const superseded = await json('POST', '/api/hooks/wait', payload('sess-no-poll-super'));
-      const superId = superseded.data.id;
-      await json('POST', '/api/hooks/wait', payload('sess-no-poll-super'));
-      const retired = await json('GET', `/api/entries/${superId}`);
-      if (retired.data.entry?.status === 'expired') ok('superseding an unpolled entry retires it');
-      else fail('superseding an unpolled entry retires it', retired.data.entry?.status);
+      const unpolled = await json('POST', '/api/hooks/wait', payload('sess-no-poll-fold'));
+      const unpolledId = unpolled.data.id;
+      const next = await json('POST', '/api/hooks/wait', payload('sess-no-poll-fold'));
+      const grown = await json('GET', `/api/entries/${unpolledId}`);
+      if (next.data.id === unpolledId
+        && grown.data.entry?.status === 'waiting'
+        && grown.data.entry.priorTurns?.length === 1) {
+        ok('a stop into an unpolled card is added to it');
+      } else {
+        fail('a stop into an unpolled card is added to it', {
+          id: next.data.id, status: grown.data.entry?.status, prior: grown.data.entry?.priorTurns,
+        });
+      }
     }
 
     // Left alone, an unpolled card still has to come off the clock by itself.

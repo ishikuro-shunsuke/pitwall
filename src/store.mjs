@@ -62,7 +62,9 @@ export function init() {
     const raw = JSON.parse(fs.readFileSync(paths.entries, 'utf8'));
     const cutoff = Date.now() - config.retentionDays * 86_400_000;
     for (const entry of raw.entries ?? []) {
-      if (Date.parse(entry.createdAt) < cutoff) continue;
+      // A card a session keeps stopping into is as old as the last thing said
+      // into it, not as old as its head.
+      if (Date.parse(entry.updatedAt || entry.createdAt) < cutoff) continue;
       // A `waiting` entry cannot survive a restart: its hook process is gone,
       // so the agent has already stopped and no reply can reach it anymore.
       if (entry.status === 'waiting') {

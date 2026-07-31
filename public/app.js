@@ -1038,6 +1038,41 @@ function turnsHtml(entry) {
   return `<details class="turn-fold"><summary>${entry.turnMessages.length - 1} earlier message(s) this turn</summary><div class="markdown">${renderMarkdown(earlier, entry)}</div></details>`;
 }
 
+/** A stop as it stood at its head, chunks of the same turn and all. */
+function priorTurnText(turn) {
+  const earlier = (turn.turnMessages || []).slice(0, -1);
+  return [...earlier, turn.body || ''].filter(Boolean).join('\n\n---\n\n') || '(empty)';
+}
+
+/**
+ * What the session said into this card before now. Folded, because the card is
+ * answered at its head and this is what you open when the question there does
+ * not stand on its own. Each stop is marked with its own hour: that is what
+ * says where one ends and the next begins, and it is the same mark the current
+ * stop carries above the body, so the card reads as one run of them.
+ */
+function priorTurnsHtml(entry) {
+  const turns = entry.priorTurns || [];
+  if (!turns.length) return '';
+  // Claude Code regenerates a session's title as the session goes on, so an
+  // older stop's is worth showing only where it is not the one already at the
+  // head of the card.
+  const blocks = turns.map((turn) => `
+    <div class="prior-turn">
+      ${turn.title && turn.title !== entry.title ? `<p class="card-title">${esc(turn.title)}</p>` : ''}
+      ${turnMarkHtml(turn.at)}
+      <div class="markdown">${renderMarkdown(priorTurnText(turn), { ...entry, images: turn.images })}</div>
+      ${imagesHtml({ images: turn.images })}
+    </div>`).join('');
+  const label = `${turns.length} earlier stop${turns.length > 1 ? 's' : ''} in this session`;
+  return `<details class="turn-fold prior"><summary>${label}</summary>${blocks}</details>`;
+}
+
+function turnMarkHtml(at) {
+  if (!at) return '';
+  return `<p class="meta turn-mark" title="${esc(at)}">${fmtStamp(at)}</p>`;
+}
+
 /**
  * Escaped ref -> stored image, for the links inside the body. The body text is
  * escaped before it is parsed, so the keys have to be escaped to match.
@@ -1441,9 +1476,11 @@ function cardHtml(entry) {
       </div>
       <div class="card-body">
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
+        ${entry.priorTurns?.length ? turnMarkHtml(entry.updatedAt) : ''}
         <div class="body-text markdown">${renderMarkdown(entry.body || entry.notice || '(empty)', entry)}</div>
         ${turnsHtml(entry)}
         ${imagesHtml(entry)}
+        ${priorTurnsHtml(entry)}
       </div>
       ${actionsHtml(entry)}
     </article>`;

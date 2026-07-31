@@ -453,6 +453,17 @@ body.in-the-pits .empty { display: none; }
   color: var(--muted);
 }
 
+/* One stop of a session that stopped into the same card more than once. The
+   rule above it is the join, so the first one under the summary goes without. */
+.prior-turn { padding: 10px; border-top: 1px solid var(--border); }
+.prior-turn:first-of-type { border-top: 0; }
+.turn-fold .prior-turn .markdown { padding: 0; border-top: 0; }
+.prior-turn .images { margin-top: 8px; }
+
+/* When a stop landed, said the same way over every stop on the card — the ones
+   folded away and the one at the head. */
+.turn-mark { margin: 0 0 6px; font-size: 11px; }
+
 .markdown p { margin: 0 0 10px; white-space: pre-wrap; }
 .markdown p:last-child { margin-bottom: 0; }
 .markdown h1, .markdown h2, .markdown h3, .markdown h4, .markdown h5, .markdown h6 {

@@ -16,7 +16,7 @@ import * as chatworkTask from './chatwork-task.mjs';
 import * as chatworkApi from './chatwork-api.mjs';
 import * as settings from './settings.mjs';
 import * as google from './google-auth.mjs';
-import { buildEntry, publicEntry } from './normalize.mjs';
+import { buildEntry, publicEntry, sessionKeyOf, foldTurn } from './normalize.mjs';
 import { connectorState } from './mcp-config.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
@@ -198,6 +198,26 @@ async function handleNotify(req, res) {
   sendJson(res, 200, { ok: true, id: entry.id });
 }
 
+/**
+ * The card a new stop belongs to, or null for a session with nothing of its own
+ * on the timeline yet. The oldest is the one that grows, since that is the one
+ * the feed leads with — and where a session left several cards standing, from
+ * before they were folded into one, the rest stay where they are rather than
+ * having their turn moved out from under them.
+ */
+function foldTarget(agent, key) {
+  if (!key) return null;
+  let found = null;
+  for (const open of store.list()) {
+    if (open.agent !== agent || open.kind !== 'wait') continue;
+    if (store.bucketOf(open) !== 'timeline') continue;
+    if (sessionKeyOf(open) !== key) continue;
+    const at = open.createdAtMs ?? Date.parse(open.createdAt);
+    if (!found || at < (found.createdAtMs ?? Date.parse(found.createdAt))) found = open;
+  }
+  return found;
+}
+
 async function handleWait(req, res) {
   const body = await readBody(req);
   const agent = body.agent || 'cursor';
@@ -250,25 +270,6 @@ async function handleWait(req, res) {
     ? [...byKey.values()].slice(0, config.maxImagesPerEntry)
     : await collectImages([bodyText, ...turnMessages].join('\n'), searchDirs);
 
-  // A Claude card outlives the turn it came from, so the same session stopping
-  // again means the older card would be answering something already scrolled
-  // past. Let it go rather than leave two live cards for one session.
-  const sessionId = body.sessionId || body.session_id || body.conversationId || body.conversation_id;
-  if (agent === 'claude' && sessionId) {
-    for (const open of store.list()) {
-      if (open.agent !== 'claude' || open.status !== 'waiting') continue;
-      if (open.sessionId !== sessionId) continue;
-      const landed = waiters.resolve(open.id, { action: 'release', reason: 'superseded' });
-      if (landed !== 'delivered') {
-        store.update(open.id, {
-          status: 'expired',
-          resolvedAt: new Date().toISOString(),
-          resolution: 'superseded',
-        });
-      }
-    }
-  }
-
   const entry = buildEntry({
     agent,
     kind: 'wait',
@@ -278,27 +279,49 @@ async function handleWait(req, res) {
     images,
   });
 
-  waiters.reserve(entry.id, {
+  // One session, one card. A stop is the next thing a session already on the
+  // timeline said, so it is added to the card standing there instead of laying
+  // a second one on top of it. A card you have replied to or boxed is finished
+  // with — it left the timeline when you decided about it, and nothing is
+  // written into it behind your back.
+  const target = foldTarget(agent, sessionKeyOf(entry));
+  if (target) {
+    // Whatever hook was holding that card is on a turn nobody can answer now.
+    // Let it go, and take its slot with it, before the card is handed to the
+    // hook that has just arrived — one card is never polled by two of them.
+    waiters.resolve(target.id, { action: 'release', reason: 'superseded' });
+    waiters.drop(target.id);
+  }
+
+  const card = target ?? entry;
+  waiters.reserve(card.id, {
+    // The new turn's clock, on the card's own id. An older card's ceiling has
+    // already passed and would leave the turn under it unanswerable.
     createdAtMs: entry.createdAtMs,
     softHoldSeconds: softHoldSeconds(agent),
     // The hook may die before its long poll ever starts, and then there is no
     // request to release — the card would sit in Timeline for good. Retire it
     // on the same deadline everything else honours.
     onExpire: () => {
-      if (store.get(entry.id)?.status !== 'waiting') return;
-      store.update(entry.id, {
+      if (store.get(card.id)?.status !== 'waiting') return;
+      store.update(card.id, {
         status: 'expired',
         resolvedAt: new Date().toISOString(),
         resolution: 'expired',
       });
     },
   });
-  store.add(entry);
+
+  // Nothing is awaited between reserving the slot and the card going live, so
+  // a reply cannot land on a card whose slot is not open yet.
+  if (target) store.update(target.id, foldTurn(target, entry));
+  else store.add(entry);
+
   sendJson(res, 200, {
     ok: true,
-    id: entry.id,
-    holdUntil: entry.holdUntil,
-    holdMaxAt: entry.holdMaxAt,
+    id: card.id,
+    holdUntil: card.holdUntil,
+    holdMaxAt: card.holdMaxAt,
   });
 }
 
@@ -373,7 +396,10 @@ async function handleResolve(req, res, params, url) {
 
   if (!resolution || resolution.action === 'release') {
     const reason = resolution?.reason || 'expired';
-    if (entry.status === 'waiting') {
+    // A card whose session has stopped again is not this poll's to retire. The
+    // turn this poll was holding has already been folded into the card, and the
+    // status belongs to the turn that took its place at the head.
+    if (entry.status === 'waiting' && reason !== 'superseded') {
       store.update(entry.id, {
         status: reason === 'detached' ? 'detached' : 'expired',
         resolvedAt: new Date().toISOString(),

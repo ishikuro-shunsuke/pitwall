@@ -93,6 +93,67 @@ const ID_PREFIX = {
 };
 
 /**
+ * The thread a stop belongs to. Claude Code names its session, Cursor its
+ * conversation, and a payload carries one or the other — so the two never have
+ * to be told apart here. Claude Desktop names neither: an MCP server is handed
+ * no id for the conversation calling it, and one question of its is not
+ * knowably the same conversation as the last. Those cards stay one per ask.
+ */
+export function sessionKeyOf(entry) {
+  return entry.sessionId || entry.conversationId || null;
+}
+
+/** How far back a card remembers what a session said into it. */
+const MAX_PRIOR_TURNS = 20;
+
+/**
+ * The next stop of a session whose card has not been dealt with yet. It goes
+ * into that card rather than a second one: the turn standing there moves down
+ * into `priorTurns` and the new one takes the head, where the reply box is.
+ *
+ * `createdAt` is left where it was, so the card keeps its place in a feed
+ * ordered by how long each has waited — a session that keeps talking does not
+ * walk to the back of the queue it is at the front of. The hold is the new
+ * turn's and starts now: the ceiling over a question asked an hour ago has
+ * nothing to say about the one asked since.
+ */
+export function foldTurn(entry, next) {
+  const prior = [...(entry.priorTurns ?? []), {
+    at: entry.updatedAt ?? entry.createdAt,
+    title: entry.title,
+    body: entry.body,
+    turnMessages: entry.turnMessages ?? [],
+    images: entry.images ?? [],
+  }];
+
+  return {
+    priorTurns: prior.slice(-MAX_PRIOR_TURNS),
+    updatedAt: next.createdAt,
+    updatedAtMs: next.createdAtMs,
+
+    status: 'waiting',
+    resolvedAt: null,
+    resolution: null,
+    holdUntil: next.holdUntil,
+    holdMaxAt: next.holdMaxAt,
+
+    title: next.title,
+    body: next.body,
+    turnMessages: next.turnMessages,
+    images: next.images,
+    repo: next.repo,
+    host: next.host,
+    model: next.model,
+    transcriptPath: next.transcriptPath,
+    generationId: next.generationId,
+    notificationType: next.notificationType,
+    backgroundTaskCount: next.backgroundTaskCount,
+    backgroundTasks: next.backgroundTasks,
+    links: next.links,
+  };
+}
+
+/**
  * Build a unified timeline entry from a hook payload.
  * `agent` is 'cursor' | 'claude' | 'desktop' | 'calendar' | 'todo' | 'mail' | 'chatwork'.
  * `kind` is 'wait' | 'notice'.
@@ -118,6 +179,10 @@ export function buildEntry({
     status: kind === 'notice' ? 'notice' : 'waiting',
     createdAt,
     createdAtMs,
+    // When the card last had something added to it. The same as `createdAt`
+    // until a session stops into it a second time.
+    updatedAt: createdAt,
+    updatedAtMs: createdAtMs,
     holdUntil: createdAtMs + softHoldSeconds(agent) * 1000,
     holdMaxAt: createdAtMs + config.maxHoldSeconds * 1000,
     resolvedAt: null,
@@ -145,6 +210,9 @@ export function buildEntry({
       ? payload.background_tasks.length
       : (payload.backgroundTaskCount ?? 0),
     backgroundTasks: taskLines(payload.background_tasks),
+
+    /** Earlier stops of this session, oldest first. See `foldTurn`. */
+    priorTurns: [],
 
     links: null,
   };
