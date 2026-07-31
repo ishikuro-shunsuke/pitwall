@@ -21,7 +21,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { config, paths } from './config.mjs';
 import * as store from './store.mjs';
-import { buildEntry } from './normalize.mjs';
+import { buildEntry, addFolded } from './normalize.mjs';
 import * as api from './chatwork-api.mjs';
 import { NeedsTokenError, hasToken } from './chatwork-api.mjs';
 import { chatworkText, withoutOpeningAddress } from './chatwork-text.mjs';
@@ -253,9 +253,11 @@ async function poll() {
     for (const item of dropped) markSeen(item.key);
   }
 
+  // Oldest first, so a room that said several things at once reads down its
+  // card the way the room reads.
   for (const item of take) {
     markSeen(item.key);
-    store.add(entryFor(item.room, item.message));
+    addFolded(entryFor(item.room, item.message));
   }
 }
 

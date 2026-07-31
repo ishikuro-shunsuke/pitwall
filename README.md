@@ -135,7 +135,7 @@ Every task list is watched, and consent asks to edit them as well as read them �
 
 ## Chatwork
 
-A message with your name on it arrives as a card you can answer — a mention, a reply to something you wrote, or anything at all in a one-to-one chat. A message to everyone does not. **Radio in** posts your reply into the room, under the message it answers; **Box** answers nothing. Both then read that room up to that message, which is what takes it off Chatwork's own badge, and reads everything older in the room with it.
+A message with your name on it arrives as a card you can answer — a mention, a reply to something you wrote, or anything at all in a one-to-one chat. A message to everyone does not. A room gets one card, and everything it says lands on it in the order it was said. **Radio in** posts your reply into the room, under the last message on the card; **Box** answers nothing. Both then read that room up to that message, which is what takes it off Chatwork's own badge, and reads everything older in the room with it.
 
 A task assigned to you arrives on the morning it is due, and again every morning it stays open. **Chequered** ticks it off in Chatwork; **Box** files the card away and leaves the task open.
 

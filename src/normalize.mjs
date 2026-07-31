@@ -1,7 +1,7 @@
 import path from 'node:path';
 import { config, softHoldSeconds } from './config.mjs';
 import { buildLinks } from './deeplink.mjs';
-import { newId, bucketOf, isUnanswered } from './store.mjs';
+import { newId, bucketOf, isUnanswered, list, add, update } from './store.mjs';
 
 function clip(text, max = config.maxBodyChars) {
   if (!text) return '';
@@ -93,18 +93,57 @@ const ID_PREFIX = {
 };
 
 /**
- * The thread a stop belongs to. Claude Code names its session, Cursor its
- * conversation, and a payload carries one or the other — so the two never have
- * to be told apart here. Claude Desktop names neither: an MCP server is handed
- * no id for the conversation calling it, and one question of its is not
- * knowably the same conversation as the last. Those cards stay one per ask.
+ * The thread a card belongs to — the run of talk it is one moment of, whether
+ * that is an agent's session or a room full of people.
+ *
+ * Claude Code names its session, Cursor its conversation, and a payload carries
+ * one or the other, so the two never have to be told apart here. Chatwork has
+ * no thread of its own to name: what a message belongs to is the room it was
+ * said in, which is also what answering it and clearing it both act on.
+ *
+ * Claude Desktop names nothing. An MCP server is handed no id for the
+ * conversation calling it, so one question of its is not knowably the same
+ * conversation as the last, and those cards stay one per ask.
  */
 export function sessionKeyOf(entry) {
-  return entry.sessionId || entry.conversationId || null;
+  return entry.sessionId || entry.conversationId || entry.chatwork?.roomId || null;
+}
+
+/**
+ * The card something new belongs to, or null where its thread has nothing on
+ * the timeline yet. The oldest is the one that grows, since that is the one the
+ * feed leads with — and where a thread left several cards standing, from before
+ * they were folded into one, the rest stay where they are rather than having
+ * their turn moved out from under them.
+ */
+export function foldTarget(agent, key) {
+  if (!key) return null;
+  let found = null;
+  for (const open of list()) {
+    if (open.agent !== agent) continue;
+    if (bucketOf(open) !== 'timeline') continue;
+    if (sessionKeyOf(open) !== key) continue;
+    const at = open.createdAtMs ?? Date.parse(open.createdAt);
+    if (!found || at < (found.createdAtMs ?? Date.parse(found.createdAt))) found = open;
+  }
+  return found;
+}
+
+/**
+ * Put a card on the timeline, or into the one its thread already has. Returns
+ * the card it ended up in, which is the one to answer.
+ */
+export function addFolded(entry) {
+  const target = foldTarget(entry.agent, sessionKeyOf(entry));
+  if (!target) return add(entry);
+  return update(target.id, foldTurn(target, entry)) ?? entry;
 }
 
 /** How far back a card remembers what a session said into it. */
 const MAX_PRIOR_TURNS = 20;
+
+/** Where a card keeps what the service it came from needs to act on it. */
+const SERVICE_SLOTS = ['chatwork', 'chatworkTask', 'mail', 'todo', 'calendar', 'agenda'];
 
 /**
  * The next stop of a session whose card has not been dealt with yet. It goes
@@ -148,6 +187,14 @@ export function foldTurn(entry, next) {
     backgroundTasks: next.backgroundTasks,
     links: next.links,
   };
+
+  // What the buttons act on. A card carrying a room full of messages answers
+  // under the newest of them and reads the room up to it, which takes the ones
+  // above it with it — so the slot has to be the newest message's, not the one
+  // the card opened with.
+  for (const slot of SERVICE_SLOTS) {
+    if (next[slot] !== undefined) patch[slot] = next[slot];
+  }
 
   // A stop is something to answer, so it reopens the card and starts the hold
   // over. A notice is only the session talking on its way past — it says what

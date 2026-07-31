@@ -214,6 +214,14 @@ const store = await import('../src/store.mjs');
 store.init();
 
 const cards = () => store.list().filter((e) => e.agent === 'chatwork' && e.chatwork);
+/** The card a room's messages are landing in — the one still on the timeline. */
+const openCardFor = (roomId) => cards()
+  .filter((e) => e.chatwork.roomId === roomId && store.bucketOf(e) === 'timeline')
+  .sort((a, b) => a.createdAtMs - b.createdAtMs)[0];
+const turnsInRoom = (roomId) => {
+  const card = openCardFor(roomId);
+  return card ? (card.priorTurns?.length ?? 0) + 1 : 0;
+};
 const taskCards = () => store.list().filter((e) => e.agent === 'chatwork' && e.chatworkTask);
 
 // --- the markup comes off ----------------------------------------------------
@@ -348,9 +356,13 @@ is('what you said yourself is never a card',
     { message_id: '5102', account: KAI, body: '[To:100] You\ntwo', send_time: at(TODAY, 9, 21) },
     { message_id: '5103', account: KAI, body: '[To:100] You\nthree', send_time: at(TODAY, 9, 22) },
   ];
-  const before = cards().length;
+  // Counted in messages, not in cards: a room's messages go into the room's one
+  // card, so a burst that is capped at two adds two turns and no second card.
+  const before = turnsInRoom('10');
+  const cardsBefore = cards().length;
   await chatwork.internals.poll();
-  is('a burst is capped at what the poll may add', cards().length - before, 2);
+  is('a burst is capped at what the poll may add', turnsInRoom('10') - before, 2);
+  is('and none of it opens a second card for the room', cards().length - cardsBefore, 0);
   is('and it is the newest that are kept',
     cards().some((c) => c.chatwork.messageId === '5103'), true);
   is('the oldest of them does not arrive a poll later',
@@ -358,16 +370,30 @@ is('what you said yourself is never a card',
   config.chatwork.maxPerPoll = 20;
 }
 
+// --- one room, one card ------------------------------------------------------
+
+{
+  const card = openCardFor('10');
+  is('the room reads down one card', (card?.priorTurns?.length ?? 0) > 0, true);
+  is('answering it answers under the newest message in it',
+    card.chatwork.messageId, '5103');
+  const said = [...card.priorTurns.map((t) => t.body), card.body];
+  is('oldest first', said.at(-1).includes('three'), true);
+  is('with what came before still on it', said.some((b) => b.includes('two')), true);
+}
+
 // --- answering ---------------------------------------------------------------
 
 {
-  const card = cards().find((c) => c.chatwork.messageId === '5005');
+  // The room's card answers under the last thing said in it, which is also the
+  // point the room is read up to — everything above it goes with it.
+  const card = openCardFor('10');
   await chatwork.replyAndRead(card.chatwork, 'Four works.');
   is('the answer goes into the room it came from', posted.at(-1)?.roomId, '10');
-  is('under the message it answers',
-    posted.at(-1)?.body.startsWith('[rp aid=200 to=10-5005] Ren Tanaka\n'), true);
+  is('under the newest message on the card',
+    posted.at(-1)?.body.startsWith('[rp aid=300 to=10-5103] Kai\n'), true);
   is('and carries what was typed', posted.at(-1)?.body.endsWith('Four works.'), true);
-  is('then the room is read up to it', marked.at(-1)?.message_id, '5005');
+  is('then the room is read up to it', marked.at(-1)?.message_id, '5103');
   is('in that room', marked.at(-1)?.roomId, '10');
 }
 
@@ -375,7 +401,7 @@ is('what you said yourself is never a card',
   // Chatwork refuses when there is nothing left to mark, which is the state the
   // card was asking for in the first place.
   alreadyRead = true;
-  const card = cards().find((c) => c.chatwork.messageId === '6003');
+  const card = openCardFor('11');
   let threw = null;
   try {
     await chatwork.markRead(card.chatwork);

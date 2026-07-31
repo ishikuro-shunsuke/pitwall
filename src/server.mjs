@@ -16,7 +16,9 @@ import * as chatworkTask from './chatwork-task.mjs';
 import * as chatworkApi from './chatwork-api.mjs';
 import * as settings from './settings.mjs';
 import * as google from './google-auth.mjs';
-import { buildEntry, publicEntry, sessionKeyOf, foldTurn, isResumable } from './normalize.mjs';
+import {
+  buildEntry, publicEntry, sessionKeyOf, foldTurn, foldTarget, isResumable,
+} from './normalize.mjs';
 import * as runner from './runner.mjs';
 import { connectorState } from './mcp-config.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
@@ -205,26 +207,6 @@ async function handleNotify(req, res) {
   else store.add(entry);
 
   sendJson(res, 200, { ok: true, id: (target ?? entry).id });
-}
-
-/**
- * The card a new stop belongs to, or null for a session with nothing of its own
- * on the timeline yet. The oldest is the one that grows, since that is the one
- * the feed leads with — and where a session left several cards standing, from
- * before they were folded into one, the rest stay where they are rather than
- * having their turn moved out from under them.
- */
-function foldTarget(agent, key) {
-  if (!key) return null;
-  let found = null;
-  for (const open of store.list()) {
-    if (open.agent !== agent) continue;
-    if (store.bucketOf(open) !== 'timeline') continue;
-    if (sessionKeyOf(open) !== key) continue;
-    const at = open.createdAtMs ?? Date.parse(open.createdAt);
-    if (!found || at < (found.createdAtMs ?? Date.parse(found.createdAt))) found = open;
-  }
-  return found;
 }
 
 async function handleWait(req, res) {
