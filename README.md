@@ -147,6 +147,28 @@ Nothing pitwall reads moves the unread badge; only the buttons on a card do. The
 
 A deadline is a moment, and which day it falls on depends on where you are. Chatwork's API does not say where the account is, so it is read in this machine's zone unless `PITWALL_CHATWORK_TIMEZONE` says otherwise.
 
+## Passing a card to later
+
+**Blue flag** hands a card to an hour you name. It asks for two lines first, and will not send without both.
+
+**First move** is what you open and what you type into it — `models/staging/loads.sql を開いて retention の行を書く`, not "look at the retention thing". **Out lap** is how far to go before the shape of the real job shows itself, which is a smaller thing than finishing. Both are at the top of the card when it comes back, above anything the card itself says, along with how many times you have now sent it on.
+
+The card leaves the timeline meanwhile and waits in **Past entries**. A card due at seven with the server off until nine arrives at nine.
+
+A Google task is the one this reaches outside pitwall for. The task is Google's, so **Chequered** goes through there and a new one takes its place on the day you picked, carrying both lines in its notes. The hours on offer are days for those cards: the Tasks API keeps the date and drops the rest.
+
+## Projects
+
+Every card says what it belongs to, in that project's colour, with the repository or list it came out of underneath.
+
+A repository, a Google Tasks list, and a booking whose title starts `[acme-portal]` each make their project the first time they are seen — there are few of them and you made them on purpose. The prefix does not reach the card; the title under `acme-portal` is just `週次`.
+
+A sender and a Chatwork room do not. They arrive by the hundred, so those cards say **どこにも入っていない** and keep their service's colour until you say otherwise.
+
+Press the name to move it. Pick one, write a new name and press enter, or take it out of every project with **どこにも入れない**. What moves is the repository, room or sender behind the card, so every other card it ever sent moves too, including the ones already filed away. Taking it out stays taken out — the next card from there does not quietly make the project again.
+
+Spelling is the whole of the match: `acme-portal` and `Acme-Portal` are two projects. One left holding no cards at all is gone.
+
 ## Stints
 
 Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight and the page calls you in — two notes, and a desktop notification if you let the browser show them. Only the 25 run themselves: the five-minute stop starts when you press **Pit in**, the feed comes back on **Rejoin**, and while either of those is waiting the clock counts up to say how long it has been.
@@ -199,6 +221,7 @@ How the server runs. Which accounts it watches is set in the gear instead, and n
 | `<config>.bak.<timestamp>` | a backup of each file before it is edited |
 | `./data` | the timeline itself |
 | `./data/settings.json` | what the gear was given, readable only by you |
+| `./data/projects.json` | your projects, and what is filed under each |
 | `./data/google-client.json`, `./data/google-token.json` | the OAuth client and its refresh token, readable only by you |
 
 ## Uninstall

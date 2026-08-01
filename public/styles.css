@@ -421,6 +421,155 @@ body.in-the-pits .empty { display: none; }
 /* Something the card tried to do and could not. The same red the buttons that
    change things use, because it is the same kind of news. */
 .chip.act.warn { color: var(--accent); }
+
+/* ── What a card belongs to ──────────────────────────────────────────────
+   The project stands where the repository used to, in the project's own
+   colour, and the repository moves under it to say where the card came from.
+   One belonging nowhere keeps the colour it always had. */
+.proj {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--repo-color, var(--text));
+  cursor: pointer;
+}
+.proj::after { content: '▾'; font-size: 10px; opacity: 0.7; }
+.proj:hover { text-decoration: underline; }
+.proj.none { color: var(--muted); font-weight: 400; font-style: italic; }
+
+.proj-menu {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+}
+.proj-menu ul { list-style: none; margin: 0 0 8px; padding: 0; }
+.proj-menu li { display: flex; align-items: center; gap: 8px; padding: 5px 4px; cursor: pointer; }
+.proj-menu li:hover { background: var(--panel); }
+.proj-menu li.empty { color: var(--muted); font-size: 12px; cursor: default; }
+.proj-menu li.empty:hover { background: none; }
+.proj-menu li[aria-selected="true"]::after { content: '·'; margin-left: auto; }
+.proj-menu .dot { width: 8px; height: 8px; background: var(--row-color); flex: none; }
+.proj-menu .name { font-size: 13px; }
+.proj-menu .count { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.proj-menu li[aria-selected="true"] .count { margin-left: 0; }
+/* Out of every project. It takes the card away from something, so it is drawn
+   the colour of the other button that does. */
+.proj-menu .drop { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--border); }
+.proj-menu .drop li { color: var(--accent); }
+.proj-menu .drop .name { font-style: italic; }
+.proj-menu input {
+  width: 100%;
+  padding: 7px 9px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px dashed var(--border);
+  border-radius: 0;
+  font: inherit;
+  font-size: 13px;
+}
+.proj-menu input:focus { outline: none; border-style: solid; border-color: var(--repo-color, var(--accent)); }
+
+/* Where the card came from, under what it belongs to. */
+.chips .from { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+
+/* ── Blue flag ───────────────────────────────────────────────────────────
+   Held back until the row is open and both lines are written, then filled in:
+   the same fill the reply button wears, meaning the next press sends it. */
+.btn.blue {
+  border-color: oklch(var(--tone-l) var(--tone-c) 250);
+  color: oklch(var(--tone-l) var(--tone-c) 250);
+}
+.btn.blue:hover:not(:disabled) {
+  background: color-mix(in oklab, oklch(var(--tone-l) var(--tone-c) 250) 16%, var(--bg));
+}
+.btn.blue.armed,
+.btn.blue.armed:hover:not(:disabled) {
+  background: oklch(var(--tone-l) var(--tone-c) 250);
+  border-color: oklch(var(--tone-l) var(--tone-c) 250);
+  color: var(--on-accent);
+}
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.pass { width: 100%; border-top: 1px dashed var(--border); margin-top: 4px; padding-top: 10px; }
+.pass-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.pass-close {
+  margin-left: auto;
+  padding: 0 4px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.pass-close:hover { color: var(--text); }
+.pass .field { margin-bottom: 10px; }
+.pass label {
+  display: block;
+  margin-bottom: 3px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.pass .hint { display: block; margin-top: 3px; font-size: 11px; color: var(--muted); opacity: 0.8; }
+.pass input[type="text"] {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  font: inherit;
+  font-size: 13px;
+}
+.pass input[type="text"]:focus { outline: none; border-color: var(--repo-color, var(--accent)); }
+.pass input:placeholder-shown { border-style: dashed; }
+.pass .when { display: flex; gap: 6px; flex-wrap: wrap; align-items: baseline; }
+.pass .when button {
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+}
+.pass .when button[aria-pressed="true"] { border-color: var(--repo-color, var(--text)); color: var(--text); }
+
+/* The two lines you wrote when you waved the card through, above everything the
+   card itself says: one is the agent talking, the other is you. */
+.note {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  background: var(--repo-tint, var(--panel-2));
+  border-left: 2px solid var(--repo-color, var(--border));
+}
+.note .move { display: block; font-size: 13px; line-height: 1.7; }
+.note .until {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+}
+.note .until::before { content: 'out lap · '; opacity: 0.7; }
+.note .who { display: block; margin-top: 6px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
 /* The word for what the card is waiting on, in the colour this page keeps for
    things that are waiting, and the only word on its line with any weight. */
 .chip.act { color: var(--accent); font-weight: 600; }

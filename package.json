@@ -22,7 +22,7 @@
     "uninstall-hooks": "node bin/install-hooks.mjs --uninstall",
     "runner": "node bin/pitwall-runner.mjs",
     "demo": "node demo/feed.mjs",
-    "test": "node test/smoke.mjs && node test/install-hooks.mjs && node test/calendar.mjs && node test/agenda.mjs && node test/todo.mjs && node test/mail.mjs && node test/chatwork.mjs && node test/mcp.mjs && node test/runner.mjs",
+    "test": "node test/smoke.mjs && node test/install-hooks.mjs && node test/calendar.mjs && node test/agenda.mjs && node test/todo.mjs && node test/mail.mjs && node test/chatwork.mjs && node test/mcp.mjs && node test/runner.mjs && node test/projects.mjs",
     "smoke": "node test/smoke.mjs"
   }
 }

@@ -11,6 +11,13 @@ const state = {
   engaged: new Set(),
   holdTimers: new Map(),
   serverSkew: 0,
+  /** Every project there is, for the dropdown on a card head. */
+  projects: [],
+  /** id of the card whose project list is open, and the one whose pass row is. */
+  picking: null,
+  passing: null,
+  /** id → { firstMove, outLap, when } while the row is open. */
+  passDrafts: new Map(),
 };
 
 const el = {
@@ -1375,6 +1382,96 @@ const firing = new Set();
  * while it is being held; a mail card takes one until it has been answered or
  * archived, because the person it would reach is not waiting on a socket.
  */
+/**
+ * When a card can be waved through: while it is still on the timeline, and
+ * again once it has come back. A card you have replied to or boxed is done.
+ */
+function canPass(entry) {
+  return entry.bucket === 'timeline';
+}
+
+const HOUR = 3_600_000;
+
+function at(days, hour) {
+  const d = new Date();
+  d.setDate(d.getDate() + days);
+  d.setHours(hour, 0, 0, 0);
+  return d.getTime();
+}
+
+/** Days until the next Monday, never today. */
+function untilMonday() {
+  const dow = new Date().getDay();
+  return dow === 1 ? 7 : (8 - dow) % 7 || 7;
+}
+
+/**
+ * A Google task is owed on a day rather than at a minute — the API keeps the
+ * date and drops the rest — so the hours on offer would be a promise nothing
+ * could keep. Everything else is pitwall's own screen and can be moved to any
+ * minute at all.
+ */
+function whenFor(entry) {
+  if (entry.todo) {
+    return [
+      { id: 'd1', label: '明日', at: () => at(1, 9) },
+      { id: 'd2', label: '明後日', at: () => at(2, 9) },
+      { id: 'mon', label: '週明け', at: () => at(untilMonday(), 9) },
+    ];
+  }
+  return [
+    { id: '2h', label: '2時間後', at: () => Date.now() + 2 * HOUR },
+    { id: '4h', label: '4時間後', at: () => Date.now() + 4 * HOUR },
+    { id: 'am', label: '明朝', at: () => at(1, 7) },
+    { id: 'pm', label: '明日の午後', at: () => at(1, 14) },
+    { id: 'mon', label: '週明け', at: () => at(untilMonday(), 9) },
+  ];
+}
+
+function passDraft(entry) {
+  const held = state.passDrafts.get(entry.id);
+  if (held) return held;
+  const fresh = { firstMove: '', outLap: '', when: entry.todo ? 'd1' : 'am' };
+  return fresh;
+}
+
+/**
+ * What brings you back to this card. Both lines are required: one you cannot
+ * write them about is one you have not decided anything about, and it would
+ * come back exactly as unanswerable as it went.
+ */
+function passRowHtml(entry) {
+  if (state.passing !== entry.id) return '';
+  const draft = passDraft(entry);
+  const head = entry.todo
+    ? 'Chequered in Google, then made again for the day you pick'
+    : 'Pass this one — write what brings you back to it';
+  const chips = whenFor(entry).map((w) => `<button type="button" data-act="when"
+    data-id="${esc(entry.id)}" data-when="${w.id}"
+    aria-pressed="${draft.when === w.id}">${esc(w.label)}</button>`).join('');
+  return `
+    <div class="pass">
+      <div class="pass-head">
+        <span>${head}</span>
+        <button type="button" class="pass-close" data-act="unpass"
+                data-id="${esc(entry.id)}" aria-label="取りやめ">×</button>
+      </div>
+      <div class="field">
+        <label>First move</label>
+        <input type="text" data-pass-field="firstMove" data-id="${esc(entry.id)}"
+               placeholder="何を開いて、そこに何を書くか" value="${esc(draft.firstMove)}" />
+        <span class="hint">What you open, and what you type into it.</span>
+      </div>
+      <div class="field">
+        <label>Out lap</label>
+        <input type="text" data-pass-field="outLap" data-id="${esc(entry.id)}"
+               placeholder="どこまで走れば本当の仕事が見えるか" value="${esc(draft.outLap)}" />
+        <span class="hint">Just far enough that the real job shows itself.</span>
+      </div>
+      <div class="when">${chips}</div>
+    </div>`;
+}
+
 function takesReply(entry) {
   if (entry.status === 'waiting') return true;
   // The hold ran out, but the session is still on disk. The box stays, and what
@@ -1474,13 +1571,98 @@ function actionsHtml(entry) {
     trailer = `<p class="meta replied">replied: ${esc(entry.reply)}</p>`;
   }
 
-  return `<div class="card-actions">${cueHtml(entry)}${composer}${parts.join('')}${trailer}</div>`;
+  // Between the box you type a reply in and the buttons, because it is the same
+  // kind of thing: what you have to say about the card before it goes.
+  const pass = passRowHtml(entry);
+  if (canPass(entry)) {
+    const draft = passDraft(entry);
+    const ready = Boolean(draft.firstMove.trim() && draft.outLap.trim());
+    const open = state.passing === entry.id;
+    const when = whenFor(entry).find((w) => w.id === draft.when);
+    const armed = open && ready;
+    // In among the two that decide the card, not out at the end with the links
+    // that only open something: this one moves it.
+    const quiet = parts.findIndex((p) => p.includes('btn quiet'));
+    parts.splice(quiet === -1 ? parts.length : quiet, 0, `<button type="button"
+      class="btn blue${armed ? ' armed' : ''}${lit('pass')}"
+      data-act="pass" data-id="${esc(entry.id)}"${open && !ready ? ' disabled' : ''}
+      title="${armed ? '送る' : '先に行かせる'}">${armed ? `Blue flag → ${esc(when?.label || '')}` : 'Blue flag'}</button>`);
+  }
+
+  return `<div class="card-actions">${cueHtml(entry)}${composer}${pass}${parts.join('')}${trailer}</div>`;
+}
+
+/**
+ * What the card belongs to, at the head where the repository used to be. A card
+ * with nothing durable behind it — one of Claude Desktop's, a booking with no
+ * `[name]` in front of it — cannot be put anywhere, so it goes on saying what
+ * it always said.
+ */
+function projectHtml(entry, repo, branch) {
+  if (!entry.projectKey) {
+    return `<span class="repo">${esc(repo.name || 'unknown')}${branch}</span>`;
+  }
+  const open = state.picking === entry.id;
+  if (entry.project) {
+    return `<button type="button" class="proj" data-act="pick" data-id="${esc(entry.id)}"
+      aria-expanded="${open}" title="どのプロジェクトに入れるか">${esc(entry.project)}</button>`;
+  }
+  return `<button type="button" class="proj none" data-act="pick" data-id="${esc(entry.id)}"
+    aria-expanded="${open}" title="どのプロジェクトに入れるか">どこにも入っていない</button>`;
+}
+
+/** Where the card came from, under the project it was filed into. */
+function sourceHtml(entry, repo, branch) {
+  if (!entry.projectKey) return '';
+  const name = repo.name || 'unknown';
+  return `<span class="from">${esc(name)}${branch}</span>`;
+}
+
+function projectMenuHtml(entry) {
+  if (state.picking !== entry.id) return '';
+  const rows = state.projects.map((p) => {
+    const on = p.name === entry.project;
+    const tones = repoTones(p.name);
+    return `<li data-act="setproject" data-id="${esc(entry.id)}" data-name="${esc(p.name)}"
+      aria-selected="${on}"><span class="dot" style="--row-color: ${tones.color}"></span>
+      <span class="name">${esc(p.name)}</span><span class="count">${p.count}</span></li>`;
+  }).join('');
+  return `
+    <div class="proj-menu">
+      <ul>${rows || '<li class="empty">まだ何もありません</li>'}</ul>
+      <input type="text" data-new-project="${esc(entry.id)}"
+             placeholder="または、新しいプロジェクト名を書く" />
+      <ul class="drop">
+        <li data-act="setproject" data-id="${esc(entry.id)}" data-name="">
+          <span class="name">どこにも入れない</span>
+        </li>
+      </ul>
+    </div>`;
+}
+
+/**
+ * The two lines you wrote when you waved this card through, at the top of it
+ * where they are read before anything the card itself says. One is what the
+ * agent said; the other is what you told yourself.
+ */
+function passNoteHtml(entry) {
+  const p = entry.pass;
+  if (!p?.firstMove) return '';
+  const nth = p.count > 1 ? ` · ${p.count}回目` : ' · 1回目';
+  return `
+    <p class="note">
+      <span class="move">${esc(p.firstMove)}</span>
+      <span class="until">${esc(p.outLap)}</span>
+      <span class="who">${fmtStamp(p.at)} に自分で書いた${nth}</span>
+    </p>`;
 }
 
 function cardHtml(entry) {
   const repo = entry.repo || {};
   const branch = repo.branch ? `<span class="branch">@${esc(repo.branch)}</span>` : '';
-  const tones = repoTones(repo.key || repo.name);
+  // A card wears its project's colour. One that belongs nowhere keeps the
+  // colour it always had, which for everything off a service is that service's.
+  const tones = repoTones(entry.project || repo.key || repo.name);
   const decl = [`view-transition-name: card-${entry.id.replace(/[^\w-]/g, '-')}`, 'view-transition-class: card'];
   if (tones) {
     decl.push(
@@ -1495,14 +1677,16 @@ function cardHtml(entry) {
     <article class="card" data-id="${esc(entry.id)}" data-agent="${esc(entry.agent)}" data-status="${esc(entry.status)}"${style}>
       <div class="card-head">
         <div class="head-line">
-          <span class="repo">${esc(repo.name || 'unknown')}${branch}</span>
+          ${projectHtml(entry, repo, branch)}
           <span class="badge ${esc(entry.agent)}" title="${esc(modelTitle(entry))}">${esc(entry.agent)}</span>
           <span class="meta stamp" title="${esc(entry.createdAt)}">${fmtStamp(entry.createdAt)}</span>
           ${startsChip(entry)}${dueChip(entry)}
         </div>
-        <div class="chips">${taskChip(entry)}</div>
+        <div class="chips">${sourceHtml(entry, repo, branch)}${taskChip(entry)}</div>
+        ${projectMenuHtml(entry)}
       </div>
       <div class="card-body">
+        ${passNoteHtml(entry)}
         ${entry.title ? `<p class="card-title">${esc(entry.title)}</p>` : ''}
         ${turnsStreamHtml(entry)}
       </div>
@@ -1975,10 +2159,44 @@ function grow(box) {
 }
 
 el.timeline.addEventListener('input', (e) => {
+  // The two lines that bring a card back. Kept here and not re-rendered from,
+  // so the caret stays where it is while the Blue flag button above fills in.
+  const field = e.target.getAttribute?.('data-pass-field');
+  if (field) {
+    const draft = state.passDrafts.get(e.target.dataset.id);
+    if (draft) {
+      draft[field] = e.target.value;
+      paintPassButton(e.target.dataset.id);
+    }
+    return;
+  }
+
   const id = e.target.getAttribute?.('data-reply-input');
   if (!id) return;
   state.drafts.set(id, e.target.value);
   grow(e.target);
+});
+
+/** Arms or disarms the Blue flag without rebuilding the row under the caret. */
+function paintPassButton(id) {
+  const entry = state.entries.get(id);
+  const draft = state.passDrafts.get(id);
+  const btn = el.timeline.querySelector(`[data-act="pass"][data-id="${CSS.escape(id)}"]`);
+  if (!entry || !draft || !btn) return;
+  const ready = Boolean(draft.firstMove.trim() && draft.outLap.trim());
+  const when = whenFor(entry).find((w) => w.id === draft.when);
+  btn.disabled = !ready;
+  btn.classList.toggle('armed', ready);
+  btn.textContent = ready ? `Blue flag → ${when?.label || ''}` : 'Blue flag';
+}
+
+/** A project nobody has used yet is made by writing its name and pressing enter. */
+el.timeline.addEventListener('keydown', (e) => {
+  const id = e.target.getAttribute?.('data-new-project');
+  if (!id || e.key !== 'Enter') return;
+  e.preventDefault();
+  const name = e.target.value.trim();
+  if (name) setProject(id, name).catch((err) => alert(err.message || String(err)));
 });
 
 /**
@@ -2021,6 +2239,52 @@ async function sendReply(id) {
     await refresh();
   } catch (err) {
     unlight(id, 'send');
+    exits.delete(id);
+    throw err;
+  }
+}
+
+async function loadProjects() {
+  try {
+    const data = await fetch('/api/projects').then((r) => r.json());
+    state.projects = data.projects || [];
+  } catch {
+    state.projects = [];
+  }
+}
+
+/**
+ * The card is only how you reached the thing behind it, so every other card off
+ * the same repository, room or sender moves at the same time — the server says
+ * so over the event stream, and the refresh below is what brings the new list
+ * of projects back with its counts.
+ */
+async function setProject(id, name) {
+  await api(`/api/entries/${id}/project`, { name });
+  state.picking = null;
+  await loadProjects();
+  await refresh();
+}
+
+async function passEntry(id) {
+  const entry = state.entries.get(id);
+  const draft = state.passDrafts.get(id);
+  if (!entry || !draft) return;
+  const when = whenFor(entry).find((w) => w.id === draft.when) || whenFor(entry)[0];
+  light(id, 'pass');
+  exits.set(id, 'left');
+  try {
+    await api(`/api/entries/${id}/pass`, {
+      firstMove: draft.firstMove,
+      outLap: draft.outLap,
+      dueAt: new Date(when.at()).toISOString(),
+    });
+    state.passing = null;
+    state.passDrafts.delete(id);
+    release(id);
+    await refresh();
+  } catch (err) {
+    unlight(id, 'pass');
     exits.delete(id);
     throw err;
   }
@@ -2148,6 +2412,41 @@ el.timeline.addEventListener('click', async (e) => {
     }
     if (act === 'complete') {
       await completeTask(id);
+      return;
+    }
+    if (act === 'pass') {
+      // First press opens the row. Once it is open and both lines are written
+      // the button is filled in, and pressing it then is what sends the card.
+      if (state.passing !== id) {
+        state.passing = id;
+        state.passDrafts.set(id, { ...passDraft(state.entries.get(id)) });
+        render();
+        el.timeline.querySelector(`[data-pass-field][data-id="${CSS.escape(id)}"]`)?.focus();
+        return;
+      }
+      await passEntry(id);
+      return;
+    }
+    if (act === 'unpass') {
+      state.passing = null;
+      state.passDrafts.delete(id);
+      render();
+      return;
+    }
+    if (act === 'when') {
+      const draft = state.passDrafts.get(id);
+      if (draft) draft.when = btn.dataset.when;
+      render();
+      return;
+    }
+    if (act === 'pick') {
+      state.picking = state.picking === id ? null : id;
+      if (state.picking) await loadProjects();
+      render();
+      return;
+    }
+    if (act === 'setproject') {
+      await setProject(id, btn.dataset.name || null);
       return;
     }
     if (act === 'copy') {

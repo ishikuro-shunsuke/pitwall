@@ -15,7 +15,9 @@ import fsp from 'node:fs/promises';
 import { config, paths } from './config.mjs';
 import * as store from './store.mjs';
 import { buildEntry } from './normalize.mjs';
-import { apiGet, apiPatch, isLinked, hasScope, linkedTimeZone, NeedsLinkError } from './google-auth.mjs';
+import {
+  apiGet, apiPatch, apiPost, isLinked, hasScope, linkedTimeZone, NeedsLinkError,
+} from './google-auth.mjs';
 import { fetchEvents, boundaryMs, taskOf } from './calendar.mjs';
 import { zonedTime, zonedDate, nextDate } from './zoned.mjs';
 
@@ -367,6 +369,48 @@ export async function complete({ listId, taskId }) {
     markSeen(key);
   }
   await saveSeen();
+}
+
+/**
+ * Waving a task through to another day.
+ *
+ * Google owns the task, so the day it is owed on has to move there rather than
+ * here — a card held back in pitwall would still leave the task overdue in
+ * Google, and the morning card would go on saying so. The old one is ticked off
+ * and a new one takes its place, carrying what you wrote about it, which is
+ * also how Google ends up with the note.
+ *
+ * The API keeps the date and drops the time, so the hour is `dueHour` again on
+ * the day it comes round, exactly as it was the first time.
+ */
+export async function passToNewDay({ listId, taskId }, { title, firstMove, outLap, day }) {
+  const base = `${API}/lists/${encodeURIComponent(listId)}`;
+  const notes = [
+    firstMove ? `First move: ${firstMove}` : '',
+    outLap ? `Out lap: ${outLap}` : '',
+  ].filter(Boolean).join('\n');
+
+  // Made before the old one is ticked off: a tick that lands with nothing to
+  // replace it loses the task, and a duplicate is a great deal easier to see.
+  const made = await apiPost(`${base}/tasks`, {
+    title,
+    notes,
+    // A date at UTC midnight is the only shape the API reads, and only the date
+    // survives the trip anyway.
+    due: `${day}T00:00:00.000Z`,
+  });
+
+  await apiPatch(`${base}/tasks/${encodeURIComponent(taskId)}`, { status: 'completed' });
+
+  for (const key of [...pending.keys()]) {
+    if (!key.startsWith(`${listId}|${taskId}|`)) continue;
+    pending.delete(key);
+    markSeen(key);
+  }
+  // The new task is owed on a day pitwall may already have spoken for, so its
+  // first morning is left unclaimed and the next poll picks it up.
+  await saveSeen();
+  return { id: made?.id || null };
 }
 
 /**

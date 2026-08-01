@@ -20,10 +20,14 @@ import {
   buildEntry, publicEntry, sessionKeyOf, foldTurn, foldTarget, isResumable,
 } from './normalize.mjs';
 import * as runner from './runner.mjs';
+import * as projects from './projects.mjs';
+import * as pass from './pass.mjs';
+import { zonedDate } from './zoned.mjs';
 import { connectorState } from './mcp-config.mjs';
 import { collectImages, mimeForFile, mimeForExt } from './images.mjs';
 
 store.init();
+projects.load();
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -557,6 +561,81 @@ async function handleReply(req, res, params) {
 }
 
 /**
+ * Wave a card through to a time you named.
+ *
+ * A Google task is the one card this reaches outside pitwall for. The task is
+ * Google's, so the day it is owed on moves there — the old one is ticked off
+ * and a new one takes its place, carrying the two lines you wrote. Everything
+ * else is pitwall's own screen and moves only here.
+ */
+async function handlePass(req, res, params) {
+  const entry = store.get(params.id);
+  if (!entry) return sendJson(res, 404, { error: 'not found' });
+
+  const body = await readBody(req);
+  const dueAtMs = Date.parse(body.dueAt);
+  const firstMove = String(body.firstMove || '').trim();
+  const outLap = String(body.outLap || '').trim();
+
+  if (entry.todo && entry.status === 'notice') {
+    if (!firstMove) return sendJson(res, 400, { error: 'first move required' });
+    if (!outLap) return sendJson(res, 400, { error: 'out lap required' });
+    if (!Number.isFinite(dueAtMs) || dueAtMs <= Date.now()) {
+      return sendJson(res, 400, { error: 'a time in the future is required' });
+    }
+    const day = zonedDate(dueAtMs, todo.internals.zone());
+    try {
+      await todo.passToNewDay(entry.todo, {
+        title: entry.title || '(no title)', firstMove, outLap, day,
+      });
+    } catch (error) {
+      // Nothing has moved in Google, so the card is still yours to deal with.
+      return sendJson(res, 502, { error: `could not move it in Google Tasks: ${error.message}` });
+    }
+    store.update(params.id, {
+      status: 'dismissed',
+      resolvedAt: new Date().toISOString(),
+      resolution: 'passed-to-google',
+      pass: {
+        firstMove, outLap, day,
+        at: new Date().toISOString(),
+        atMs: Date.now(),
+        count: (entry.pass?.count ?? 0) + 1,
+      },
+    });
+    return sendJson(res, 200, { ok: true, inGoogle: true });
+  }
+
+  const result = pass.pass(params.id, { firstMove, outLap, dueAtMs });
+  if (result.error) return sendJson(res, result.status, { error: result.error });
+  sendJson(res, 200, { ok: true });
+}
+
+/**
+ * Put the thing a card came out of into a project, or take it out of every one.
+ * The card is only how you reached the key — every other card off the same
+ * repository, room or sender moves with it, the ones already filed away too.
+ */
+async function handleProject(req, res, params) {
+  const entry = store.get(params.id);
+  if (!entry) return sendJson(res, 404, { error: 'not found' });
+  const key = projects.keyOf(entry);
+  if (!key) return sendJson(res, 409, { error: 'nothing durable to hang a project on' });
+
+  const body = await readBody(req);
+  const name = body.name === null || body.name === undefined ? null : String(body.name).trim();
+  const settled = projects.assign(key, name || null);
+
+  // Nothing on those cards changed — the project is read off the key on the way
+  // out — but every one of them now says something different, so the page has
+  // to be told. An empty patch is the whole of the update.
+  for (const other of store.list()) {
+    if (projects.keyOf(other) === key) store.update(other.id, {});
+  }
+  sendJson(res, 200, { ok: true, project: settled, projects: projects.list() });
+}
+
+/**
  * A runner asking for work. The poll is held open rather than answered empty,
  * so a reply typed while the runner is waiting reaches the session at once
  * instead of on the next round.
@@ -972,6 +1051,16 @@ async function router(req, res) {
     params = match(pathname, '/api/entries/:id/complete');
     if (method === 'POST' && params) return handleCompleteTask(req, res, params);
 
+    params = match(pathname, '/api/entries/:id/pass');
+    if (method === 'POST' && params) return handlePass(req, res, params);
+
+    params = match(pathname, '/api/entries/:id/project');
+    if (method === 'POST' && params) return handleProject(req, res, params);
+
+    if (method === 'GET' && pathname === '/api/projects') {
+      return sendJson(res, 200, { projects: projects.list() });
+    }
+
     if (method === 'POST' && pathname === '/api/hooks/wait') return handleWait(req, res);
     if (method === 'POST' && pathname === '/api/hooks/response') return handleCursorResponse(req, res);
     if (method === 'POST' && pathname === '/api/hooks/notify') return handleNotify(req, res);
@@ -1015,6 +1104,7 @@ export function startServer() {
   mail.start();
   chatwork.start();
   chatworkTask.start();
+  pass.start();
 
   const shutdown = () => {
     console.log('[pitwall] shutting down…');
@@ -1027,6 +1117,8 @@ export function startServer() {
     mail.stop();
     chatwork.stop();
     chatworkTask.stop();
+    pass.stop();
+    projects.shutdown();
     store.shutdown();
     server.close(() => process.exit(0));
     setTimeout(() => process.exit(0), 1500).unref?.();

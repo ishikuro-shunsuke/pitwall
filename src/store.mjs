@@ -12,8 +12,9 @@ import { config, paths } from './config.mjs';
  *   expired   - nobody answered within the wait window, the agent stopped on its own
  *   detached  - hook connection dropped (user interrupted the agent)
  *   notice    - informational only (permission prompt, turn error); never blocking
+ *   passed    - you waved it through to a time you named; it comes back then
  */
-const CLEARED_STATUSES = new Set(['answered', 'dismissed']);
+const CLEARED_STATUSES = new Set(['answered', 'dismissed', 'passed']);
 const UNANSWERED_STATUSES = new Set(['dismissed', 'expired', 'detached']);
 
 /**

@@ -2,6 +2,7 @@ import path from 'node:path';
 import { config, softHoldSeconds } from './config.mjs';
 import { buildLinks } from './deeplink.mjs';
 import { newId, bucketOf, isUnanswered, list, add, update } from './store.mjs';
+import * as projects from './projects.mjs';
 
 function clip(text, max = config.maxBodyChars) {
   if (!text) return '';
@@ -297,8 +298,21 @@ export function isResumable(entry) {
 
 export function publicEntry(entry) {
   if (!entry) return null;
+  // Read rather than stored, so putting a repository into a different project
+  // moves every card it ever sent — including the ones already in the archive.
+  // `ensure` is what makes one the first time a repository or a list is seen,
+  // and every card is rendered once on its way to the page, so this is where
+  // that happens.
+  const projectKey = projects.keyOf(entry);
+  const project = projects.ensure(entry);
+  const prefixed = (entry.calendar || entry.agenda) && projects.parsePrefix(entry.title);
   return {
     ...entry,
+    // The brackets said which project this is; the card does not have to as
+    // well. What is left is what the booking is.
+    title: prefixed ? prefixed.rest : entry.title,
+    projectKey,
+    project,
     bucket: bucketOf(entry),
     unanswered: isUnanswered(entry),
     resumable: isResumable(entry),
