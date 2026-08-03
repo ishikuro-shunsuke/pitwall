@@ -1608,7 +1608,7 @@ function projectHtml(entry, repo, branch) {
       aria-expanded="${open}" title="どのプロジェクトに入れるか">${esc(entry.project)}</button>`;
   }
   return `<button type="button" class="proj none" data-act="pick" data-id="${esc(entry.id)}"
-    aria-expanded="${open}" title="どのプロジェクトに入れるか">どこにも入っていない</button>`;
+    aria-expanded="${open}" title="どのプロジェクトに入れるか">No Project</button>`;
 }
 
 /** Where the card came from, under the project it was filed into. */

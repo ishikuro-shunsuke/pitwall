@@ -163,7 +163,7 @@ Every card says what it belongs to, in that project's colour, with the repositor
 
 A repository, a Google Tasks list, and a booking whose title starts `[acme-portal]` each make their project the first time they are seen — there are few of them and you made them on purpose. The prefix does not reach the card; the title under `acme-portal` is just `週次`.
 
-A sender and a Chatwork room do not. They arrive by the hundred, so those cards say **どこにも入っていない** and keep their service's colour until you say otherwise.
+A sender and a Chatwork room do not. They arrive by the hundred, so those cards say **No Project** and keep their service's colour until you say otherwise.
 
 Press the name to move it. Pick one, write a new name and press enter, or take it out of every project with **どこにも入れない**. What moves is the repository, room or sender behind the card, so every other card it ever sent moves too, including the ones already filed away. Taking it out stays taken out — the next card from there does not quietly make the project again.
 
