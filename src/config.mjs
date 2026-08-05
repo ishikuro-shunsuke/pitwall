@@ -39,26 +39,6 @@ export const config = {
   /** Entries older than this are pruned from disk on boot. */
   retentionDays: num(process.env.PITWALL_RETENTION_DAYS, 30),
 
-  /**
-   * Answering a card whose hold has run out. The reply cannot go to the hook
-   * that was holding it — that one is long gone — so it goes to the runner
-   * covering the directory the session ran in.
-   */
-  runner: {
-    /**
-     * How long a runner's poll is held open with nothing to do. Only the gap
-     * between two polls is time a job can be queued with nobody to hand it to,
-     * so this is really how quickly a reply reaches the session.
-     */
-    pollSeconds: num(process.env.PITWALL_RUNNER_POLL_SECONDS, 25),
-    /**
-     * How long a job waits for a runner to claim it. Past this the card goes
-     * back to being unanswered and says why, which is the only way you find out
-     * that the container it belongs to is not running.
-     */
-    claimSeconds: num(process.env.PITWALL_RUNNER_CLAIM_SECONDS, 120),
-  },
-
   maxBodyChars: num(process.env.PITWALL_MAX_BODY_CHARS, 40_000),
   maxImagesPerEntry: num(process.env.PITWALL_MAX_IMAGES, 12),
   maxImageBytes: num(process.env.PITWALL_MAX_IMAGE_BYTES, 32 * 1024 * 1024),

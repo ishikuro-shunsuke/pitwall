@@ -63,25 +63,7 @@ A session gets one card, however many times it stops. Everything it says lands o
 
 A question Claude asks mid-session arrives as a card too, with its options, and so does a plan waiting to be accepted. Those are answered back in the session; the card is there so you know what is being asked.
 
-### After the 30 minutes
-
-A Claude Code card keeps its reply box once the wait is over, as long as a runner is running where that session ran. What you send starts the session again from where it stopped, and what it says next arrives as a new card.
-
-Start one wherever agents run, and leave it running:
-
-```bash
-npm run runner -- --root /path/to/repo
-```
-
-`--root` can be repeated and defaults to the working directory. In a container, send it to the same place the hooks go:
-
-```bash
-npm run runner -- --url http://host.docker.internal:4477 --root /workspaces/proj
-```
-
-Nothing listens on the runner's side, so there is no port to forward. It needs `claude` on the PATH there and signed in — `--claude` names it where it is not on the PATH.
-
-A card whose runner is not running comes back to the timeline after two minutes and says so, with what you typed still in the box. Cursor cards do not come back at all: there is no session to name.
+Past the 30 minutes the reply box goes and the card stays on the timeline, unanswered. **Copy resume cmd** on a Claude Code card gives you the `claude --resume` line for that session, to run where it ran.
 
 ## Claude Desktop
 
@@ -189,8 +171,6 @@ How the server runs. Which accounts it watches is set in the gear instead, and n
 | `PITWALL_HOLD_SECONDS` | `300` | how long Cursor waits with nobody looking |
 | `PITWALL_MAX_HOLD_SECONDS` | `1800` | how long a card stays answerable |
 | `PITWALL_RETENTION_DAYS` | `30` | older entries are dropped at boot |
-| `PITWALL_RUNNER_POLL_SECONDS` | `25` | how long a runner waits for something to do |
-| `PITWALL_RUNNER_CLAIM_SECONDS` | `120` | how long a reply waits for a runner to take it |
 | `PITWALL_CALENDAR_IDS` | every ticked calendar | comma-separated ids, or `primary` |
 | `PITWALL_CALENDAR_POLL_SECONDS` | `120` | how often Google is asked what changed |
 | `PITWALL_CALENDAR_STALE_MINUTES` | `20` | how late a missed reminder may still arrive |

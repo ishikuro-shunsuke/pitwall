@@ -18,4 +18,3 @@ commit したら、その変更が動き出すのに何が要るかを最後に�
 - `hooks/` — `npm run install-hooks` をやり直す。入っているのは複製で、リポジトリを直しても置き換わらない。読み直すのは Cursor が再起動、Claude Code が次のセッションから
 - `src/` — サーバを再起動。`npm run dev` なら不要
 - `public/` — ブラウザをリロード
-- `bin/pitwall-runner.mjs` — ランナーを起動し直す。各コンテナで動いている分すべて

@@ -1358,14 +1358,6 @@ const SESSION_CUE = {
 function cueHtml(entry) {
   const hold = holdChip(entry);
   if (hold) return `<div class="cue">${hold}</div>`;
-  // The one place the card admits its hold has gone. What follows is still a
-  // reply box and still a Radio in, because that is still what they do.
-  if (entry.resumable) {
-    const said = entry.resumeError
-      ? `<span class="chip act warn">did not start</span><span>${esc(entry.resumeError)}</span>`
-      : '<span class="chip closed">hold gone</span><span>the session is started again to hear this</span>';
-    return `<div class="cue">${said}</div>`;
-  }
   const verb = SESSION_CUE[entry.notificationType];
   if (!verb) return '';
   return `<div class="cue"><span class="chip act">${verb}</span><span>in the session</span></div>`;
@@ -1474,9 +1466,6 @@ function passRowHtml(entry) {
 
 function takesReply(entry) {
   if (entry.status === 'waiting') return true;
-  // The hold ran out, but the session is still on disk. The box stays, and what
-  // is typed into it goes to the runner instead of to the hook that has gone.
-  if (entry.resumable) return true;
   return Boolean(entry.mail || entry.chatwork) && entry.status === 'notice';
 }
 
@@ -1497,12 +1486,6 @@ function actionsHtml(entry) {
 
   if (entry.status === 'waiting') {
     parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Reply">Radio in</button>`);
-    parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
-  } else if (entry.resumable) {
-    // The same two buttons doing the same two things. Which way the reply
-    // travels is not the card's business, so the only thing that says the hold
-    // has gone is the line above the box.
-    parts.push(`<button type="button" class="btn primary${lit('send')}" data-act="send" data-id="${esc(entry.id)}" title="Reply — the session is started again to hear it">Radio in</button>`);
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   } else if (entry.mail && entry.status === 'notice') {
     // Both of these take the message out of the inbox; the only question the
@@ -1554,12 +1537,8 @@ function actionsHtml(entry) {
       ? 'Reply goes out through Gmail…'
       : entry.chatwork
         ? 'Reply goes into the room, under this message…'
-        : entry.resumable
-          ? 'Reply wakes the session where it ran…'
-          : 'Reply goes back into the same agent turn…';
-    // A reply nobody could deliver comes back into the box it was typed in, so
-    // pressing the button again is the whole of the retry.
-    const draft = state.drafts.get(entry.id) ?? entry.resumeText ?? '';
+        : 'Reply goes back into the same agent turn…';
+    const draft = state.drafts.get(entry.id) ?? '';
     composer = `
       <div class="composer" data-composer="${esc(entry.id)}">
         <textarea placeholder="${placeholder}" data-reply-input="${esc(entry.id)}">${esc(draft)}</textarea>
