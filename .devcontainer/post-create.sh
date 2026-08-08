@@ -27,6 +27,22 @@ else
   ng "gh 未ログイン — HTTPS remote に push できない。gh auth login、またはホスト側の gh auth status を確認"
 fi
 
+# リビルドを越えて残るのは /workspaces だけ。~/.claude はコンテナと一緒に消えて、
+# 会話ログ・記憶・認証を持っていく。実体をワークスペースに置いて symlink で繋ぐと、
+# ~/.claude というパスは変わらないので install-hooks もフックもそのまま動く。
+echo "==> persist ~/.claude"
+claude_home="$PWD/.claude-home"
+mkdir -p "$claude_home"
+if [ -L "$HOME/.claude" ]; then
+  ok "$(readlink "$HOME/.claude") に逃がし済み"
+elif [ ! -e "$HOME/.claude" ] && ln -s "$claude_home" "$HOME/.claude"; then
+  ok "~/.claude → .claude-home/"
+elif cp -a "$HOME/.claude/." "$claude_home/" && rm -rf "$HOME/.claude" && ln -s "$claude_home" "$HOME/.claude"; then
+  ok "~/.claude の中身を .claude-home/ に移して繋いだ"
+else
+  ng "~/.claude を逃がせなかった — リビルドで会話ログと記憶が消える"
+fi
+
 echo "==> install hooks"
 # ここの ~/.cursor と ~/.claude はコンテナ専用（ホストとは共有していない）。
 # 送信先は既定の 127.0.0.1:4477 = このコンテナで npm start した pitwall。
