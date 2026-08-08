@@ -4,4 +4,3 @@ data/
 *.log
 .DS_Store
 .tmp/
-.claude-home/

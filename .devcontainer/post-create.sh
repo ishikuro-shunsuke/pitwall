@@ -27,21 +27,21 @@ else
   ng "gh 未ログイン — HTTPS remote に push できない。gh auth login、またはホスト側の gh auth status を確認"
 fi
 
-# リビルドを越えて残るのは /workspaces だけ。~/.claude はコンテナと一緒に消えて、
-# 会話ログ・記憶・認証を持っていく。実体をワークスペースに置いて symlink で繋ぐと、
-# ~/.claude というパスは変わらないので install-hooks もフックもそのまま動く。
-echo "==> persist ~/.claude"
-claude_home="$PWD/.claude-home"
-mkdir -p "$claude_home"
-if [ -L "$HOME/.claude" ]; then
-  ok "$(readlink "$HOME/.claude") に逃がし済み"
-elif [ ! -e "$HOME/.claude" ] && ln -s "$claude_home" "$HOME/.claude"; then
-  ok "~/.claude → .claude-home/"
-elif cp -a "$HOME/.claude/." "$claude_home/" && rm -rf "$HOME/.claude" && ln -s "$claude_home" "$HOME/.claude"; then
-  ok "~/.claude の中身を .claude-home/ に移して繋いだ"
-else
-  ng "~/.claude を逃がせなかった — リビルドで会話ログと記憶が消える"
-fi
+# root が作ったものを node に渡す。どちらも作り直すたびに戻るので、毎回ここで直す。
+#   ~/.claude    — devcontainer.json のボリューム。空で作られると root 所有になる
+#   @anthropic-ai — feature が root で入れる。中にバイナリを置き換える構造なので、
+#                   書き込めないと claude の auto-update が毎回失敗する
+echo "==> hand root's work to node"
+for d in "$HOME/.claude" /usr/local/share/npm-global/lib/node_modules/@anthropic-ai; do
+  [ -d "$d" ] || continue
+  if [ -O "$d" ]; then
+    ok "$d"
+  elif sudo chown -R node:npm "$d" && sudo chmod -R g+w "$d"; then
+    ok "$d  (root 所有だったので渡した)"
+  else
+    ng "$d  を渡せなかった"
+  fi
+done
 
 echo "==> install hooks"
 # ここの ~/.cursor と ~/.claude はコンテナ専用（ホストとは共有していない）。
