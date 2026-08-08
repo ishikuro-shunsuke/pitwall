@@ -8,6 +8,7 @@
   "remoteUser": "node",
   "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "forwardPorts": [4477],
+  "appPort": [4477],
   "portsAttributes": {
     "4477": {
       "label": "pitwall",
