@@ -15,7 +15,7 @@ Cursor で「Reopen in Container」すると、pitwall を開発・実行でき�
 |----|-----------|-----------|
 | image | Node.js 22（`engines` の下限は 20.6） | `devcontainer.json` |
 | CLI | `gh`（GitHub CLI） | `features` |
-| CLI | `claude`（Claude Code） | `features` |
+| CLI | `claude`（Claude Code） | `post-create.sh`（native installer、`~/.local/bin`） |
 
 ## フックはコンテナの $HOME に入る
 
@@ -39,14 +39,14 @@ npm run install-hooks:devcontainer
 
 ## gh は「あると便利」ではなく必須
 
-Dev Containers はホストの `~/.gitconfig` をコンテナへコピーする。ホストで `gh auth setup-git` 済みだと
+`post-create.sh` が毎回 `gh auth setup-git` を流すので、ホスト側の `.gitconfig` に何が入っていたかに関わらず
 
 ```
-credential.https://github.com.helper = !/usr/bin/gh auth git-credential
+credential.https://github.com.helper = !gh auth git-credential
 ```
 
-が入ってくる。origin は HTTPS なので、**gh が無いと `git ls-remote` / `git push` が
-`/usr/bin/gh: not found` → `could not read Username` で落ちる。** feature の入れ先も `/usr/bin/gh` で一致する。
+が入る。origin は HTTPS なので、**gh が無いと `git ls-remote` / `git push` が
+`could not read Username` で落ちる。**
 
 `~/.config/gh` の bind でホストのログインセッションを共有する。注意:
 
