@@ -1213,7 +1213,7 @@ function renderMarkdown(raw, entry) {
   const lines = esc(raw).split('\n');
   const ctx = {
     images: imageRefs(entry?.images),
-    root: entry?.repo?.root || entry?.host?.cwd || null,
+    root: entry?.repo?.worktree || entry?.repo?.root || entry?.host?.cwd || null,
     host: entry?.host || {},
   };
   const inline = (s) => inlineMd(s, ctx);
@@ -1572,6 +1572,21 @@ function actionsHtml(entry) {
 }
 
 /**
+ * Which of a repository's checkouts this came out of. The branch is normally
+ * enough, and where a worktree was cut to carry a branch of its own name it is
+ * all there is to say. Two lanes sitting on `main` are the case that needs the
+ * directory as well, and are the reason it is here.
+ */
+function repoWhere(repo) {
+  const parts = [];
+  if (repo.branch) parts.push(esc(repo.branch));
+  const lane = repo.worktree ? repo.worktree.split('/').filter(Boolean).pop() : null;
+  if (lane && lane !== repo.branch) parts.push(esc(lane));
+  if (!parts.length) return '';
+  return `<span class="branch">@${parts.join(' · ')}</span>`;
+}
+
+/**
  * What the card belongs to, at the head where the repository used to be. A card
  * with nothing durable behind it — one of Claude Desktop's, a booking with no
  * `[name]` in front of it — cannot be put anywhere, so it goes on saying what
@@ -1638,7 +1653,7 @@ function passNoteHtml(entry) {
 
 function cardHtml(entry) {
   const repo = entry.repo || {};
-  const branch = repo.branch ? `<span class="branch">@${esc(repo.branch)}</span>` : '';
+  const branch = repoWhere(repo);
   // A card wears its project's colour. One that belongs nowhere keeps the
   // colour it always had, which for everything off a service is that service's.
   const tones = repoTones(entry.project || repo.key || repo.name);

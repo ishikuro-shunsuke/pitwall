@@ -15,6 +15,12 @@ function repoKey(root) {
   return path.resolve(root).replace(/\\/g, '/');
 }
 
+/**
+ * `root` is the repository; `worktree` is the checkout a lane is cut into, and
+ * is where that lane's files actually are. Everything that opens or reads a
+ * file wants the worktree and falls back to the root; everything that asks what
+ * a card belongs to wants the root, so that every lane answers the same.
+ */
 function normalizeRepo(raw = {}) {
   const root = raw.root || raw.cwd || null;
   const name = raw.name || (root ? path.basename(root) : 'unknown');
@@ -22,6 +28,7 @@ function normalizeRepo(raw = {}) {
     key: raw.key || repoKey(root),
     name,
     root: root || null,
+    worktree: raw.worktree && raw.worktree !== root ? raw.worktree : null,
     branch: raw.branch || null,
     remote: raw.remote || null,
   };

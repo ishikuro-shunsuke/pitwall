@@ -96,7 +96,7 @@ export function promptLink(text) {
 
 export function buildLinks(entry) {
   const host = entry.host ?? {};
-  const anchor = entry.repo?.root || host.cwd;
+  const anchor = entry.repo?.worktree || entry.repo?.root || host.cwd;
   const links = {
     openWorkspace: fileLink(anchor, host),
     newChat: null,
@@ -104,7 +104,7 @@ export function buildLinks(entry) {
   };
 
   if (entry.agent === 'claude' && entry.sessionId) {
-    const dir = host.cwd || entry.repo?.root || '.';
+    const dir = host.cwd || entry.repo?.worktree || entry.repo?.root || '.';
     links.resumeCommand = `cd ${quote(dir)} && claude --resume ${entry.sessionId}`;
   }
   return links;

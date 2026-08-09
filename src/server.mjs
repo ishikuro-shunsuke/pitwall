@@ -249,6 +249,7 @@ async function handleWait(req, res) {
   }
 
   const searchDirs = [
+    body.repo?.worktree,
     body.repo?.root,
     body.host?.cwd,
     ...(body.workspace_roots || body.workspaceRoots || []),

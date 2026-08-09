@@ -235,16 +235,29 @@ function git(cwd, args) {
   }
 }
 
+/**
+ * The repository a session is working in, and the checkout it is doing it from.
+ * Inside a linked worktree `--show-toplevel` names the worktree, so a lane cut
+ * off a repository would arrive calling itself a repository of its own. Every
+ * worktree shares one git directory, and its parent is the repository proper.
+ */
 export function detectRepo(cwdCandidates = []) {
   for (const cwd of cwdCandidates.filter(Boolean)) {
-    const root = git(cwd, ['rev-parse', '--show-toplevel']);
-    if (!root) continue;
-    const branch = git(root, ['rev-parse', '--abbrev-ref', 'HEAD']);
-    const remote = git(root, ['config', '--get', 'remote.origin.url']);
+    const tree = git(cwd, ['rev-parse', '--show-toplevel']);
+    if (!tree) continue;
+    // A git older than 2.31 has no --path-format and answers nothing, and a
+    // bare repository's common dir is the repository, whose parent is a
+    // directory of unrelated repositories. Both leave the checkout standing in
+    // for the repository, which is what this used to do for all of them.
+    const common = git(tree, ['rev-parse', '--path-format=absolute', '--git-common-dir']);
+    const root = common && path.basename(common) === '.git' ? path.dirname(common) : tree;
+    const branch = git(tree, ['rev-parse', '--abbrev-ref', 'HEAD']);
+    const remote = git(tree, ['config', '--get', 'remote.origin.url']);
     return {
       key: root.replace(/\\/g, '/'),
       name: path.basename(root),
       root,
+      worktree: path.resolve(tree) === path.resolve(root) ? null : tree,
       branch: branch || null,
       remote: remote || null,
     };
@@ -254,6 +267,7 @@ export function detectRepo(cwdCandidates = []) {
     key: path.resolve(fallback).replace(/\\/g, '/'),
     name: path.basename(fallback) || 'unknown',
     root: path.resolve(fallback),
+    worktree: null,
     branch: null,
     remote: null,
   };

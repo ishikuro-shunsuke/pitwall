@@ -7,7 +7,7 @@
  * own — which keys make a project, which wait to be told, and what a card looks
  * like on the way out and back.
  */
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
@@ -90,13 +90,14 @@ const entriesById = async () => {
   return new Map((data.entries || []).map((e) => [e.id, e]));
 };
 
-async function makeAgentCard(sessionId, root, name) {
+async function makeAgentCard(sessionId, root, name, over = {}) {
+  const cwd = over.worktree || root;
   const { data } = await json('POST', '/api/hooks/wait', {
     agent: 'claude',
     sessionId,
     last_assistant_message: 'A or B?',
-    repo: { root, name },
-    host: { cwd: root },
+    repo: { root, name, ...over },
+    host: { cwd },
   });
   return data.id;
 }
@@ -161,9 +162,43 @@ async function keys() {
   }
 }
 
+/**
+ * A lane cut off a repository is still that repository. Read off the checkout
+ * alone it would be a repository called `lane-a` on a branch called `lane-a`,
+ * and a project of its own the first time anybody stopped in it.
+ */
+async function lanes() {
+  const { detectRepo } = await import(`${ROOT}/hooks/lib.mjs`);
+  const home = await fsp.mkdtemp(path.join(os.tmpdir(), 'pitwall-lanes-'));
+  const repo = path.join(home, 'kirin-etl');
+  const lane = path.join(home, 'lane-a');
+  const git = (cwd, ...args) => spawnSync('git', args, { cwd, stdio: 'ignore' });
+
+  await fsp.mkdir(repo, { recursive: true });
+  git(repo, 'init', '-q', '-b', 'main');
+  git(repo, '-c', 'user.email=t@example.com', '-c', 'user.name=t', 'commit', '-q', '--allow-empty', '-m', 'x');
+  git(repo, 'worktree', 'add', '-q', '-b', 'lane-a', lane);
+
+  const seen = detectRepo([lane]);
+  if (seen.name === 'kirin-etl' && seen.root === repo && seen.worktree === lane && seen.branch === 'lane-a') {
+    ok('a lane names the repository it was cut from, and says which lane it is');
+  } else {
+    fail('a lane names the repository it was cut from, and says which lane it is', seen);
+  }
+
+  // The repository itself is not a lane of anything, and says so by carrying
+  // no worktree — otherwise every card would show a lane it is not in.
+  const plain = detectRepo([repo]);
+  if (plain.root === repo && plain.worktree === null) ok('a repository worked in directly is in no lane');
+  else fail('a repository worked in directly is in no lane', plain);
+
+  await fsp.rm(home, { recursive: true, force: true });
+}
+
 async function main() {
   console.log(`projects → ${BASE}  data=${DATA}`);
   await keys();
+  await lanes();
   const child = await startServer();
 
   try {
@@ -204,6 +239,27 @@ async function main() {
         ok('taking a repository out of every project sticks');
       } else {
         fail('taking a repository out of every project sticks', { before: before.project, after: after.map((e) => e.project) });
+      }
+    }
+
+    // Two lanes and the repository itself are one project, and the one the
+    // repository was put into — not three that have to be filed by hand.
+    {
+      const root = '/workspaces/nova-crm';
+      await makeAgentCard('s-nova', root, 'nova-crm');
+      await makeAgentCard('s-nova-a', root, 'nova-crm', { worktree: '/w/lane-a', branch: 'lane-a' });
+      await makeAgentCard('s-nova-b', root, 'nova-crm', { worktree: '/w/lane-b', branch: 'main' });
+      const cards = [...(await entriesById()).values()].filter((e) => e.repo?.name === 'nova-crm');
+      const { data } = await json('GET', '/api/projects');
+      const names = data.projects.map((p) => p.name);
+      if (cards.length === 3
+        && cards.every((e) => e.project === 'nova-crm' && e.projectKey === `repo:${root}`)
+        && !names.includes('lane-a') && !names.includes('lane-b')) {
+        ok('every lane of a repository files under the repository');
+      } else {
+        fail('every lane of a repository files under the repository', {
+          cards: cards.map((e) => [e.project, e.projectKey]), names,
+        });
       }
     }
 

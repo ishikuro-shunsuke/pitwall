@@ -39,7 +39,7 @@ const host = detectHost(cwd);
 const modelLabel = modelFromTranscript(payload.transcript_path);
 const title = sessionTitle(payload.transcript_path);
 const lastMessage = payload.last_assistant_message || '';
-const images = await uploadImages(lastMessage, [repo.root, cwd]);
+const images = await uploadImages(lastMessage, [repo.worktree || repo.root, cwd]);
 
 const waitBody = {
   agent: 'claude',
