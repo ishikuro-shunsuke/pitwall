@@ -16,6 +16,7 @@ Cursor で「Reopen in Container」すると、pitwall を開発・実行でき�
 | image | Node.js 22（`engines` の下限は 20.6） | `devcontainer.json` |
 | CLI | `gh`（GitHub CLI） | `features` |
 | CLI | `claude`（Claude Code） | `post-create.sh`（native installer、`~/.local/bin`） |
+| CLI | `herdr`（複数 agent をまとめるターミナルマルチプレクサ） | `post-create.sh`（native installer、`~/.local/bin`）。`herdr integration install claude` で `~/.claude/settings.json` に herdr 用 hook を追加 |
 
 ## フックはコンテナの $HOME に入る
 

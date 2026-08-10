@@ -63,6 +63,14 @@ if [ -d "$d" ]; then
   fi
 fi
 
+echo "==> herdr integration install claude"
+# ~/.claude/settings.json に herdr 用の hook を足す。pitwall の install-hooks とは
+# 別のグループを足すだけなので衝突しない。~/.claude が node に渡った後でないと書けない。
+if command -v herdr >/dev/null 2>&1; then
+  herdr integration install claude >/dev/null 2>&1 && ok "herdr integration install claude" \
+    || ng "herdr integration install claude 失敗"
+fi
+
 echo "==> install hooks"
 # ここの ~/.cursor と ~/.claude はコンテナ専用（ホストとは共有していない）。
 # 送信先は既定の 127.0.0.1:4477 = このコンテナで npm start した pitwall。
