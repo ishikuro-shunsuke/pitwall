@@ -42,6 +42,13 @@ if ! command -v claude >/dev/null 2>&1; then
 fi
 command -v claude >/dev/null 2>&1 && ok "claude" || ng "claude install failed"
 
+# herdr。claude と同じく単一バイナリなので native installer で ~/.local/bin に置く。
+echo "==> herdr"
+if ! command -v herdr >/dev/null 2>&1; then
+  curl -fsSL https://herdr.dev/install.sh | sh
+fi
+command -v herdr >/dev/null 2>&1 && ok "herdr" || ng "herdr install failed"
+
 # root が作ったものを node に渡す。ボリュームは空で作られると root 所有になり、
 # 作り直すたびに戻るので毎回ここで直す。
 echo "==> hand root's work to node"
