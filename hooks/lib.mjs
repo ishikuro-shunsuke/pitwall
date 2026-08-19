@@ -286,20 +286,12 @@ export function inContainer() {
 }
 
 /**
- * A container reports the paths it can see, which is not the filesystem the
- * editor opens. Only the devcontainer knows both ends of its own mount, so the
- * two roots are passed in through `remoteEnv`; without them the card has no
- * place to point and says so by carrying no link.
+ * Where the agent was working, which is where `claude --resume` has to be run.
  */
 export function detectHost(cwd) {
-  const container = inContainer();
   return {
-    platform: process.platform,
-    wslDistro: process.env.WSL_DISTRO_NAME || null,
     cwd: cwd || process.cwd(),
-    container,
-    containerRoot: (container && process.env.PITWALL_CONTAINER_ROOT) || null,
-    hostRoot: (container && (process.env.PITWALL_HOST_ROOT || process.env.LOCAL_WORKSPACE_FOLDER)) || null,
+    container: inContainer(),
   };
 }
 

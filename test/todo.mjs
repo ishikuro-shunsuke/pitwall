@@ -237,7 +237,6 @@ const byTitle = (t) => cards().find((c) => c.title === t);
     is('it is a notice', card.status, 'notice');
     is('it takes the list\'s name', card.repo.name, 'My Tasks');
     is('it is coloured by the service, not by a repo', card.repo.key, 'gtasks');
-    is('it carries no editor link', card.links.openWorkspace, null);
     is('the card knows what it is owed against', card.todo.due, TODAY);
     is('and that it is not late yet', card.todo.overdueDays, 0);
     const has = (needle) => card.body.includes(needle);

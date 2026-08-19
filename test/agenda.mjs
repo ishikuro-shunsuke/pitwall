@@ -221,7 +221,6 @@ is('the card lands on the hour', cards().length, 1);
   is('it wears the calendar badge', card.agent, 'calendar');
   is('it is coloured by the service, not by a repo', card.repo.key, 'gcal');
   is('and the slot says what the card is', card.repo.name, 'Today');
-  is('it carries no editor link', card.links.openWorkspace, null);
   is('it knows which day it is about', card.agenda.day, TODAY);
   is('the day view is one click', card.agenda.htmlLink,
     'https://calendar.google.com/calendar/r/day/2026/7/28');

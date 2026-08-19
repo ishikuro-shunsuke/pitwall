@@ -304,7 +304,6 @@ else {
   is('it is a notice', mention.status, 'notice');
   is('it takes the room\'s name', mention.repo.name, 'Race strategy');
   is('and the service\'s colour', mention.repo.key, 'chatwork');
-  is('it carries no editor link', mention.links.openWorkspace, null);
   is('the body names who wrote', mention.body.includes('**Ren Tanaka**'), true);
   is('and says what they said', mention.body.includes('Can you take the debrief at four?'), true);
   is('the mention tag is not in it', mention.body.includes('[To:'), false);

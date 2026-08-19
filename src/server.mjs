@@ -852,8 +852,8 @@ async function serveStatic(req, res, pathname) {
     return;
   }
 
-  // The card body builds editor links out of the file references in the text,
-  // so the browser is handed the server's own link module instead of a copy.
+  // The card body reads the file references in the text the same way the server
+  // does, so the browser is handed that module instead of a copy.
   const file = rel === '/deeplink.mjs' ? paths.deeplink : path.join(paths.public, rel);
   if (file !== paths.deeplink && !file.startsWith(paths.public)) {
     res.writeHead(400);

@@ -202,7 +202,6 @@ is('a message that was not there before is a card', cards().length, 1);
     is('it is a notice', card.status, 'notice');
     is('every message shares one colour', card.repo.key, 'gmail');
     is('while the head still names who wrote', card.repo.name, 'Ren Tanaka');
-    is('it carries no editor link', card.links.openWorkspace, null);
     is('the card knows the thread', card.mail.threadId, 't-m6');
     const has = (needle) => card.body.includes(needle);
     is('the body leads with the sender', has('**Ren Tanaka <ren@example.com>**'), true);

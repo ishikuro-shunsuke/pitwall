@@ -76,21 +76,6 @@ function hookFields(value) {
 }
 
 /**
- * `Open in Cursor` hands the editor a path, and every path this container can
- * see is one the editor cannot. The mount is described in devcontainer.json and
- * nowhere else, so the two roots have to be read out of there.
- */
-function checkWorkspaceMapping() {
-  if (!inContainer()) return;
-  if (process.env.PITWALL_HOST_ROOT || process.env.LOCAL_WORKSPACE_FOLDER) return;
-  console.log(`\n${yellow('!')} カードの ${bold('Open in Cursor')} はまだ出ない。devcontainer.json に足して作り直す:`);
-  console.log(`    ${cyan('"remoteEnv": {')}`);
-  console.log(`    ${cyan('  "PITWALL_HOST_ROOT": "${localWorkspaceFolder}",')}`);
-  console.log(`    ${cyan('  "PITWALL_CONTAINER_ROOT": "${containerWorkspaceFolder}"')}`);
-  console.log(`    ${cyan('}')}`);
-}
-
-/**
  * Only the machine running this knows whether it is in a container and whether
  * the hostname resolves, so decide it here instead of asking the reader to work
  * out which case they are in.
@@ -342,7 +327,6 @@ try {
       console.log(`${dim('Docker Desktop のコンテナからホストへは:')} ${cyan('npm run install-hooks:devcontainer')}`);
     }
     await checkHookUrl();
-    checkWorkspaceMapping();
   }
 } catch (error) {
   console.error(error.message || error);

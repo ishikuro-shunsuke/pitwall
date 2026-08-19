@@ -247,11 +247,7 @@ function makeSessions() {
   return sessions;
 }
 
-const hostFor = (repo) => ({
-  platform: 'linux',
-  wslDistro: repo.root.startsWith('/workspaces') ? null : 'Ubuntu',
-  cwd: repo.root,
-});
+const hostFor = (repo) => ({ cwd: repo.root });
 
 /* --------------------------------------------------------------- messages */
 

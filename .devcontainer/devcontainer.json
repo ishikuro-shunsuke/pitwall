@@ -23,10 +23,6 @@
     "EDITOR": "code",
     "GIT_EDITOR": "code --wait"
   },
-  "remoteEnv": {
-    "PITWALL_HOST_ROOT": "${localWorkspaceFolder}",
-    "PITWALL_CONTAINER_ROOT": "${containerWorkspaceFolder}"
-  },
   "postCreateCommand": "bash .devcontainer/post-create.sh",
   "customizations": {
     "vscode": {

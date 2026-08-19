@@ -1,4 +1,4 @@
-import { parseFileRef, fileRefLink } from '/deeplink.mjs';
+import { parseFileRef } from '/deeplink.mjs';
 
 /** Cards painted per page. Scrolling to the end adds another page. */
 const PAGE = 20;
@@ -1173,15 +1173,11 @@ function inlineMd(s, ctx) {
 
     // A file reference reads as its label — repeating the path in parentheses is
     // most of what makes these paragraphs hard to follow. The path stays in the
-    // tooltip, and lands on the line when there is a workspace to anchor it to.
+    // tooltip.
     const ref = parseFileRef(unesc(target));
     if (ref) {
       const label = text || esc(ref.path);
-      const href = fileRefLink(ref, ctx.root, ctx.host);
-      const tip = ` title="${target}"`;
-      return protect(href
-        ? `<a class="file-ref" href="${esc(href)}"${tip}>${label}</a>`
-        : `<span class="file-ref"${tip}>${label}</span>`);
+      return protect(`<span class="file-ref" title="${target}">${label}</span>`);
     }
     return m;
   });
@@ -1219,11 +1215,7 @@ function tableCells(line) {
 
 function renderMarkdown(raw, entry) {
   const lines = esc(raw).split('\n');
-  const ctx = {
-    images: imageRefs(entry?.images),
-    root: entry?.repo?.worktree || entry?.repo?.root || entry?.host?.cwd || null,
-    host: entry?.host || {},
-  };
+  const ctx = { images: imageRefs(entry?.images) };
   const inline = (s) => inlineMd(s, ctx);
   const out = [];
   let para = [];
@@ -1521,11 +1513,8 @@ function actionsHtml(entry) {
     parts.push(`<button type="button" class="btn danger${lit('dismiss')}" data-act="dismiss" data-id="${esc(entry.id)}" title="Archive">Box</button>`);
   }
 
-  // Neither of these does anything to the card, so they go to the far end of
-  // the row, away from the two that do.
-  if (links.openWorkspace) {
-    parts.push(`<a class="btn quiet" href="${esc(links.openWorkspace)}">Open in Cursor</a>`);
-  }
+  // This one does nothing to the card, so it goes to the far end of the row,
+  // away from the two that do.
   if (links.resumeCommand) {
     parts.push(`<button type="button" class="btn quiet" data-act="copy" data-copy="${esc(links.resumeCommand)}">Copy resume cmd</button>`);
   }
