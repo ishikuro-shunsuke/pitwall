@@ -32,6 +32,20 @@ else
   ng "gh 未ログイン — HTTPS remote に push できない。gh auth login、またはホスト側の gh auth status を確認"
 fi
 
+# root が作ったものを node に渡す。ボリュームは空で作られると root 所有になり、
+# 作り直すたびに戻るので毎回ここで直す。claude の installer が ~/.claude/downloads
+# に本体を落とすので、これを済ませてからでないとインストールが書き込みで落ちる。
+echo "==> hand root's work to node"
+d="$HOME/.claude"
+mkdir -p "$d" 2>/dev/null || sudo mkdir -p "$d"
+if [ -O "$d" ]; then
+  ok "$d"
+elif sudo chown -R node:npm "$d" && sudo chmod -R g+w "$d"; then
+  ok "$d  (root 所有だったので渡した)"
+else
+  ng "$d  を渡せなかった"
+fi
+
 # Claude Code CLI。単一バイナリなので native installer で ~/.local/bin に置く。
 # npm グローバルに入れる feature 方式だと root 所有のまま出来上がり、claude 自身の
 # auto-update が毎回そこへの書き込みで失敗する。以後の更新は claude update に任せる。
@@ -49,23 +63,9 @@ if ! command -v herdr >/dev/null 2>&1; then
 fi
 command -v herdr >/dev/null 2>&1 && ok "herdr" || ng "herdr install failed"
 
-# root が作ったものを node に渡す。ボリュームは空で作られると root 所有になり、
-# 作り直すたびに戻るので毎回ここで直す。
-echo "==> hand root's work to node"
-d="$HOME/.claude"
-if [ -d "$d" ]; then
-  if [ -O "$d" ]; then
-    ok "$d"
-  elif sudo chown -R node:npm "$d" && sudo chmod -R g+w "$d"; then
-    ok "$d  (root 所有だったので渡した)"
-  else
-    ng "$d  を渡せなかった"
-  fi
-fi
-
 echo "==> herdr integration install claude"
 # ~/.claude/settings.json に herdr 用の hook を足す。pitwall の install-hooks とは
-# 別のグループを足すだけなので衝突しない。~/.claude が node に渡った後でないと書けない。
+# 別のグループを足すだけなので衝突しない。
 if command -v herdr >/dev/null 2>&1; then
   herdr integration install claude >/dev/null 2>&1 && ok "herdr integration install claude" \
     || ng "herdr integration install claude 失敗"
