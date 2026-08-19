@@ -58,6 +58,12 @@ A question Claude asks mid-session arrives as a card too, with its options, and 
 
 Past the 30 minutes the reply box goes and the card stays on the timeline, unanswered. **Copy resume cmd** on a Claude Code card gives you the `claude --resume` line for that session, to run where it ran.
 
+## Calls
+
+A card that turns up while you are in another window rings the desktop; nothing is shown while pitwall is the window you are in. The browser asks the first time you click the page, and asks once — refused, turn notifications back on for this site in the browser's own settings. **Call me when a card arrives**, under the gear, switches them off again and says whether the browser is showing them. It is set per browser.
+
+Notifications reach the desktop from a page on `localhost` or one served over `https`. Opened by the machine's address over plain `http`, the browser is not allowed to show them at all.
+
 ## Claude Desktop
 
 Claude Desktop can ask through pitwall instead of stopping to ask in the chat, and your answer goes back into the same conversation. **Help**, in the top right, has the connector to copy and says which file it goes in — `claude_desktop_config.json`, under `~/Library/Application Support/Claude/` on macOS, `%APPDATA%\Claude\` on Windows and `~/.config/Claude/` on Linux. Quit Claude Desktop and open it again once it is in.
@@ -148,7 +154,7 @@ Spelling is the whole of the match: `acme-portal` and `Acme-Portal` are two proj
 
 Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight and the page calls you in — two notes, and a desktop notification if you let the browser show them. Only the 25 run themselves: the five-minute stop starts when you press **Pit in**, the feed comes back on **Rejoin**, and while either of those is waiting the clock counts up to say how long it has been.
 
-The calls ask for notifications the first time you tick the box, and reach the desktop from a page on `localhost` or one served over `https`. Opened by the machine's address over plain `http`, the browser is not allowed to show them, and the notes play alone. A tab in the background can be up to a minute late calling you.
+The clock asks for notifications the first time you tick the box. Where the browser will not show them (see **Calls**) the notes play alone. A tab in the background can be up to a minute late calling you.
 
 The clock is kept in the browser you set it in, so a reload picks it up where it left off.
 

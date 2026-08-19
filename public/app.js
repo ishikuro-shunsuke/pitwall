@@ -58,6 +58,8 @@ const el = {
   gSecret: document.getElementById('g-secret'),
   gSave: document.getElementById('g-save'),
   gLink: document.getElementById('g-link'),
+  callsToggle: document.getElementById('calls-toggle'),
+  callsState: document.getElementById('calls-state'),
   stint: document.getElementById('stint'),
   stintPhase: document.getElementById('stint-phase'),
   stintClock: document.getElementById('stint-clock'),
@@ -284,6 +286,7 @@ function openSettings() {
   // The one box on the panel that already knows its own answer — the rest are
   // waiting on the server, and none of them can be shown what is in them.
   el.stintToggle.checked = Boolean(stint);
+  paintCalls();
   loadSettings();
 }
 
@@ -531,9 +534,13 @@ function ring(notes) {
 function askToBeTold() {
   try {
     if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      Notification.requestPermission();
+      // A browser old enough to answer through a callback answers with nothing,
+      // and the state line it leaves behind is right again the next time the
+      // panel is opened.
+      return Promise.resolve(Notification.requestPermission()).catch(() => {});
     }
   } catch { /* ignore */ }
+  return Promise.resolve();
 }
 
 function call(kind) {
@@ -554,6 +561,120 @@ function call(kind) {
       note.close();
     };
   } catch { /* ignore */ }
+}
+
+/**
+ * The calls that follow the cards, as against the two the clock makes: on in a
+ * browser that was never told otherwise, because a page that collects the
+ * moments something is waiting on you is no use if it waits to be looked at.
+ */
+function callsOn() {
+  try {
+    return localStorage.getItem('pitwall.calls') !== 'off';
+  } catch {
+    return true;
+  }
+}
+
+function setCallsOn(on) {
+  try {
+    if (on) localStorage.removeItem('pitwall.calls');
+    else localStorage.setItem('pitwall.calls', 'off');
+  } catch { /* ignore */ }
+}
+
+/** Whether the desktop can be reached from here at all, and if not, why not. */
+function callsReach() {
+  if (!window.isSecureContext) return 'insecure';
+  if (typeof Notification === 'undefined') return 'unsupported';
+  return Notification.permission;
+}
+
+function paintCalls() {
+  el.callsToggle.checked = callsOn();
+  const reach = callsReach();
+  el.callsState.textContent = {
+    granted: 'the browser will show them',
+    denied: 'the browser is refusing — turn notifications back on for this site',
+    default: 'the browser has not been asked yet',
+    insecure: 'this page is not on localhost or https, so the browser will not show them',
+    unsupported: 'this browser has no notifications',
+  }[reach];
+  el.callsState.classList.toggle('on', reach === 'granted' && callsOn());
+}
+
+el.callsToggle.addEventListener('change', () => {
+  setCallsOn(el.callsToggle.checked);
+  paintCalls();
+  // The tick is a click, which is what a browser wants to see before it will
+  // put the question — so the box is also the second place it can be asked.
+  if (el.callsToggle.checked) askToBeTold().then(paintCalls);
+});
+
+/**
+ * The browser puts the question on the back of something you did, so the first
+ * click or keypress on the page carries it. Once: refused, it cannot be asked
+ * again from here, and the panel is where that is said.
+ */
+function askOnFirstMove() {
+  if (callsReach() !== 'default') return;
+  const ask = () => {
+    document.removeEventListener('pointerdown', ask);
+    document.removeEventListener('keydown', ask);
+    if (callsOn()) askToBeTold().then(paintCalls);
+  };
+  document.addEventListener('pointerdown', ask);
+  document.addEventListener('keydown', ask);
+}
+
+askOnFirstMove();
+
+/** The first line worth reading out of what a card says, short enough to read. */
+function callLine(text) {
+  const line = String(text ?? '').split('\n').map((s) => s.trim()).find(Boolean) || '';
+  return line.length > 120 ? `${line.slice(0, 119)}…` : line;
+}
+
+/**
+ * Tagged with the card's own id, so a session that stops a second time replaces
+ * what it said the first time rather than stacking a notification behind it —
+ * on the page those two are one card, and on the desktop they are one call.
+ */
+function callCard(entry) {
+  if (!callsOn()) return;
+  // The window you are in already shows you the card. Being told about it as
+  // well is the one call nobody needed.
+  if (document.visibilityState === 'visible' && document.hasFocus()) return;
+  try {
+    if (callsReach() !== 'granted') return;
+    const where = entry.project || entry.repo?.name || '';
+    const head = where ? `${entry.agent} · ${where}` : entry.agent;
+    const said = callLine(entry.title);
+    const under = said ? callLine(entry.body) : '';
+    const note = new Notification(said || callLine(entry.body) || `${entry.agent} is waiting`, {
+      body: under ? `${head}\n${under}` : head,
+      tag: `pitwall-${entry.id}`,
+      icon: '/favicon.svg',
+    });
+    note.onclick = () => {
+      window.focus();
+      note.close();
+    };
+  } catch { /* ignore */ }
+}
+
+/**
+ * Whether what just came down the wire is a card turning up in front of you
+ * rather than one moving under your hands. Three ways in: a card that was not
+ * here, one handed back by the hour you waved it to, and a session stopping
+ * again into the card it already has. A hold ticking over, a project renamed, a
+ * reply of your own coming back — an update is most often none of those.
+ */
+function arriving(entry, before) {
+  if (entry.bucket !== 'timeline') return false;
+  if (!before) return true;
+  if (before.bucket !== 'timeline') return true;
+  return (entry.priorTurns?.length ?? 0) > (before.priorTurns?.length ?? 0);
 }
 
 /** `{ phase, until }` while the clock is on, and null while it is off. */
@@ -2049,14 +2170,21 @@ function release(id) {
   stopHoldHeartbeat(id);
 }
 
-async function refresh() {
+async function refresh(announce = false) {
   // Fetch both screens' entries; the client picks between them, so an SSE
   // update that moves a card from one to the other still lands somewhere.
   const data = await fetch('/api/entries?view=all').then((r) => r.json());
   if (data.serverTime) state.serverSkew = data.serverTime - Date.now();
+  const before = announce ? new Map(state.entries) : null;
   state.entries.clear();
   for (const e of data.entries || []) upsert(e);
   render();
+  // Only a refresh that is catching the page up on a feed it lost. The first
+  // one is the page opening, and everything on it arrived before you got here.
+  if (!before) return;
+  for (const entry of state.entries.values()) {
+    if (arriving(entry, before.get(entry.id))) callCard(entry);
+  }
 }
 
 async function api(path, body) {
@@ -2485,22 +2613,37 @@ function setConn(ok) {
 
 function connectSse() {
   const es = new EventSource('/api/events');
+  // A feed that dropped was carrying events while it was down, and nothing
+  // replays them: a proxy that times an idle connection out takes the cards
+  // sent over the gap with it. So a feed that comes back asks what it missed,
+  // and what turned up in the meantime is called then rather than never.
+  let dropped = false;
   es.addEventListener('hello', (ev) => {
     try {
       const data = JSON.parse(ev.data);
       if (data.serverTime) state.serverSkew = data.serverTime - Date.now();
     } catch { /* ignore */ }
     setConn(true);
+    if (!dropped) return;
+    dropped = false;
+    refresh(true).catch(() => setConn(false));
   });
   // Marking a screenful read updates a screenful of entries, so the repaint
   // waits for the whole burst instead of running once per event.
   let queued = false;
   const onEntry = (ev) => {
+    let entry;
     try {
-      upsert(JSON.parse(ev.data));
+      entry = JSON.parse(ev.data);
     } catch {
       return;
     }
+    if (!entry?.id) return;
+    // Read before it is written down, because what makes this a card arriving
+    // is what the page had under that id a moment ago.
+    const before = state.entries.get(entry.id);
+    upsert(entry);
+    if (arriving(entry, before)) callCard(entry);
     if (queued) return;
     queued = true;
     requestAnimationFrame(() => {
@@ -2510,7 +2653,10 @@ function connectSse() {
   };
   es.addEventListener('created', onEntry);
   es.addEventListener('updated', onEntry);
-  es.onerror = () => setConn(false);
+  es.onerror = () => {
+    dropped = true;
+    setConn(false);
+  };
 }
 
 refresh().catch((err) => {
