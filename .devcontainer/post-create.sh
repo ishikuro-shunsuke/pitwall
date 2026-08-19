@@ -19,31 +19,35 @@ for c in git gh; do
   command -v "$c" >/dev/null 2>&1 && ok "$c" || ng "$c missing"
 done
 
-# origin は HTTPS で、gh を credential helper に使う。ホストの .gitconfig に
-# 既に入っていても setup-git は冪等なので毎回流して確実にする。
-if gh auth setup-git >/dev/null 2>&1; then
-  ok "gh auth setup-git"
-else
-  ng "gh auth setup-git 失敗"
-fi
-if gh auth status >/dev/null 2>&1; then
-  ok "gh authenticated (~/.config/gh をホストと共有)"
-else
-  ng "gh 未ログイン — HTTPS remote に push できない。gh auth login、またはホスト側の gh auth status を確認"
-fi
-
 # root が作ったものを node に渡す。ボリュームは空で作られると root 所有になり、
 # 作り直すたびに戻るので毎回ここで直す。claude の installer が ~/.claude/downloads
 # に本体を落とすので、これを済ませてからでないとインストールが書き込みで落ちる。
+# gh のログインも同じで、渡す前に login すると 0600 のファイルを書けずに落ちる。
 echo "==> hand root's work to node"
-d="$HOME/.claude"
-mkdir -p "$d" 2>/dev/null || sudo mkdir -p "$d"
-if [ -O "$d" ]; then
-  ok "$d"
-elif sudo chown -R node:npm "$d" && sudo chmod -R g+w "$d"; then
-  ok "$d  (root 所有だったので渡した)"
+hand() {
+  d="$1"
+  mkdir -p "$d" 2>/dev/null || sudo mkdir -p "$d"
+  if [ -O "$d" ]; then
+    ok "$d"
+  elif sudo chown -R node:npm "$d"; then
+    ok "$d  (root 所有だったので渡した)"
+  else
+    ng "$d  を渡せなかった"
+    return 1
+  fi
+}
+# 書くのは node だけなので、緩めるのは claude のほうだけ。gh のトークンは 0600 で置く。
+hand "$HOME/.claude" && sudo chmod -R g+w "$HOME/.claude"
+hand "$HOME/.config/gh"
+
+# origin は HTTPS で、gh を credential helper に使う。.gitconfig はコンテナごとに
+# 作り直されるので毎回流す。未ログインだと setup-git も通らないので、言うことは一つにする。
+if ! gh auth status >/dev/null 2>&1; then
+  ng "gh 未ログイン — HTTPS remote に push できない。gh auth login を一度流せば pitwall-gh volume に残り、rebuild しても消えない"
+elif gh auth setup-git >/dev/null 2>&1; then
+  ok "gh authenticated (~/.config/gh = pitwall-gh volume)"
 else
-  ng "$d  を渡せなかった"
+  ng "gh auth setup-git 失敗"
 fi
 
 # Claude Code CLI。単一バイナリなので native installer で ~/.local/bin に置く。

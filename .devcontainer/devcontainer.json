@@ -16,7 +16,7 @@
   },
   "runArgs": ["--name", "pitwall", "--add-host=host.docker.internal:host-gateway"],
   "mounts": [
-    "source=${localEnv:HOME}/.config/gh,target=/home/node/.config/gh,type=bind,consistency=cached",
+    "source=pitwall-gh,target=/home/node/.config/gh,type=volume",
     "source=pitwall-claude,target=/home/node/.claude,type=volume"
   ],
   "containerEnv": {

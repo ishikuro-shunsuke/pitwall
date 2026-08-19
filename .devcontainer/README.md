@@ -4,7 +4,7 @@ Cursor で「Reopen in Container」すると、pitwall を開発・実行でき�
 
 1. Cursor でこのリポを開く（WSL 側のパス）
 2. Command Palette → **Dev Containers: Reopen in Container**
-3. `post-create.sh` の出力が全部 `OK` であること
+3. `post-create.sh` の出力が全部 `OK` であること（volume を作った直後だけ gh が `!!` になる → 下の gh）
 4. `npm start` → ホストのブラウザで http://127.0.0.1:4477/（4477 は転送済み）
 
 依存パッケージは無いので `npm install` は要らない。`npm test` はどちらのテストも一時ディレクトリで完結する。
@@ -50,13 +50,20 @@ credential.https://github.com.helper = !gh auth git-credential
 が入る。origin は HTTPS なので、**gh が無いと `git ls-remote` / `git push` が
 `could not read Username` で落ちる。**
 
-`~/.config/gh` の bind でホストのログインセッションを共有する。注意:
+`~/.config/gh` は `pitwall-gh` という named volume。ホストの gh とは別のログインで、コンテナの中で
+一度
 
-- **共有は双方向**。コンテナ内で `gh auth logout` するとホスト側のセッションも消える。
-- ホストに `~/.config/gh` が無い状態で rebuild すると Docker が root 所有で作り、gh が書けない。
-  先にホストで `gh auth status` を通してから rebuild する。
-- ホストの gh が OS キーリングにトークンを置いていると `hosts.yml` に `oauth_token` が無く、
-  コンテナ側は未ログインになる。その場合はコンテナ内で一度 `gh auth login`（結果はホストにも反映）。
+```bash
+gh auth login
+```
+
+を流せば rebuild しても残る。ホストの `~/.config/gh` を bind していたときは、ホストの gh が
+トークンを OS キーリングに置いていると `hosts.yml` に `oauth_token` が無く、コンテナだけが
+毎回未ログインになっていた。ホストと切れているので、コンテナ内の `gh auth logout` もホストには
+届かない。
+
+捨てるときは volume ごと: `docker volume rm pitwall-gh`。`~/.claude`（`pitwall-claude`）も同じ扱いで、
+Claude Code のログインはそちらに残る。
 
 ## data/
 
