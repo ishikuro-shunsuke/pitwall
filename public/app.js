@@ -42,6 +42,7 @@ const el = {
   helpModal: document.getElementById('help-modal'),
   helpClose: document.getElementById('help-close'),
   helpUrl: document.getElementById('help-url'),
+  helpDc: document.getElementById('help-dc'),
   mcpIntro: document.getElementById('mcp-intro'),
   mcpCmd: document.getElementById('mcp-cmd'),
   mcpJson: document.getElementById('mcp-json'),
@@ -171,12 +172,19 @@ matchMedia('(max-width: 560px)').addEventListener('change', closeMenu);
  * every screen.
  */
 const LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])$/;
+const INSTALL_SH = 'https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/install.sh';
 
 // The address this page was reached at is the one an agent on another machine
 // has to send to — except a loopback one, which is nobody's address but yours,
 // and there the example from the README says more than it would.
 el.helpUrl.textContent = `npm run install-hooks -- --url ${
   LOOPBACK.test(location.hostname) ? 'http://192.168.1.10:4477' : location.origin}`;
+
+// A container cannot be sent to a loopback address — that one is the container
+// itself — so from a page opened at one, the container is told where its host
+// is instead. Reached by a name, the name is the answer for both.
+el.helpDc.textContent = `curl -fsSL ${INSTALL_SH} | sh -s -- ${
+  LOOPBACK.test(location.hostname) ? '--devcontainer' : `--url ${location.origin}`}`;
 
 // The chord takes either key, so the one listed is the one on the keyboard in
 // front of you rather than both with a slash between them.
