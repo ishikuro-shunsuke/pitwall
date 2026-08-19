@@ -9,10 +9,10 @@
 #
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/install.sh \
-#     | sh -s -- --devcontainer
+#     | sh -s -- --url https://pitwall.example.com
 #
 #   curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/install.sh \
-#     | sh -s -- --url http://example:4477
+#     | sh -s -- --devcontainer
 #
 # Any argument accepted by bin/install-hooks.mjs (--devcontainer, --url,
 # --uninstall) is forwarded as-is.

@@ -29,14 +29,16 @@ Cursor loads them after a restart, Claude Code from the next session.
 
 ### Inside a devcontainer
 
-Run this in the container. Put it in `postCreateCommand` to get the hooks back on every rebuild:
+Run this in the container, with the address the server answers on. Put it in `postCreateCommand` to get the hooks back on every rebuild:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ishikuro-shunsuke/pitwall/main/install.sh \
-  | sh -s -- --devcontainer
+  | sh -s -- --url https://pitwall.example.com
 ```
 
-The container reaches the host through `host.docker.internal`. Where that does not resolve, the installer prints the setting to add.
+Where the address does not resolve in the container, the installer prints the setting to add.
+
+On Docker Desktop, `--devcontainer` stands in for `--url http://host.docker.internal:4477`.
 
 `/workspaces/…` means nothing to an editor running outside the container, so **Open in Cursor** stays off a card until `devcontainer.json` names both ends of the mount:
 
@@ -155,7 +157,7 @@ Spelling is the whole of the match: `acme-portal` and `Acme-Portal` are two proj
 
 Tick **Run the stint clock** under the gear and a bar runs across the top of the page for 25 minutes. When it empties the timeline goes out of sight and the page calls you in — two notes, and a desktop notification if you let the browser show them. Only the 25 run themselves: the five-minute stop starts when you press **Pit in**, the feed comes back on **Rejoin**, and while either of those is waiting the clock counts up to say how long it has been.
 
-The calls ask for notifications the first time you tick the box, and reach the desktop from `http://127.0.0.1:4477/` or `http://localhost:4477/`; a browser opening the page by the machine's address on the network is not allowed to show them, and the notes still play. A tab in the background can be up to a minute late calling you.
+The calls ask for notifications the first time you tick the box, and reach the desktop from a page on `localhost` or one served over `https`. Opened by the machine's address over plain `http`, the browser is not allowed to show them, and the notes play alone. A tab in the background can be up to a minute late calling you.
 
 The clock is kept in the browser you set it in, so a reload picks it up where it left off.
 

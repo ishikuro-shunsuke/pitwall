@@ -338,7 +338,8 @@ try {
     }
     console.log('  2. Cursor は再起動、Claude Code は新しいセッションを開くとフックが読み込まれる');
     if (!explicitUrl && !inContainer()) {
-      console.log(`\n${dim('DevContainer で使うなら:')} ${cyan('npm run install-hooks:devcontainer')}`);
+      console.log(`\n${dim('コンテナや別のマシンから送るなら:')} ${cyan('npm run install-hooks -- --url <サーバのURL>')}`);
+      console.log(`${dim('Docker Desktop のコンテナからホストへは:')} ${cyan('npm run install-hooks:devcontainer')}`);
     }
     await checkHookUrl();
     checkWorkspaceMapping();

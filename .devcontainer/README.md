@@ -30,12 +30,13 @@ Cursor で「Reopen in Container」すると、pitwall を開発・実行でき�
 代償として、コンテナ内の Claude Code は一度 `claude` を起動してログインし直す必要がある。
 ホーム側のグローバル skill / hook もコンテナには入らない。
 
-サーバをホストで動かし、コンテナの agent からそこへ送りたいときは:
+サーバを外で動かし、コンテナの agent からそこへ送りたいときは、その宛先を渡す:
 
 ```bash
-npm run install-hooks:devcontainer
+npm run install-hooks -- --url https://pitwall.example.com
 ```
 
+ホストで動かしているだけなら `npm run install-hooks:devcontainer`（= `http://host.docker.internal:4477`）。
 `host.docker.internal` は `runArgs` の `--add-host` で解決できるようにしてある。
 
 ## gh は「あると便利」ではなく必須
