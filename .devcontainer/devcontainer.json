@@ -20,6 +20,7 @@
     "source=pitwall-claude,target=/home/node/.claude,type=volume"
   ],
   "containerEnv": {
+    "CLAUDE_CONFIG_DIR": "/home/node/.claude",
     "EDITOR": "code",
     "GIT_EDITOR": "code --wait"
   },
