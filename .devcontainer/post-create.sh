@@ -1,83 +1,56 @@
 #!/usr/bin/env bash
-# Dev Container 起動後: 環境を軽く確認して、コンテナ自身の $HOME にフックを入れる。
-# 失敗してもコンテナは使える。
+# Dev Container 起動後。失敗してもコンテナは使える。
 set -u
 
 ok() { printf '  OK  %s\n' "$*"; }
 ng() { printf '  !!  %s\n' "$*"; }
 
-echo "==> post-create checks"
-
-# 20.6 未満だとサーバもフックも動かない。image を上げたときにここで気づく。
+echo "==> tools"
+# 20.6 未満だとサーバもフックも動かない。
 if node -e 'const [a,b] = process.versions.node.split(".").map(Number); process.exit(a > 20 || (a === 20 && b >= 6) ? 0 : 1)'; then
   ok "node $(node -p 'process.versions.node')"
 else
-  ng "node $(node -p 'process.versions.node') — package.json の engines は >=20.6"
+  ng "node $(node -p 'process.versions.node') — engines は >=20.6"
 fi
-
 for c in git gh; do
   command -v "$c" >/dev/null 2>&1 && ok "$c" || ng "$c missing"
 done
 
-# root が作ったものを node に渡す。ボリュームは空で作られると root 所有になり、
-# 作り直すたびに戻るので毎回ここで直す。claude の installer が ~/.claude/downloads
-# に本体を落とすので、これを済ませてからでないとインストールが書き込みで落ちる。
-# gh のログインも同じで、渡す前に login すると 0600 のファイルを書けずに落ちる。
-echo "==> hand root's work to node"
+echo "==> volumes"
+# 空のボリュームは root 所有で来るので、何かが書く前に node に渡す。
 hand() {
   d="$1"
   mkdir -p "$d" 2>/dev/null || sudo mkdir -p "$d"
-  if [ -O "$d" ]; then
-    ok "$d"
-  elif sudo chown -R node:npm "$d"; then
-    ok "$d  (root 所有だったので渡した)"
-  else
-    ng "$d  を渡せなかった"
-    return 1
-  fi
+  [ -O "$d" ] || sudo chown -R node:npm "$d" || { ng "$2"; return 1; }
+  ok "$2"
 }
-# 書くのは node だけなので、緩めるのは claude のほうだけ。gh のトークンは 0600 で置く。
-hand "$HOME/.claude" && sudo chmod -R g+w "$HOME/.claude"
-hand "$HOME/.config/gh"
+hand "$HOME/.claude" "~/.claude" && sudo chmod -R g+w "$HOME/.claude"
+hand "$HOME/.config/gh" "~/.config/gh"
 
-# origin は HTTPS で、gh を credential helper に使う。.gitconfig はコンテナごとに
-# 作り直されるので毎回流す。未ログインだと setup-git も通らないので、言うことは一つにする。
+echo "==> gh"
+# origin は HTTPS で、gh を credential helper に使う。.gitconfig は毎回作り直される。
 if ! gh auth status >/dev/null 2>&1; then
-  ng "gh 未ログイン — HTTPS remote に push できない。gh auth login を一度流せば pitwall-gh volume に残り、rebuild しても消えない"
+  ng "未ログイン — gh auth login"
 elif gh auth setup-git >/dev/null 2>&1; then
-  ok "gh authenticated (~/.config/gh = pitwall-gh volume)"
+  ok "authenticated"
 else
   ng "gh auth setup-git 失敗"
 fi
 
-# Claude Code CLI。単一バイナリなので native installer で ~/.local/bin に置く。
-# npm グローバルに入れる feature 方式だと root 所有のまま出来上がり、claude 自身の
-# auto-update が毎回そこへの書き込みで失敗する。以後の更新は claude update に任せる。
+echo "==> cli"
+# npm グローバルに入れると root 所有になり auto-update が落ちるので native installer。
 export PATH="$HOME/.local/bin:$PATH"
-echo "==> claude code cli"
-if ! command -v claude >/dev/null 2>&1; then
-  curl -fsSL https://claude.ai/install.sh | bash
-fi
+command -v claude >/dev/null 2>&1 || curl -fsSL https://claude.ai/install.sh | bash >/dev/null 2>&1
 command -v claude >/dev/null 2>&1 && ok "claude" || ng "claude install failed"
-
-# herdr。claude と同じく単一バイナリなので native installer で ~/.local/bin に置く。
-echo "==> herdr"
-if ! command -v herdr >/dev/null 2>&1; then
-  curl -fsSL https://herdr.dev/install.sh | sh
-fi
+command -v herdr >/dev/null 2>&1 || curl -fsSL https://herdr.dev/install.sh | sh >/dev/null 2>&1
 command -v herdr >/dev/null 2>&1 && ok "herdr" || ng "herdr install failed"
 
-echo "==> herdr integration install claude"
-# ~/.claude/settings.json に herdr 用の hook を足す。pitwall の install-hooks とは
-# 別のグループを足すだけなので衝突しない。
-if command -v herdr >/dev/null 2>&1; then
-  herdr integration install claude >/dev/null 2>&1 && ok "herdr integration install claude" \
-    || ng "herdr integration install claude 失敗"
-fi
-
-echo "==> install hooks"
-# ここの ~/.cursor と ~/.claude はコンテナ専用（ホストとは共有していない）。
+echo "==> hooks"
+# herdr の hook は別グループなので pitwall の install-hooks とは衝突しない。
 # 送信先は既定の 127.0.0.1:4477 = このコンテナで npm start した pitwall。
-npm run install-hooks
+if command -v herdr >/dev/null 2>&1; then
+  herdr integration install claude >/dev/null 2>&1 && ok "herdr" || ng "herdr integration install claude 失敗"
+fi
+npm run install-hooks --silent >/dev/null 2>&1 && ok "pitwall" || ng "npm run install-hooks 失敗"
 
-echo "==> done. npm start → ホストのブラウザから http://127.0.0.1:4477/"
+echo "==> npm start → http://127.0.0.1:4477/"
